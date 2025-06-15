@@ -7,6 +7,10 @@ import { MediaModal } from './components/MediaModal';
 import { AdminPanel } from './components/AdminPanel';
 import { ProfileHeader } from './components/ProfileHeader';
 import { UnderConstructionPage } from './components/UnderConstructionPage';
+import { LiveViewCounter } from './components/LiveViewCounter';
+import { StoriesBar } from './components/StoriesBar';
+import { StoriesViewer } from './components/StoriesViewer';
+import { StoryUploadModal } from './components/StoryUploadModal';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -24,6 +28,19 @@ import {
   editNote
 } from './services/firebaseService';
 import { subscribeSiteStatus, SiteStatus } from './services/siteStatusService';
+import {
+  updateUserPresence,
+  setUserOffline,
+  subscribeLiveUsers,
+  subscribeStories,
+  addStory,
+  markStoryAsViewed,
+  cleanupExpiredStories,
+  LiveUser,
+  Story
+} from './services/liveService';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from './config/firebase';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -31,6 +48,8 @@ function App() {
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [likes, setLikes] = useState<Like[]>([]);
+  const [liveUsers, setLiveUsers] = useState<LiveUser[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
@@ -38,6 +57,9 @@ function App() {
   const [status, setStatus] = useState('');
   const [siteStatus, setSiteStatus] = useState<SiteStatus | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showStoriesViewer, setShowStoriesViewer] = useState(false);
+  const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+  const [showStoryUpload, setShowStoryUpload] = useState(false);
 
   // Subscribe to site status changes
   useEffect(() => {
@@ -47,6 +69,46 @@ function App() {
 
     return unsubscribe;
   }, []);
+
+  // Subscribe to live users and stories when user is logged in
+  useEffect(() => {
+    if (!userName || !siteStatus || siteStatus.isUnderConstruction) return;
+
+    // Update user presence
+    updateUserPresence(userName, deviceId);
+
+    // Set up presence heartbeat
+    const presenceInterval = setInterval(() => {
+      updateUserPresence(userName, deviceId);
+    }, 30000); // Update every 30 seconds
+
+    // Subscribe to live users
+    const unsubscribeLiveUsers = subscribeLiveUsers(setLiveUsers);
+
+    // Subscribe to stories
+    const unsubscribeStories = subscribeStories(setStories);
+
+    // Cleanup expired stories periodically
+    const cleanupInterval = setInterval(() => {
+      cleanupExpiredStories();
+    }, 60000); // Check every minute
+
+    // Set user offline when leaving
+    const handleBeforeUnload = () => {
+      setUserOffline(deviceId);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      clearInterval(presenceInterval);
+      clearInterval(cleanupInterval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      setUserOffline(deviceId);
+      unsubscribeLiveUsers();
+      unsubscribeStories();
+    };
+  }, [userName, deviceId, siteStatus]);
 
   useEffect(() => {
     if (!userName || !siteStatus || siteStatus.isUnderConstruction) return;
@@ -198,6 +260,39 @@ function App() {
     }
   };
 
+  const handleStoryUpload = async (file: File) => {
+    if (!userName) return;
+
+    try {
+      // Upload file to Firebase Storage
+      const fileName = `stories/${Date.now()}-${file.name}`;
+      const storageRef = ref(storage, fileName);
+      
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      // Add story to Firestore
+      const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
+      await addStory(downloadURL, mediaType, userName, deviceId);
+      
+      setStatus('✅ Story erfolgreich hinzugefügt!');
+      setTimeout(() => setStatus(''), 3000);
+    } catch (error) {
+      console.error('Story upload error:', error);
+      setStatus('❌ Fehler beim Hochladen der Story. Bitte versuche es erneut.');
+      setTimeout(() => setStatus(''), 5000);
+    }
+  };
+
+  const handleViewStory = (storyIndex: number) => {
+    setCurrentStoryIndex(storyIndex);
+    setShowStoriesViewer(true);
+  };
+
+  const handleStoryViewed = async (storyId: string) => {
+    await markStoryAsViewed(storyId, deviceId);
+  };
+
   const openModal = (index: number) => {
     setCurrentImageIndex(index);
     setModalOpen(true);
@@ -268,6 +363,13 @@ function App() {
               👰🤵‍♂️ kristinundmauro
             </h1>
             <div className="flex items-center gap-4">
+              {/* Live View Counter */}
+              <LiveViewCounter 
+                liveUsers={liveUsers}
+                currentUser={userName || ''}
+                isDarkMode={isDarkMode}
+              />
+              
               <button
                 onClick={toggleDarkMode}
                 className={`p-2 rounded-full transition-colors duration-300 ${
@@ -293,6 +395,15 @@ function App() {
         isDarkMode ? 'bg-gray-800' : 'bg-white'
       }`}>
         <ProfileHeader isDarkMode={isDarkMode} />
+        
+        {/* Stories Bar */}
+        <StoriesBar
+          stories={stories}
+          currentUser={userName || ''}
+          onAddStory={() => setShowStoryUpload(true)}
+          onViewStory={handleViewStory}
+          isDarkMode={isDarkMode}
+        />
         
         <UploadSection
           onUpload={handleUpload}
@@ -341,6 +452,25 @@ function App() {
         onToggleLike={handleToggleLike}
         userName={userName || ''}
         isAdmin={isAdmin}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Stories Viewer */}
+      <StoriesViewer
+        isOpen={showStoriesViewer}
+        stories={stories}
+        initialStoryIndex={currentStoryIndex}
+        currentUser={userName || ''}
+        onClose={() => setShowStoriesViewer(false)}
+        onStoryViewed={handleStoryViewed}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Story Upload Modal */}
+      <StoryUploadModal
+        isOpen={showStoryUpload}
+        onClose={() => setShowStoryUpload(false)}
+        onUpload={handleStoryUpload}
         isDarkMode={isDarkMode}
       />
 
