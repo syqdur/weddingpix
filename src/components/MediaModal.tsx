@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, Trash2, Play, Pause } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, Trash2 } from 'lucide-react';
 import { MediaItem, Comment, Like } from '../types';
-import { AudioWaveform } from './AudioWaveform';
 
 interface MediaModalProps {
   isOpen: boolean;
@@ -37,9 +36,6 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   isDarkMode
 }) => {
   const [commentText, setCommentText] = useState('');
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [audioInitialized, setAudioInitialized] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   const currentItem = items[currentIndex];
   const currentComments = comments.filter(c => c.mediaId === currentItem?.id);
@@ -68,18 +64,6 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isOpen, onClose, onNext, onPrev]);
 
-  // Reset audio state when modal closes or item changes
-  useEffect(() => {
-    if (!isOpen || !currentItem) {
-      setIsPlaying(false);
-      setAudioInitialized(false);
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
-    }
-  }, [isOpen, currentItem]);
-
   if (!isOpen || !currentItem) return null;
 
   const handleSubmitComment = (e: React.FormEvent) => {
@@ -105,91 +89,6 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     if (diffInHours < 24) return `vor ${diffInHours}h`;
     if (diffInHours < 168) return `vor ${Math.floor(diffInHours / 24)}d`;
     return date.toLocaleDateString('de-DE');
-  };
-
-  const initializeAudio = async () => {
-    const audio = audioRef.current;
-    if (audio && !audioInitialized) {
-      try {
-        // Ensure audio is loaded
-        if (audio.readyState < 2) {
-          await new Promise((resolve, reject) => {
-            const handleCanPlay = () => {
-              audio.removeEventListener('canplay', handleCanPlay);
-              audio.removeEventListener('error', handleError);
-              resolve(true);
-            };
-            const handleError = () => {
-              audio.removeEventListener('canplay', handleCanPlay);
-              audio.removeEventListener('error', handleError);
-              reject(new Error('Audio failed to load'));
-            };
-            audio.addEventListener('canplay', handleCanPlay);
-            audio.addEventListener('error', handleError);
-            audio.load();
-          });
-        }
-        setAudioInitialized(true);
-        return true;
-      } catch (error) {
-        console.error('Error initializing audio:', error);
-        return false;
-      }
-    }
-    return audioInitialized;
-  };
-
-  const toggleAudioPlayback = async () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    try {
-      // Initialize audio if not already done
-      const initialized = await initializeAudio();
-      if (!initialized) {
-        alert('Audio konnte nicht geladen werden. Bitte versuchen Sie es erneut.');
-        return;
-      }
-
-      if (isPlaying) {
-        audio.pause();
-      } else {
-        // Reset to beginning and play
-        audio.currentTime = 0;
-        
-        // Handle play promise properly
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          try {
-            await playPromise;
-          } catch (playError) {
-            console.error('Play failed:', playError);
-            throw new Error('Playback failed');
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error playing audio:', error);
-      setIsPlaying(false);
-      alert('Audio konnte nicht abgespielt werden. Möglicherweise ist eine Benutzerinteraktion erforderlich.');
-    }
-  };
-
-  const handleAudioPlay = () => setIsPlaying(true);
-  const handleAudioPause = () => setIsPlaying(false);
-  const handleAudioEnded = () => setIsPlaying(false);
-  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
-    console.error('Audio error:', e);
-    setIsPlaying(false);
-    setAudioInitialized(false);
-  };
-
-  const handleAudioLoadStart = () => {
-    setAudioInitialized(false);
-  };
-
-  const handleAudioCanPlay = () => {
-    setAudioInitialized(true);
   };
 
   return (
@@ -224,55 +123,33 @@ export const MediaModal: React.FC<MediaModalProps> = ({
               className="max-w-full max-h-full"
               preload="metadata"
             />
-          ) : currentItem.type === 'audio' ? (
-            <div className="w-full h-full flex flex-col items-center justify-center relative">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <img
-                  src="https://images.pexels.com/photos/164938/pexels-photo-164938.jpeg?auto=compress&cs=tinysrgb&w=400"
-                  alt="Audio Nachricht"
-                  className="w-full h-full object-cover opacity-30"
-                />
-              </div>
-              <div className="relative z-10 flex flex-col items-center gap-6 w-full px-8">
-                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg">
-                  <button
-                    onClick={toggleAudioPlayback}
-                    className="text-pink-500 hover:text-pink-600 transition-colors"
-                    disabled={!audioInitialized && !isPlaying}
-                  >
-                    {isPlaying ? <Pause className="w-10 h-10" /> : <Play className="w-10 h-10 ml-1" />}
-                  </button>
+          ) : currentItem.type === 'note' ? (
+            <div className={`w-full h-full flex flex-col items-center justify-center p-8 transition-colors duration-300 ${
+              isDarkMode 
+                ? 'bg-gradient-to-br from-purple-900/50 to-pink-900/50' 
+                : 'bg-gradient-to-br from-purple-100 to-pink-100'
+            }`}>
+              <div className={`max-w-sm w-full p-6 rounded-2xl transition-colors duration-300 ${
+                isDarkMode ? 'bg-gray-800/80 border border-purple-700/30' : 'bg-white/90 border border-purple-200/50'
+              }`}>
+                <div className="text-center mb-6">
+                  <div className="text-4xl mb-2">💌</div>
+                  <h3 className={`text-xl font-semibold transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    Notiz
+                  </h3>
                 </div>
-                
-                {/* Waveform Visualization */}
-                <div className="w-full max-w-sm">
-                  <AudioWaveform
-                    isPlaying={isPlaying}
-                    audioElement={audioRef.current}
-                    color="#ec4899"
-                    className="rounded-lg"
-                  />
-                </div>
-                
-                <div className="text-center text-white">
-                  <div className="font-semibold text-lg">🎵 Audio Nachricht</div>
-                  <div className="text-sm opacity-75">
-                    {audioInitialized ? 'Tippe zum Abspielen' : 'Lädt...'}
-                  </div>
+                <div className={`p-4 rounded-xl transition-colors duration-300 ${
+                  isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'
+                }`}>
+                  <p className={`text-base leading-relaxed transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-200' : 'text-gray-800'
+                  }`}>
+                    "{currentItem.noteText}"
+                  </p>
                 </div>
               </div>
-              <audio
-                ref={audioRef}
-                src={currentItem.url}
-                onPlay={handleAudioPlay}
-                onPause={handleAudioPause}
-                onEnded={handleAudioEnded}
-                onError={handleAudioError}
-                onLoadStart={handleAudioLoadStart}
-                onCanPlay={handleAudioCanPlay}
-                preload="auto"
-                crossOrigin="anonymous"
-              />
             </div>
           ) : (
             <img
