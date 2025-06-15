@@ -41,8 +41,6 @@ import {
   LiveUser,
   Story
 } from './services/liveService';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from './config/firebase';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -267,17 +265,15 @@ function App() {
   const handleStoryUpload = async (file: File) => {
     if (!userName) return;
 
+    setIsUploading(true);
+    setStatus('⏳ Story wird hochgeladen...');
+
     try {
-      // Upload file to Firebase Storage
-      const fileName = `${Date.now()}-${file.name}`;
-      const storageRef = ref(storage, `stories/${fileName}`);
-      
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
-      
-      // Add story to Firestore
+      // Determine media type
       const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
-      await addStory(downloadURL, mediaType, userName, deviceId, fileName);
+      
+      // Add story using the service function
+      await addStory(file, mediaType, userName, deviceId);
       
       setStatus('✅ Story erfolgreich hinzugefügt!');
       setTimeout(() => setStatus(''), 3000);
@@ -285,6 +281,8 @@ function App() {
       console.error('Story upload error:', error);
       setStatus('❌ Fehler beim Hochladen der Story. Bitte versuche es erneut.');
       setTimeout(() => setStatus(''), 5000);
+    } finally {
+      setIsUploading(false);
     }
   };
 
