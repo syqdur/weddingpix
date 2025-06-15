@@ -12,7 +12,7 @@ import {
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore';
-import { ref, deleteObject } from 'firebase/storage';
+import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
 
 // Live View Counter Types
@@ -95,31 +95,71 @@ export const subscribeLiveUsers = (callback: (users: LiveUser[]) => void): (() =
   });
 };
 
-// Stories Functions
+// Stories Functions - FIXED VERSION
 export const addStory = async (
-  mediaUrl: string,
+  file: File,
   mediaType: 'image' | 'video',
   userName: string,
-  deviceId: string,
-  fileName?: string
+  deviceId: string
 ): Promise<void> => {
   try {
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+    console.log(`📤 Starting story upload for ${userName}...`);
+    console.log(`   📁 File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
     
-    await addDoc(collection(db, 'stories'), {
-      mediaUrl,
+    // Generate unique filename
+    const timestamp = Date.now();
+    const fileExtension = file.name.split('.').pop() || (mediaType === 'video' ? 'mp4' : 'jpg');
+    const fileName = `${timestamp}-${userName.replace(/[^a-zA-Z0-9]/g, '_')}.${fileExtension}`;
+    
+    console.log(`   🏷️ Generated filename: ${fileName}`);
+    
+    // Upload to Firebase Storage
+    const storageRef = ref(storage, `stories/${fileName}`);
+    console.log(`   ⬆️ Uploading to storage...`);
+    
+    await uploadBytes(storageRef, file);
+    console.log(`   ✅ Upload to storage completed`);
+    
+    // Get download URL
+    console.log(`   🔗 Getting download URL...`);
+    const downloadURL = await getDownloadURL(storageRef);
+    console.log(`   ✅ Download URL obtained: ${downloadURL.substring(0, 50)}...`);
+    
+    // Calculate expiry (24 hours from now)
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    
+    // Add to Firestore
+    console.log(`   💾 Adding to Firestore...`);
+    const docRef = await addDoc(collection(db, 'stories'), {
+      mediaUrl: downloadURL,
       mediaType,
       userName,
       deviceId,
       createdAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
       views: [],
-      fileName: fileName || `story-${Date.now()}`
+      fileName: fileName
     });
+    
+    console.log(`   ✅ Story added to Firestore with ID: ${docRef.id}`);
+    console.log(`🎉 Story upload completed successfully!`);
+    
   } catch (error) {
-    console.error('Error adding story:', error);
-    throw error;
+    console.error('❌ Error adding story:', error);
+    
+    // Provide more specific error messages
+    if (error.code === 'storage/unauthorized') {
+      throw new Error('Keine Berechtigung zum Hochladen. Bitte versuche es erneut.');
+    } else if (error.code === 'storage/canceled') {
+      throw new Error('Upload wurde abgebrochen.');
+    } else if (error.code === 'storage/quota-exceeded') {
+      throw new Error('Speicherplatz voll. Bitte kontaktiere den Administrator.');
+    } else if (error.code === 'storage/invalid-format') {
+      throw new Error('Ungültiges Dateiformat. Nur Bilder und Videos sind erlaubt.');
+    } else {
+      throw new Error(`Upload-Fehler: ${error.message || 'Unbekannter Fehler'}`);
+    }
   }
 };
 
@@ -138,6 +178,7 @@ export const subscribeStories = (callback: (stories: Story[]) => void): (() => v
       ...doc.data()
     } as Story));
     
+    console.log(`📱 Active stories loaded: ${stories.length}`);
     callback(stories);
   }, (error) => {
     console.error('Error listening to stories:', error);
@@ -158,6 +199,7 @@ export const subscribeAllStories = (callback: (stories: Story[]) => void): (() =
       ...doc.data()
     } as Story));
     
+    console.log(`👑 All stories loaded (admin): ${stories.length}`);
     callback(stories);
   }, (error) => {
     console.error('Error listening to all stories:', error);
@@ -188,6 +230,8 @@ export const markStoryAsViewed = async (storyId: string, deviceId: string): Prom
 // Delete a specific story
 export const deleteStory = async (storyId: string): Promise<void> => {
   try {
+    console.log(`🗑️ Deleting story: ${storyId}`);
+    
     // Get story data first to get the fileName for storage deletion
     const storyDoc = await getDocs(query(collection(db, 'stories'), where('__name__', '==', storyId)));
     
