@@ -599,5 +599,3 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     </div>
   );
 };
-
-export { MusicRequestModal }
