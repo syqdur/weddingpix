@@ -44,8 +44,12 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ isDarkMode }) => {
           Wir sagen JA! ✨<br/>
           12.07.2025 - Der schönste Tag unseres Lebens 💍<br/>
           Teilt eure Lieblingsmomente mit uns! 📸<br/>
-          #MaurizioUndKristin #Hochzeit2024 #FürImmer<br/>
-          coded by Mauro 
+          #MaurizioUndKristin #Hochzeit2025 #FürImmer<br/>
+          <span className={`inline-block mt-1 px-2 py-1 rounded-full text-xs font-semibold transition-colors duration-300 ${
+            isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
+          }`}>
+            💻 coded by Mauro
+          </span>
         </p>
       </div>
       

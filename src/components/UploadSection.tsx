@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, Camera, MessageSquare, Image, Video } from 'lucide-react';
+import { Plus, Camera, MessageSquare, Image, Video, Zap } from 'lucide-react';
 import { VideoRecorder } from './VideoRecorder';
 
 interface UploadSectionProps {
   onUpload: (files: FileList) => Promise<void>;
   onVideoUpload: (videoBlob: Blob) => Promise<void>;
   onNoteSubmit: (note: string) => Promise<void>;
+  onAddStory: () => void;
   isUploading: boolean;
   progress: number;
   isDarkMode: boolean;
@@ -15,6 +16,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
   onUpload,
   onVideoUpload,
   onNoteSubmit,
+  onAddStory,
   isUploading,
   progress,
   isDarkMode
@@ -52,6 +54,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
       isDarkMode ? 'border-gray-700' : 'border-gray-100'
     }`}>
       <div className="flex items-center gap-4">
+        {/* Neuer Beitrag Button */}
         <div className={`w-16 h-16 border-2 border-dashed rounded-lg flex items-center justify-center relative overflow-hidden transition-colors duration-300 ${
           isDarkMode ? 'border-gray-600' : 'border-gray-300'
         }`}>
@@ -64,6 +67,8 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
             }`} />
           </button>
         </div>
+
+        {/* Content Info */}
         <div className="flex-1">
           <h3 className={`font-semibold text-sm mb-1 transition-colors duration-300 ${
             isDarkMode ? 'text-white' : 'text-gray-900'
@@ -86,6 +91,21 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
             </div>
           )}
         </div>
+
+        {/* Stories Button */}
+        <button
+          onClick={onAddStory}
+          className={`p-3 rounded-full transition-all duration-300 hover:scale-110 ${
+            isDarkMode
+              ? 'bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white shadow-lg'
+              : 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white shadow-lg'
+          }`}
+          title="Story hinzufügen (24h)"
+        >
+          <Zap className="w-5 h-5" />
+        </button>
+
+        {/* Camera Icon */}
         <div className="flex items-center gap-2">
           <Camera className={`w-5 h-5 transition-colors duration-300 ${
             isDarkMode ? 'text-gray-500' : 'text-gray-400'

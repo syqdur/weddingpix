@@ -409,6 +409,7 @@ function App() {
           onUpload={handleUpload}
           onVideoUpload={handleVideoUpload}
           onNoteSubmit={handleNoteSubmit}
+          onAddStory={() => setShowStoryUpload(true)}
           isUploading={isUploading}
           progress={uploadProgress}
           isDarkMode={isDarkMode}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
@@ -61,7 +61,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (window.confirm(confirmMessage)) {
       setIsUpdatingSiteStatus(true);
       try {
-        await updateSiteStatus(!siteStatus.isUnderConstruction, 'Admin');
+        await updateSiteStatus(!siteStatus.isUnderConstruction, 'Mauro');
         
         const successMessage = siteStatus.isUnderConstruction
           ? '✅ Website wurde erfolgreich freigeschaltet!\n\n🌐 Alle Besucher können jetzt auf die Galerie zugreifen.'
@@ -218,9 +218,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 ? 'bg-yellow-600 hover:bg-yellow-700 text-white hover:scale-110'
                 : 'bg-yellow-500 hover:bg-yellow-600 text-white hover:scale-110'
             }`}
-            title="🎯 App Showcase & Business Model"
+            title="🎯 WeddingPix Showcase by Mauro"
           >
-            <Star className="w-6 h-6" />
+            <Code className="w-6 h-6" />
           </button>
 
           {/* Site Status Toggle */}
@@ -544,7 +544,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <li>• Medien und Kommentare löschen</li>
                 <li>• Deutsche Fotobuch-Services</li>
                 <li>• Alle Inhalte herunterladen</li>
-                <li>• App Showcase & Business Model</li>
+                <li>• WeddingPix Showcase by Mauro</li>
               </ul>
             </div>
 
