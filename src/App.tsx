@@ -34,6 +34,7 @@ function App() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [status, setStatus] = useState('');
   const [isUnderConstruction, setIsUnderConstruction] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     // Check under construction status
@@ -222,7 +223,7 @@ function App() {
           items={mediaItems}
           onItemClick={openModal}
           onDelete={handleDelete}
-          isAdmin={false}
+          isAdmin={isAdmin}
           comments={comments}
           likes={likes}
           onAddComment={handleAddComment}
@@ -246,11 +247,15 @@ function App() {
         onDeleteComment={handleDeleteComment}
         onToggleLike={handleToggleLike}
         userName={userName || ''}
-        isAdmin={false}
+        isAdmin={isAdmin}
         isDarkMode={isDarkMode}
       />
 
-      <AdminPanel isDarkMode={isDarkMode} />
+      <AdminPanel 
+        isDarkMode={isDarkMode} 
+        isAdmin={isAdmin}
+        onToggleAdmin={setIsAdmin}
+      />
     </div>
   );
 }

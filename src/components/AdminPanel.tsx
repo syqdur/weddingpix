@@ -3,18 +3,23 @@ import { Lock, Unlock, Settings } from 'lucide-react';
 
 interface AdminPanelProps {
   isDarkMode: boolean;
+  isAdmin: boolean;
+  onToggleAdmin: (isAdmin: boolean) => void;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ isDarkMode }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({ 
+  isDarkMode, 
+  isAdmin, 
+  onToggleAdmin 
+}) => {
   const [showPinInput, setShowPinInput] = useState(false);
   const [pin, setPin] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
 
   const correctPIN = "2407";
 
   const handleAdminToggle = () => {
     if (isAdmin) {
-      setIsAdmin(false);
+      onToggleAdmin(false);
     } else {
       setShowPinInput(true);
     }
@@ -23,7 +28,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isDarkMode }) => {
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (pin === correctPIN) {
-      setIsAdmin(true);
+      onToggleAdmin(true);
       setShowPinInput(false);
       setPin('');
     } else {
