@@ -40,36 +40,39 @@ VITE_SPOTIFY_CLIENT_SECRET=dein_client_secret_hier
 VITE_FIREBASE_API_KEY=...
 ```
 
-### 5. Code anpassen
+### 5. Server neu starten
 
-In `src/services/spotifyService.ts`:
-
-```typescript
-// Ersetze diese Zeilen:
-const SPOTIFY_CLIENT_ID = 'dein_spotify_client_id';
-const SPOTIFY_CLIENT_SECRET = 'dein_spotify_client_secret';
-
-// Mit:
-const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
+```bash
+npm run dev
 ```
 
-## 🔧 Funktionen der Spotify-Integration
+## 🎵 Was passiert dann?
 
-### ✅ Was funktioniert:
+### ✅ Mit Spotify API (empfohlen):
 
-1. **🔍 Echte Suche:** Zugriff auf Millionen von Songs
-2. **📊 Vollständige Metadaten:** Album-Cover, Künstler, Popularität
-3. **🔗 Spotify-Links:** Direkte Links zu Songs
-4. **⚡ Schnelle Suche:** Auto-Complete mit 300ms Delay
-5. **🎯 URL-Import:** Songs per Spotify-Link hinzufügen
+1. **🌍 ALLE Spotify Songs:** Zugriff auf Millionen von Tracks
+2. **🔍 Echte Suche:** Live-Suche in der kompletten Spotify-Datenbank
+3. **📊 Vollständige Metadaten:** Album-Cover, Künstler, Popularität, Dauer
+4. **🔗 Spotify-Links:** Direkte Links zu Songs
+5. **⚡ Schnelle Suche:** Auto-Complete mit 300ms Delay
+6. **🎯 URL-Import:** Songs per Spotify-Link hinzufügen
 
-### 🎵 Suchfunktionen:
+### 🔄 Ohne Spotify API (Fallback):
+
+1. **📚 Demo-Datenbank:** 60+ beliebte Songs für Tests
+2. **🔍 Lokale Suche:** Suche in der Demo-Datenbank
+3. **📊 Mock-Metadaten:** Realistische Test-Daten
+4. **🎯 Begrenzte Auswahl:** Nur vordefinierte Songs
+
+## 🎵 Funktionen der Spotify-Integration
+
+### 🔍 Suchfunktionen:
 
 - **Titel + Künstler:** "Perfect Ed Sheeran"
 - **Nur Titel:** "Thinking Out Loud"
 - **Nur Künstler:** "Bruno Mars"
 - **Album:** "÷ Divide"
+- **Genre:** "Rock", "Pop", "Hochzeit"
 - **Gemischt:** "Hochzeit Liebe"
 
 ### 📱 URL-Import:
@@ -99,6 +102,7 @@ npm run dev
 - Client Credentials Flow (nur öffentliche Daten)
 - Keine Benutzeranmeldung erforderlich
 - Token automatisch erneuert
+- Client Secret nur serverseitig verwendet
 
 **⚠️ Wichtig:**
 - Client Secret NIEMALS in Git committen
@@ -119,6 +123,12 @@ npm run dev
 ### Problem: Token expired
 **Lösung:** Automatische Erneuerung implementiert
 
+### Problem: "Spotify API credentials not configured"
+**Lösung:** 
+1. `.env` Datei erstellen
+2. Spotify Client ID und Secret hinzufügen
+3. Server neu starten (`npm run dev`)
+
 ## 📊 API-Limits
 
 **Spotify Web API:**
@@ -126,12 +136,31 @@ npm run dev
 - ✅ Bis zu 100 Anfragen/Minute
 - ✅ Keine Benutzer-Authentifizierung nötig
 - ✅ Kommerzielle Nutzung erlaubt
+- ✅ Millionen von Songs verfügbar
 
 ## 🎯 Nächste Schritte
 
 1. **Spotify App erstellen** (5 Minuten)
 2. **API-Schlüssel kopieren** (1 Minute)
-3. **Code anpassen** (2 Minuten)
-4. **Testen** (2 Minuten)
+3. **`.env` Datei erstellen** (1 Minute)
+4. **Server neu starten** (1 Minute)
+5. **Testen** (2 Minuten)
 
 **Gesamt: ~10 Minuten für vollständige Spotify-Integration! 🎉**
+
+## 🎵 Beispiel-Suchen zum Testen
+
+Mit echter Spotify API kannst du nach ALLEM suchen:
+
+- `Metallica Enter Sandman`
+- `Ed Sheeran Perfect`
+- `Hochzeitslieder`
+- `Deutsche Musik`
+- `Rock Klassiker`
+- `Party Hits`
+- `Taylor Swift`
+- `Adele`
+- `Queen Bohemian Rhapsody`
+- `Beatles Hey Jude`
+
+**Ohne API:** Nur die Songs aus der Demo-Datenbank verfügbar.

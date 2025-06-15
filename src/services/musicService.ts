@@ -14,29 +14,46 @@ import {
 import { db } from '../config/firebase';
 import { MusicRequest, SpotifyTrack } from '../types';
 import { 
-  searchSpotifyTracks as searchSpotifyMock, 
+  searchSpotifyTracks as searchSpotifyAPI, 
   getTrackByUrl, 
-  validateSpotifyUrl, 
-  hasTrackInDatabase 
+  validateSpotifyUrl,
+  isSpotifyAvailable
 } from './spotifyService';
 
-// Search function that uses mock Spotify data
+// 🎵 ENHANCED SEARCH - Uses REAL Spotify API when available
 export const searchSpotifyTracks = async (query: string): Promise<SpotifyTrack[]> => {
-  console.log(`🔍 Searching for: "${query}"`);
+  console.log(`🔍 === ENHANCED MUSIC SEARCH ===`);
+  console.log(`🔍 Query: "${query}"`);
   
   try {
-    // Use mock Spotify service
-    const results = await searchSpotifyMock(query);
-    console.log(`✅ Found ${results.length} tracks from mock database`);
-    return results;
+    // Check if real Spotify API is available
+    const spotifyAvailable = await isSpotifyAvailable();
+    
+    if (spotifyAvailable) {
+      console.log(`🌍 Using REAL Spotify API - searching ALL tracks...`);
+      const results = await searchSpotifyAPI(query);
+      console.log(`✅ Found ${results.length} tracks from REAL Spotify API`);
+      
+      // Log some results for verification
+      results.slice(0, 3).forEach((track, index) => {
+        console.log(`  ${index + 1}. "${track.name}" by ${track.artists[0].name} (Real Spotify)`);
+      });
+      
+      return results;
+    } else {
+      console.log(`🔄 Spotify API not available, using enhanced mock database...`);
+      const results = await searchSpotifyAPI(query); // This will fallback to mock
+      console.log(`✅ Found ${results.length} tracks from mock database`);
+      return results;
+    }
     
   } catch (error) {
-    console.error('❌ Mock search failed:', error);
+    console.error('❌ Enhanced search failed:', error);
     return [];
   }
 };
 
-// Add music request with track data
+// Add music request with enhanced validation
 export const addMusicRequest = async (
   track: SpotifyTrack,
   userName: string,
@@ -45,15 +62,21 @@ export const addMusicRequest = async (
 ): Promise<void> => {
   try {
     console.log(`🎵 === ADDING MUSIC REQUEST ===`);
-    console.log(`🎵 Song: ${track.name} by ${track.artists[0].name}`);
+    console.log(`🎵 Song: "${track.name}" by ${track.artists[0].name}`);
     console.log(`👤 User: ${userName} (${deviceId})`);
     console.log(`💬 Message: ${message || 'none'}`);
+    console.log(`🔗 Spotify URL: ${track.external_urls.spotify}`);
+
+    // Validate track data
+    if (!track.name || !track.artists || track.artists.length === 0) {
+      throw new Error('Ungültige Track-Daten');
+    }
 
     const musicRequest: Omit<MusicRequest, 'id'> = {
       songTitle: track.name,
       artist: track.artists.map(a => a.name).join(', '),
-      album: track.album.name,
-      spotifyUrl: track.external_urls.spotify,
+      album: track.album?.name || 'Unknown Album',
+      spotifyUrl: track.external_urls?.spotify || '',
       spotifyId: track.id,
       requestedBy: userName,
       deviceId: deviceId,
@@ -62,10 +85,10 @@ export const addMusicRequest = async (
       status: 'pending',
       votes: 1, // User automatically votes for their own request
       votedBy: [deviceId],
-      albumArt: track.album.images[0]?.url || '',
+      albumArt: track.album?.images?.[0]?.url || '',
       previewUrl: track.preview_url || '',
-      duration: track.duration_ms,
-      popularity: track.popularity
+      duration: track.duration_ms || 0,
+      popularity: track.popularity || 0
     };
 
     console.log(`💾 Saving to Firestore...`);
@@ -78,7 +101,7 @@ export const addMusicRequest = async (
   }
 };
 
-// Add music request from Spotify URL
+// Add music request from Spotify URL - Enhanced with real API
 export const addMusicRequestFromUrl = async (
   spotifyUrl: string,
   userName: string,
@@ -86,25 +109,23 @@ export const addMusicRequestFromUrl = async (
   message?: string
 ): Promise<void> => {
   try {
-    console.log(`🔗 Adding music request from URL: ${spotifyUrl}`);
+    console.log(`🔗 === ADDING FROM SPOTIFY URL ===`);
+    console.log(`🔗 URL: ${spotifyUrl}`);
     
     // Validate URL
     if (!validateSpotifyUrl(spotifyUrl)) {
       throw new Error('Ungültige Spotify-URL. Bitte verwende einen Link zu einem einzelnen Song.');
     }
 
-    // Check if we have this track in our mock database
-    if (!hasTrackInDatabase(spotifyUrl)) {
-      throw new Error('Dieser Song ist nicht in unserer Demo-Datenbank verfügbar. Versuche einen der vorgeschlagenen Songs oder verwende die Suchfunktion.');
-    }
-
-    // Get track details from mock database
+    console.log(`🔍 Fetching track details from Spotify...`);
+    
+    // Get track details from Spotify (real API or fallback)
     const track = await getTrackByUrl(spotifyUrl);
     if (!track) {
-      throw new Error('Song konnte nicht aus der Demo-Datenbank geladen werden.');
+      throw new Error('Song konnte nicht von Spotify geladen werden. Überprüfe den Link und versuche es erneut.');
     }
 
-    console.log(`✅ Found track from URL: ${track.name} by ${track.artists[0].name}`);
+    console.log(`✅ Found track: "${track.name}" by ${track.artists[0].name}`);
 
     // Add the request
     await addMusicRequest(track, userName, deviceId, message);
@@ -115,9 +136,9 @@ export const addMusicRequestFromUrl = async (
   }
 };
 
-// 🔧 FIX: Simplified query to avoid index requirement
+// Load music requests with simplified query (no index required)
 export const loadMusicRequests = (callback: (requests: MusicRequest[]) => void): (() => void) => {
-  console.log(`🎵 === SUBSCRIBING TO MUSIC REQUESTS (SIMPLIFIED) ===`);
+  console.log(`🎵 === SUBSCRIBING TO MUSIC REQUESTS ===`);
   
   // Use simple query with only one orderBy to avoid index requirement
   const q = query(
@@ -160,14 +181,8 @@ export const loadMusicRequests = (callback: (requests: MusicRequest[]) => void):
     console.error('❌ Error loading music requests:', error);
     console.error('Error details:', {
       code: error.code,
-      message: error.message,
-      stack: error.stack
+      message: error.message
     });
-    
-    // Provide helpful error message
-    if (error.code === 'failed-precondition' && error.message.includes('index')) {
-      console.error('🔧 Firebase Index Required - but we fixed this with simplified query');
-    }
     
     callback([]);
   });
@@ -215,7 +230,7 @@ export const voteMusicRequest = async (
   }
 };
 
-// Update music request status (admin only)
+// Update music request status (DJ/Admin only)
 export const updateMusicRequestStatus = async (
   requestId: string,
   status: MusicRequest['status']
@@ -224,7 +239,11 @@ export const updateMusicRequestStatus = async (
     console.log(`🔄 Updating request ${requestId} status to: ${status}`);
     
     const requestRef = doc(db, 'music_requests', requestId);
-    await updateDoc(requestRef, { status });
+    await updateDoc(requestRef, { 
+      status,
+      updatedAt: new Date().toISOString()
+    });
+    
     console.log(`✅ Music request status updated to: ${status}`);
   } catch (error) {
     console.error('❌ Error updating music request status:', error);
@@ -245,7 +264,7 @@ export const deleteMusicRequest = async (requestId: string): Promise<void> => {
   }
 };
 
-// Get popular requests for DJ dashboard (simplified query)
+// Get popular requests for DJ dashboard
 export const getPopularRequests = async (): Promise<MusicRequest[]> => {
   try {
     // Use simple query and sort in memory
@@ -273,4 +292,6 @@ export const getPopularRequests = async (): Promise<MusicRequest[]> => {
   }
 };
 
-console.log('🎵 Music Service initialized with simplified Firebase queries (no index required)');
+console.log('🎵 === MUSIC SERVICE INITIALIZED ===');
+console.log('🌍 Ready to search ALL Spotify tracks (when API is configured)');
+console.log('🔄 Fallback to enhanced mock database available');
