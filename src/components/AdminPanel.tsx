@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
+import { ShowcaseModal } from './ShowcaseModal';
 
 interface AdminPanelProps {
   isDarkMode: boolean;
@@ -25,6 +26,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
   const [isUpdatingSiteStatus, setIsUpdatingSiteStatus] = useState(false);
   const [showExternalServices, setShowExternalServices] = useState(false);
+  const [showShowcase, setShowShowcase] = useState(false);
 
   const correctPIN = "2407";
 
@@ -208,6 +210,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Admin Controls */}
       {isAdmin && (
         <div className="fixed bottom-20 left-4 space-y-2">
+          {/* Showcase Button */}
+          <button
+            onClick={() => setShowShowcase(true)}
+            className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
+              isDarkMode
+                ? 'bg-yellow-600 hover:bg-yellow-700 text-white hover:scale-110'
+                : 'bg-yellow-500 hover:bg-yellow-600 text-white hover:scale-110'
+            }`}
+            title="🎯 App Showcase & Business Model"
+          >
+            <Star className="w-6 h-6" />
+          </button>
+
           {/* Site Status Toggle */}
           {siteStatus && (
             <button
@@ -280,6 +295,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </button>
         </div>
       )}
+
+      {/* Showcase Modal */}
+      <ShowcaseModal 
+        isOpen={showShowcase}
+        onClose={() => setShowShowcase(false)}
+        isDarkMode={isDarkMode}
+      />
 
       {/* External Services Modal */}
       {showExternalServices && (
@@ -368,7 +390,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 
                 <div className="text-center">
                   <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-2 transition-colors duration-300 ${
-                    isDarkMode ? 'text-blue-600' : 'bg-blue-500'
+                    isDarkMode ? 'bg-blue-600' : 'bg-blue-500'
                   }`}>
                     <Video className="w-6 h-6 text-white" />
                   </div>
@@ -522,6 +544,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <li>• Medien und Kommentare löschen</li>
                 <li>• Deutsche Fotobuch-Services</li>
                 <li>• Alle Inhalte herunterladen</li>
+                <li>• App Showcase & Business Model</li>
               </ul>
             </div>
 
