@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 
@@ -19,6 +19,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [showPinInput, setShowPinInput] = useState(false);
   const [pin, setPin] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showDownloadWarning, setShowDownloadWarning] = useState(false);
 
   const correctPIN = "2407";
 
@@ -64,19 +65,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       return;
     }
 
-    const confirmMessage = `${downloadableItems.length} Medien-Dateien und ${mediaItems.filter(item => item.type === 'note').length} Notizen werden heruntergeladen.\n\nDies kann einige Minuten dauern. Fortfahren?`;
-    
-    if (!confirm(confirmMessage)) {
-      return;
-    }
+    setShowDownloadWarning(true);
+  };
 
+  const confirmDownload = async () => {
+    setShowDownloadWarning(false);
     setIsDownloading(true);
+    
     try {
       await downloadAllMedia(mediaItems);
-      alert(`✅ Download erfolgreich!\n\n📊 Heruntergeladen:\n- ${mediaItems.filter(item => item.type === 'image').length} Bilder\n- ${mediaItems.filter(item => item.type === 'video').length} Videos\n- ${mediaItems.filter(item => item.type === 'note').length} Notizen`);
+      
+      const downloadableItems = mediaItems.filter(item => item.type !== 'note');
+      alert(`✅ Download erfolgreich abgeschlossen!\n\n📊 Heruntergeladen:\n- ${mediaItems.filter(item => item.type === 'image').length} Bilder\n- ${mediaItems.filter(item => item.type === 'video').length} Videos\n- ${mediaItems.filter(item => item.type === 'note').length} Notizen\n\n💡 Tipp: Überprüfe die Übersichtsdatei in der ZIP für Details.`);
     } catch (error) {
       console.error('Download error:', error);
-      alert(`❌ Fehler beim Herunterladen:\n${error}\n\nBitte versuche es erneut oder kontaktiere den Support.`);
+      
+      // Check if it's a partial success
+      if (error.toString().includes('teilweise erfolgreich')) {
+        alert(`⚠️ ${error}\n\n💡 Die ZIP-Datei enthält:\n- Erfolgreich heruntergeladene Dateien\n- Fehlerbericht für nicht verfügbare Dateien\n- Detaillierte Anleitung zur Fehlerbehebung`);
+      } else {
+        alert(`❌ Fehler beim Herunterladen:\n${error}\n\n🔧 Lösungsvorschläge:\n- Versuche es mit einem anderen Browser\n- Überprüfe deine Internetverbindung\n- Deaktiviere temporär Adblocker\n- Verwende den Inkognito-Modus`);
+      }
     } finally {
       setIsDownloading(false);
     }
@@ -99,7 +108,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (videoCount > 0) parts.push(`${videoCount} Video${videoCount > 1 ? 's' : ''}`);
     if (noteCount > 0) parts.push(`${noteCount} Notiz${noteCount > 1 ? 'en' : ''}`);
     
-    return parts.join(', ') + ' herunterladen';
+    return parts.join(', ') + ' als ZIP herunterladen';
   };
 
   return (
@@ -204,6 +213,65 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Download Warning Modal */}
+      {showDownloadWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className={`rounded-2xl p-6 max-w-md w-full transition-colors duration-300 ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-6 h-6 text-yellow-500" />
+              <h3 className={`text-lg font-semibold transition-colors duration-300 ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                Medien herunterladen
+              </h3>
+            </div>
+            
+            <div className={`mb-6 space-y-3 text-sm transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-600'
+            }`}>
+              <p>
+                <strong>Was wird heruntergeladen:</strong>
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>{mediaItems.filter(item => item.type === 'image').length} Bilder</li>
+                <li>{mediaItems.filter(item => item.type === 'video').length} Videos</li>
+                <li>{mediaItems.filter(item => item.type === 'note').length} Notizen (als Textdatei)</li>
+              </ul>
+              
+              <div className={`p-3 rounded-lg mt-4 transition-colors duration-300 ${
+                isDarkMode ? 'bg-yellow-900/30 border border-yellow-700/50' : 'bg-yellow-50 border border-yellow-200'
+              }`}>
+                <p className="text-xs">
+                  <strong>⚠️ Wichtiger Hinweis:</strong><br/>
+                  Der Download kann mehrere Minuten dauern. Einige Dateien könnten aufgrund von Browser-Sicherheitsrichtlinien nicht heruntergeladen werden können. In diesem Fall erhältst du eine detaillierte Fehlermeldung mit Lösungsvorschlägen.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDownloadWarning(false)}
+                className={`flex-1 py-3 px-4 rounded-xl transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                }`}
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={confirmDownload}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-xl transition-colors"
+              >
+                Download starten
+              </button>
+            </div>
           </div>
         </div>
       )}
