@@ -19,6 +19,7 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
   isDarkMode
 }) => {
   const [votingRequests, setVotingRequests] = useState<Set<string>>(new Set());
+  const [deletingRequests, setDeletingRequests] = useState<Set<string>>(new Set());
 
   const handleVote = async (requestId: string) => {
     if (votingRequests.has(requestId)) return;
@@ -46,18 +47,34 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
   };
 
   const handleDelete = async (request: MusicRequest) => {
+    // 🎯 NEW: Only allow deletion of own requests (or admin can delete any)
     const canDelete = isAdmin || request.requestedBy === currentUser;
-    if (!canDelete) return;
+    if (!canDelete) {
+      alert('Du kannst nur deine eigenen Musikwünsche löschen.');
+      return;
+    }
+
+    if (deletingRequests.has(request.id)) return;
 
     const confirmMessage = isAdmin 
-      ? `Musikwunsch von ${request.requestedBy} wirklich löschen?`
-      : 'Deinen Musikwunsch wirklich löschen?';
+      ? `Musikwunsch "${request.songTitle}" von ${request.requestedBy} wirklich löschen?`
+      : `Deinen Musikwunsch "${request.songTitle}" wirklich löschen?`;
 
     if (window.confirm(confirmMessage)) {
+      setDeletingRequests(prev => new Set(prev).add(request.id));
+      
       try {
         await deleteMusicRequest(request.id);
+        console.log(`✅ Music request deleted: ${request.songTitle}`);
       } catch (error) {
         console.error('Error deleting request:', error);
+        alert('Fehler beim Löschen des Musikwunsches. Bitte versuche es erneut.');
+      } finally {
+        setDeletingRequests(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(request.id);
+          return newSet;
+        });
       }
     }
   };
@@ -71,11 +88,11 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
 
   const getStatusColor = (status: MusicRequest['status']) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'played': return 'bg-blue-100 text-blue-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'pending': return isDarkMode ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-800';
+      case 'approved': return isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800';
+      case 'played': return isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-800';
+      case 'rejected': return isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800';
+      default: return isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -127,13 +144,14 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
         const hasVoted = request.votedBy.includes(deviceId);
         const canDelete = isAdmin || request.requestedBy === currentUser;
         const isVoting = votingRequests.has(request.id);
+        const isDeleting = deletingRequests.has(request.id);
 
         return (
           <div key={request.id} className={`p-4 rounded-xl border transition-all duration-300 ${
             isDarkMode 
               ? 'bg-gray-700 border-gray-600' 
               : 'bg-white border-gray-200 shadow-sm'
-          }`}>
+          } ${isDeleting ? 'opacity-50' : ''}`}>
             <div className="flex items-start gap-4">
               {/* Album Art */}
               <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
@@ -191,16 +209,25 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                       </a>
                     )}
 
-                    {/* Delete Button */}
+                    {/* Delete Button - Only show for own requests or admin */}
                     {canDelete && (
                       <button
                         onClick={() => handleDelete(request)}
+                        disabled={isDeleting}
                         className={`p-2 rounded-full transition-colors duration-300 ${
-                          isDarkMode ? 'text-red-400 hover:bg-gray-600' : 'text-red-500 hover:bg-red-50'
+                          isDeleting
+                            ? 'cursor-not-allowed opacity-50'
+                            : isDarkMode 
+                              ? 'text-red-400 hover:bg-gray-600' 
+                              : 'text-red-500 hover:bg-red-50'
                         }`}
-                        title="Löschen"
+                        title={request.requestedBy === currentUser ? "Deinen Musikwunsch löschen" : "Musikwunsch löschen"}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {isDeleting ? (
+                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </button>
                     )}
                   </div>
@@ -268,7 +295,7 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                   {/* Vote Button */}
                   <button
                     onClick={() => handleVote(request.id)}
-                    disabled={isVoting}
+                    disabled={isVoting || isDeleting}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 ${
                       hasVoted
                         ? isDarkMode
@@ -277,9 +304,13 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                         : isDarkMode
                           ? 'bg-gray-600 hover:bg-gray-500 text-gray-300'
                           : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                    } ${isVoting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    } ${(isVoting || isDeleting) ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    <Heart className={`w-4 h-4 ${hasVoted ? 'fill-current' : ''}`} />
+                    {isVoting ? (
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Heart className={`w-4 h-4 ${hasVoted ? 'fill-current' : ''}`} />
+                    )}
                     <span className="text-sm font-medium">{request.votes}</span>
                     <span className="text-xs">
                       {hasVoted ? 'Gefällt dir' : 'Gefällt mir'}
@@ -287,7 +318,7 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                   </button>
 
                   {/* Admin Controls */}
-                  {isAdmin && request.status === 'pending' && (
+                  {isAdmin && request.status === 'pending' && !isDeleting && (
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleStatusUpdate(request.id, 'approved')}
@@ -306,7 +337,7 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                     </div>
                   )}
 
-                  {isAdmin && request.status === 'approved' && (
+                  {isAdmin && request.status === 'approved' && !isDeleting && (
                     <button
                       onClick={() => handleStatusUpdate(request.id, 'played')}
                       className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs transition-colors"
