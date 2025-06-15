@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Music, Heart, Clock, ExternalLink, Play, Users, MessageSquare, Loader, Sparkles } from 'lucide-react';
+import { X, Search, Music, Heart, Clock, ExternalLink, Play, Users, MessageSquare, Loader, Sparkles, Link, AlertCircle } from 'lucide-react';
 import { SpotifyTrack } from '../types';
-import { searchSpotifyTracks, addMusicRequest } from '../services/musicService';
+import { searchSpotifyTracks, addMusicRequest, addMusicRequestFromUrl } from '../services/musicService';
+import { validateSpotifyUrl } from '../services/spotifyService';
 
 interface MusicRequestModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
   isDarkMode
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [spotifyUrl, setSpotifyUrl] = useState('');
   const [searchResults, setSearchResults] = useState<SpotifyTrack[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState<SpotifyTrack | null>(null);
@@ -26,17 +28,21 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [activeTab, setActiveTab] = useState<'search' | 'url'>('search');
+  const [urlError, setUrlError] = useState<string | null>(null);
 
   // Popular suggestions for empty search
   const popularSuggestions = [
     'Perfect Ed Sheeran',
-    'All of Me',
-    'Uptown Funk',
-    'Happy Pharrell',
+    'All of Me John Legend',
+    'Uptown Funk Bruno Mars',
+    'Happy Pharrell Williams',
     'Thinking Out Loud',
     'Can\'t Stop the Feeling',
-    'Auf uns',
-    'Sweet Caroline'
+    'Auf uns Andreas Bourani',
+    'Sweet Caroline Neil Diamond',
+    'Don\'t Stop Believin Journey',
+    'Lieblingsmensch Namika'
   ];
 
   // Auto-search when user types
@@ -73,6 +79,19 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     };
   }, [searchQuery]);
 
+  // Validate Spotify URL when user types
+  useEffect(() => {
+    if (spotifyUrl.trim()) {
+      if (validateSpotifyUrl(spotifyUrl)) {
+        setUrlError(null);
+      } else {
+        setUrlError('Ungültige Spotify-URL. Bitte verwende einen Link zu einem einzelnen Song.');
+      }
+    } else {
+      setUrlError(null);
+    }
+  }, [spotifyUrl]);
+
   const handleSuggestionClick = (suggestion: string) => {
     setSearchQuery(suggestion);
     setShowSuggestions(false);
@@ -89,6 +108,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       setSelectedTrack(null);
       setMessage('');
       setSearchQuery('');
+      setSpotifyUrl('');
       setSearchResults([]);
       setShowSuggestions(true);
       
@@ -96,6 +116,30 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     } catch (error) {
       console.error('Error submitting music request:', error);
       alert('Fehler beim Senden des Musikwunsches. Bitte versuche es erneut.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitFromUrl = async () => {
+    if (!spotifyUrl.trim() || urlError) return;
+
+    setIsSubmitting(true);
+    try {
+      await addMusicRequestFromUrl(spotifyUrl, userName, deviceId, message);
+      
+      // Reset form
+      setMessage('');
+      setSearchQuery('');
+      setSpotifyUrl('');
+      setSearchResults([]);
+      setShowSuggestions(true);
+      setUrlError(null);
+      
+      onClose();
+    } catch (error) {
+      console.error('Error submitting music request from URL:', error);
+      alert(`Fehler beim Hinzufügen des Songs: ${error.message || 'Unbekannter Fehler'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -134,7 +178,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <h3 className={`text-xl font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                🎵 Musikwunsch
+                🎵 Musikwunsch hinzufügen
               </h3>
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
@@ -156,155 +200,285 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
           {!selectedTrack ? (
             <>
-              {/* Search Section */}
-              <div className="mb-6">
-                <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  🔍 Song suchen
-                </label>
-                <div className="relative">
-                  <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`} />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="z.B. 'Perfect Ed Sheeran' oder 'Uptown Funk'..."
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-colors duration-300 ${
-                      isDarkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                    }`}
-                  />
-                  {isSearching && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <Loader className="w-5 h-5 animate-spin text-green-500" />
-                    </div>
-                  )}
-                </div>
+              {/* Tab Navigation */}
+              <div className="flex mb-6">
+                <button
+                  onClick={() => setActiveTab('search')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all duration-300 ${
+                    activeTab === 'search'
+                      ? isDarkMode
+                        ? 'text-green-400 border-b-2 border-green-400 bg-gray-700/30'
+                        : 'text-green-600 border-b-2 border-green-600 bg-green-50'
+                      : isDarkMode
+                        ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/20'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Search className="w-4 h-4" />
+                  Song suchen
+                </button>
+                <button
+                  onClick={() => setActiveTab('url')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all duration-300 ${
+                    activeTab === 'url'
+                      ? isDarkMode
+                        ? 'text-green-400 border-b-2 border-green-400 bg-gray-700/30'
+                        : 'text-green-600 border-b-2 border-green-600 bg-green-50'
+                      : isDarkMode
+                        ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/20'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Link className="w-4 h-4" />
+                  Spotify-Link
+                </button>
               </div>
 
-              {/* Popular Suggestions */}
-              {showSuggestions && searchQuery.length < 2 && (
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Sparkles className={`w-4 h-4 transition-colors duration-300 ${
-                      isDarkMode ? 'text-yellow-400' : 'text-yellow-500'
-                    }`} />
-                    <h4 className={`font-semibold transition-colors duration-300 ${
+              {activeTab === 'search' ? (
+                <>
+                  {/* Search Section */}
+                  <div className="mb-6">
+                    <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
                       isDarkMode ? 'text-white' : 'text-gray-900'
                     }`}>
-                      🔥 Beliebte Hochzeitssongs:
-                    </h4>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {popularSuggestions.map((suggestion, index) => (
-                      <button
-                        key={index}
-                        onClick={() => handleSuggestionClick(suggestion)}
-                        className={`px-3 py-2 rounded-full text-sm transition-all duration-300 hover:scale-105 ${
+                      🔍 Song suchen
+                    </label>
+                    <div className="relative">
+                      <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`} />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="z.B. 'Perfect Ed Sheeran' oder 'Uptown Funk'..."
+                        className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-colors duration-300 ${
                           isDarkMode 
-                            ? 'bg-gray-700 hover:bg-gray-600 text-gray-300 border border-gray-600' 
-                            : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                         }`}
-                      >
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Search Results */}
-              {searchResults.length > 0 && (
-                <div className="space-y-3">
-                  <h4 className={`font-semibold transition-colors duration-300 ${
-                    isDarkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    🎵 Suchergebnisse ({searchResults.length}):
-                  </h4>
-                  {searchResults.map((track) => (
-                    <button
-                      key={track.id}
-                      onClick={() => setSelectedTrack(track)}
-                      className={`w-full p-4 rounded-xl border transition-all duration-300 hover:scale-[1.02] ${
-                        isDarkMode 
-                          ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' 
-                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
-                          <img 
-                            src={track.album.images[0]?.url || '/placeholder-album.png'}
-                            alt={track.album.name}
-                            className="w-full h-full object-cover"
-                          />
+                      />
+                      {isSearching && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <Loader className="w-5 h-5 animate-spin text-green-500" />
                         </div>
-                        <div className="flex-1 text-left min-w-0">
-                          <h5 className={`font-semibold truncate transition-colors duration-300 ${
-                            isDarkMode ? 'text-white' : 'text-gray-900'
-                          }`}>
-                            {track.name}
-                          </h5>
-                          <p className={`text-sm truncate transition-colors duration-300 ${
-                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                          }`}>
-                            {track.artists.map(a => a.name).join(', ')}
-                          </p>
-                          <p className={`text-xs truncate transition-colors duration-300 ${
-                            isDarkMode ? 'text-gray-500' : 'text-gray-500'
-                          }`}>
-                            {track.album.name} • {formatDuration(track.duration_ms)}
-                          </p>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getPopularityColor(track.popularity)}`}>
-                            <Heart className="w-3 h-3" />
-                            {track.popularity}%
-                          </div>
-                          <ExternalLink className={`w-4 h-4 transition-colors duration-300 ${
-                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                          }`} />
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
-                <div className="text-center py-8">
-                  <Music className={`w-12 h-12 mx-auto mb-4 transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-600' : 'text-gray-400'
-                  }`} />
-                  <p className={`transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                  }`}>
-                    Keine Songs gefunden für "{searchQuery}"
-                  </p>
-                  <p className={`text-sm mt-2 transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-500' : 'text-gray-500'
-                  }`}>
-                    Versuche es mit einem anderen Suchbegriff
-                  </p>
-                  <div className="mt-4">
-                    <p className={`text-xs mb-2 transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-500' : 'text-gray-500'
-                    }`}>
-                      💡 Tipps:
-                    </p>
-                    <div className={`text-xs space-y-1 transition-colors duration-300 ${
+                      )}
+                    </div>
+                    <p className={`text-xs mt-2 transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-600'
                     }`}>
-                      <div>• Verwende Künstler + Songtitel (z.B. "Ed Sheeran Perfect")</div>
-                      <div>• Probiere deutsche oder englische Begriffe</div>
-                      <div>• Nutze die beliebten Vorschläge oben</div>
+                      💡 Suche funktioniert mit der echten Spotify-Datenbank! Alle Songs verfügbar.
+                    </p>
+                  </div>
+
+                  {/* Popular Suggestions */}
+                  {showSuggestions && searchQuery.length < 2 && (
+                    <div className="mb-6">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Sparkles className={`w-4 h-4 transition-colors duration-300 ${
+                          isDarkMode ? 'text-yellow-400' : 'text-yellow-500'
+                        }`} />
+                        <h4 className={`font-semibold transition-colors duration-300 ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          🔥 Beliebte Hochzeitssongs:
+                        </h4>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {popularSuggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            className={`px-3 py-2 rounded-full text-sm transition-all duration-300 hover:scale-105 ${
+                              isDarkMode 
+                                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300 border border-gray-600' 
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+                            }`}
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Search Results */}
+                  {searchResults.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className={`font-semibold transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        🎵 Suchergebnisse ({searchResults.length}):
+                      </h4>
+                      {searchResults.map((track) => (
+                        <button
+                          key={track.id}
+                          onClick={() => setSelectedTrack(track)}
+                          className={`w-full p-4 rounded-xl border transition-all duration-300 hover:scale-[1.02] ${
+                            isDarkMode 
+                              ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' 
+                              : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                          }`}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
+                              <img 
+                                src={track.album.images[0]?.url || '/placeholder-album.png'}
+                                alt={track.album.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1 text-left min-w-0">
+                              <h5 className={`font-semibold truncate transition-colors duration-300 ${
+                                isDarkMode ? 'text-white' : 'text-gray-900'
+                              }`}>
+                                {track.name}
+                              </h5>
+                              <p className={`text-sm truncate transition-colors duration-300 ${
+                                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                              }`}>
+                                {track.artists.map(a => a.name).join(', ')}
+                              </p>
+                              <p className={`text-xs truncate transition-colors duration-300 ${
+                                isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                              }`}>
+                                {track.album.name} • {formatDuration(track.duration_ms)}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getPopularityColor(track.popularity)}`}>
+                                <Heart className="w-3 h-3" />
+                                {track.popularity}%
+                              </div>
+                              <ExternalLink className={`w-4 h-4 transition-colors duration-300 ${
+                                isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                              }`} />
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
+                    <div className="text-center py-8">
+                      <Music className={`w-12 h-12 mx-auto mb-4 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-600' : 'text-gray-400'
+                      }`} />
+                      <p className={`transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        Keine Songs gefunden für "{searchQuery}"
+                      </p>
+                      <p className={`text-sm mt-2 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                      }`}>
+                        Versuche es mit einem anderen Suchbegriff
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* Spotify URL Section */}
+                  <div className="mb-6">
+                    <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      🔗 Spotify-Link einfügen
+                    </label>
+                    <div className="relative">
+                      <Link className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`} />
+                      <input
+                        type="url"
+                        value={spotifyUrl}
+                        onChange={(e) => setSpotifyUrl(e.target.value)}
+                        placeholder="https://open.spotify.com/track/..."
+                        className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                          urlError
+                            ? 'border-red-500 focus:ring-red-500'
+                            : isDarkMode 
+                              ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                              : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                        }`}
+                      />
+                    </div>
+                    
+                    {urlError && (
+                      <div className="flex items-center gap-2 mt-2 text-red-500 text-sm">
+                        <AlertCircle className="w-4 h-4" />
+                        {urlError}
+                      </div>
+                    )}
+                    
+                    <div className={`mt-3 p-3 rounded-lg transition-colors duration-300 ${
+                      isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
+                    }`}>
+                      <h5 className={`font-semibold mb-2 transition-colors duration-300 ${
+                        isDarkMode ? 'text-blue-300' : 'text-blue-800'
+                      }`}>
+                        📱 So findest du den Spotify-Link:
+                      </h5>
+                      <ol className={`text-sm space-y-1 transition-colors duration-300 ${
+                        isDarkMode ? 'text-blue-200' : 'text-blue-700'
+                      }`}>
+                        <li>1. Öffne Spotify (App oder Web)</li>
+                        <li>2. Suche deinen gewünschten Song</li>
+                        <li>3. Klicke auf "Teilen" (⋯ oder Share)</li>
+                        <li>4. Wähle "Song-Link kopieren"</li>
+                        <li>5. Füge den Link hier ein</li>
+                      </ol>
                     </div>
                   </div>
-                </div>
+
+                  {/* URL Submit Button */}
+                  {spotifyUrl.trim() && !urlError && (
+                    <div className="mb-6">
+                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        💌 Nachricht (optional)
+                      </label>
+                      <textarea
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="Warum wünschst du dir diesen Song?"
+                        rows={3}
+                        maxLength={200}
+                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                        }`}
+                      />
+                      <div className={`text-xs mt-1 text-right transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        {message.length}/200
+                      </div>
+                      
+                      <button
+                        onClick={handleSubmitFromUrl}
+                        disabled={isSubmitting}
+                        className="w-full mt-4 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader className="w-4 h-4 animate-spin" />
+                            Lade Song...
+                          </>
+                        ) : (
+                          <>
+                            <Music className="w-4 h-4" />
+                            Song hinzufügen
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </>
           ) : (

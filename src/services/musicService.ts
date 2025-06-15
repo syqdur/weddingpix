@@ -12,182 +12,114 @@ import {
   increment
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { MusicRequest, SpotifyTrack, SpotifySearchResponse } from '../types';
+import { MusicRequest, SpotifyTrack } from '../types';
+import { searchSpotifyTracks as searchSpotifyAPI, getTrackById, validateSpotifyUrl, extractTrackIdFromUrl } from './spotifyService';
 
-// Enhanced mock data for better demo experience
-const MOCK_TRACKS_DATABASE: SpotifyTrack[] = [
-  // Hochzeitsklassiker
-  {
-    id: 'perfect-ed-sheeran',
-    name: 'Perfect',
-    artists: [{ name: 'Ed Sheeran' }],
-    album: {
-      name: '÷ (Divide)',
-      images: [{ url: 'https://images.pexels.com/photos/1190297/pexels-photo-1190297.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/0tgVpDi06FyKpA1z0VMD4v' },
-    preview_url: null,
-    duration_ms: 263000,
-    popularity: 95
-  },
-  {
-    id: 'thinking-out-loud',
-    name: 'Thinking Out Loud',
-    artists: [{ name: 'Ed Sheeran' }],
-    album: {
-      name: 'x (Multiply)',
-      images: [{ url: 'https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/1KKAHNZhynbGhJJZaWRZZE' },
-    preview_url: null,
-    duration_ms: 281000,
-    popularity: 89
-  },
-  {
-    id: 'all-of-me',
-    name: 'All of Me',
-    artists: [{ name: 'John Legend' }],
-    album: {
-      name: 'Love in the Future',
-      images: [{ url: 'https://images.pexels.com/photos/1105666/pexels-photo-1105666.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/3U4isOIWM3VvDubwSI3y7a' },
-    preview_url: null,
-    duration_ms: 269000,
-    popularity: 92
-  },
-  {
-    id: 'marry-me',
-    name: 'Marry Me',
-    artists: [{ name: 'Train' }],
-    album: {
-      name: 'Save Me, San Francisco',
-      images: [{ url: 'https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/1z3ugFmUKoCzGsI3FaZKsP' },
-    preview_url: null,
-    duration_ms: 240000,
-    popularity: 78
-  },
-  
-  // Party & Tanzmusik
-  {
-    id: 'uptown-funk',
-    name: 'Uptown Funk',
-    artists: [{ name: 'Mark Ronson' }, { name: 'Bruno Mars' }],
-    album: {
-      name: 'Uptown Special',
-      images: [{ url: 'https://images.pexels.com/photos/1444442/pexels-photo-1444442.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/32OlwWuMpZ6b0aN2RZOeMS' },
-    preview_url: null,
-    duration_ms: 269000,
-    popularity: 88
-  },
-  {
-    id: 'cant-stop-feeling',
-    name: "Can't Stop the Feeling!",
-    artists: [{ name: 'Justin Timberlake' }],
-    album: {
-      name: 'Trolls (Original Motion Picture Soundtrack)',
-      images: [{ url: 'https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/6KuQTIu1KoTTkLXKrwlLPV' },
-    preview_url: null,
-    duration_ms: 236000,
-    popularity: 92
-  },
-  {
-    id: 'happy',
-    name: 'Happy',
-    artists: [{ name: 'Pharrell Williams' }],
-    album: {
-      name: 'G I R L',
-      images: [{ url: 'https://images.pexels.com/photos/1616113/pexels-photo-1616113.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/60nZcImufyMA1MKQY3dcCH' },
-    preview_url: null,
-    duration_ms: 232000,
-    popularity: 85
-  },
-  {
-    id: 'shake-it-off',
-    name: 'Shake It Off',
-    artists: [{ name: 'Taylor Swift' }],
-    album: {
-      name: '1989',
-      images: [{ url: 'https://images.pexels.com/photos/1729797/pexels-photo-1729797.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/0cqRj7pUJDkTCEsJkx8snD' },
-    preview_url: null,
-    duration_ms: 219000,
-    popularity: 87
-  },
-  
-  // Deutsche Hits
-  {
-    id: 'auf-uns',
-    name: 'Auf uns',
-    artists: [{ name: 'Andreas Bourani' }],
-    album: {
-      name: 'Hey',
-      images: [{ url: 'https://images.pexels.com/photos/1024960/pexels-photo-1024960.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/2tpWsVSb9UEmDRxAl1zhX1' },
-    preview_url: null,
-    duration_ms: 228000,
-    popularity: 82
-  },
-  {
-    id: 'lieblingsmensch',
-    name: 'Lieblingsmensch',
-    artists: [{ name: 'Namika' }],
-    album: {
-      name: 'Nador',
-      images: [{ url: 'https://images.pexels.com/photos/1070850/pexels-photo-1070850.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/6JV2JOEocMgcZxYSZelKcc' },
-    preview_url: null,
-    duration_ms: 201000,
-    popularity: 79
-  },
-  
-  // Klassiker
-  {
-    id: 'sweet-caroline',
-    name: 'Sweet Caroline',
-    artists: [{ name: 'Neil Diamond' }],
-    album: {
-      name: 'Brother Love\'s Travelling Salvation Show',
-      images: [{ url: 'https://images.pexels.com/photos/1444424/pexels-photo-1444424.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/38zsOOcu31XbbYj9BIPUF1' },
-    preview_url: null,
-    duration_ms: 201000,
-    popularity: 84
-  },
-  {
-    id: 'dont-stop-believin',
-    name: "Don't Stop Believin'",
-    artists: [{ name: 'Journey' }],
-    album: {
-      name: 'Escape',
-      images: [{ url: 'https://images.pexels.com/photos/1024967/pexels-photo-1024967.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-    },
-    external_urls: { spotify: 'https://open.spotify.com/track/4bHsxqR3GMrXTxEPLuK5ue' },
-    preview_url: null,
-    duration_ms: 251000,
-    popularity: 86
-  }
-];
-
-// Improved search function with better matching
+// Enhanced search that uses real Spotify API
 export const searchSpotifyTracks = async (query: string): Promise<SpotifyTrack[]> => {
   console.log(`🔍 Searching for: "${query}"`);
   
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
+  try {
+    // Use real Spotify API
+    const results = await searchSpotifyAPI(query);
+    console.log(`✅ Found ${results.length} tracks from Spotify API`);
+    return results;
+    
+  } catch (error) {
+    console.error('❌ Spotify API search failed:', error);
+    
+    // Fallback to mock data
+    console.log('🔄 Using fallback mock data...');
+    return searchMockTracks(query);
+  }
+};
+
+// Fallback mock search (enhanced version)
+const searchMockTracks = async (query: string): Promise<SpotifyTrack[]> => {
+  // Enhanced mock data for better demo experience
+  const MOCK_TRACKS_DATABASE: SpotifyTrack[] = [
+    // Hochzeitsklassiker
+    {
+      id: 'perfect-ed-sheeran',
+      name: 'Perfect',
+      artists: [{ name: 'Ed Sheeran' }],
+      album: {
+        name: '÷ (Divide)',
+        images: [{ url: 'https://images.pexels.com/photos/1190297/pexels-photo-1190297.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
+      },
+      external_urls: { spotify: 'https://open.spotify.com/track/0tgVpDi06FyKpA1z0VMD4v' },
+      preview_url: null,
+      duration_ms: 263000,
+      popularity: 95
+    },
+    {
+      id: 'thinking-out-loud',
+      name: 'Thinking Out Loud',
+      artists: [{ name: 'Ed Sheeran' }],
+      album: {
+        name: 'x (Multiply)',
+        images: [{ url: 'https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
+      },
+      external_urls: { spotify: 'https://open.spotify.com/track/1KKAHNZhynbGhJJZaWRZZE' },
+      preview_url: null,
+      duration_ms: 281000,
+      popularity: 89
+    },
+    {
+      id: 'all-of-me',
+      name: 'All of Me',
+      artists: [{ name: 'John Legend' }],
+      album: {
+        name: 'Love in the Future',
+        images: [{ url: 'https://images.pexels.com/photos/1105666/pexels-photo-1105666.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
+      },
+      external_urls: { spotify: 'https://open.spotify.com/track/3U4isOIWM3VvDubwSI3y7a' },
+      preview_url: null,
+      duration_ms: 269000,
+      popularity: 92
+    },
+    // Party & Tanzmusik
+    {
+      id: 'uptown-funk',
+      name: 'Uptown Funk',
+      artists: [{ name: 'Mark Ronson' }, { name: 'Bruno Mars' }],
+      album: {
+        name: 'Uptown Special',
+        images: [{ url: 'https://images.pexels.com/photos/1444442/pexels-photo-1444442.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
+      },
+      external_urls: { spotify: 'https://open.spotify.com/track/32OlwWuMpZ6b0aN2RZOeMS' },
+      preview_url: null,
+      duration_ms: 269000,
+      popularity: 88
+    },
+    {
+      id: 'cant-stop-feeling',
+      name: "Can't Stop the Feeling!",
+      artists: [{ name: 'Justin Timberlake' }],
+      album: {
+        name: 'Trolls (Original Motion Picture Soundtrack)',
+        images: [{ url: 'https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
+      },
+      external_urls: { spotify: 'https://open.spotify.com/track/6KuQTIu1KoTTkLXKrwlLPV' },
+      preview_url: null,
+      duration_ms: 236000,
+      popularity: 92
+    },
+    {
+      id: 'happy',
+      name: 'Happy',
+      artists: [{ name: 'Pharrell Williams' }],
+      album: {
+        name: 'G I R L',
+        images: [{ url: 'https://images.pexels.com/photos/1616113/pexels-photo-1616113.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
+      },
+      external_urls: { spotify: 'https://open.spotify.com/track/60nZcImufyMA1MKQY3dcCH' },
+      preview_url: null,
+      duration_ms: 232000,
+      popularity: 85
+    }
+  ];
+
   const searchTerms = query.toLowerCase().split(' ');
   
   const results = MOCK_TRACKS_DATABASE.filter(track => {
@@ -196,14 +128,13 @@ export const searchSpotifyTracks = async (query: string): Promise<SpotifyTrack[]
     const albumName = track.album.name.toLowerCase();
     const searchText = `${trackName} ${artistName} ${albumName}`;
     
-    // Check if any search term matches
     return searchTerms.some(term => 
       searchText.includes(term) || 
       trackName.includes(term) || 
       artistName.includes(term)
     );
   });
-  
+
   // Sort by popularity and relevance
   results.sort((a, b) => {
     const aRelevance = searchTerms.reduce((score, term) => {
@@ -222,11 +153,11 @@ export const searchSpotifyTracks = async (query: string): Promise<SpotifyTrack[]
     return b.popularity - a.popularity;
   });
   
-  console.log(`✅ Found ${results.length} tracks for "${query}"`);
-  return results.slice(0, 10); // Limit to top 10 results
+  console.log(`✅ Found ${results.length} tracks from mock data for "${query}"`);
+  return results.slice(0, 10);
 };
 
-// Add a music request
+// Add music request with Spotify URL validation
 export const addMusicRequest = async (
   track: SpotifyTrack,
   userName: string,
@@ -234,6 +165,11 @@ export const addMusicRequest = async (
   message?: string
 ): Promise<void> => {
   try {
+    // Validate Spotify URL
+    if (track.external_urls.spotify && !validateSpotifyUrl(track.external_urls.spotify)) {
+      throw new Error('Ungültige Spotify-URL');
+    }
+
     const musicRequest: Omit<MusicRequest, 'id'> = {
       songTitle: track.name,
       artist: track.artists.map(a => a.name).join(', '),
@@ -257,6 +193,40 @@ export const addMusicRequest = async (
     console.log('✅ Music request added successfully');
   } catch (error) {
     console.error('❌ Error adding music request:', error);
+    throw error;
+  }
+};
+
+// Add music request from Spotify URL
+export const addMusicRequestFromUrl = async (
+  spotifyUrl: string,
+  userName: string,
+  deviceId: string,
+  message?: string
+): Promise<void> => {
+  try {
+    // Validate URL
+    if (!validateSpotifyUrl(spotifyUrl)) {
+      throw new Error('Ungültige Spotify-URL. Bitte verwende einen Link zu einem einzelnen Song.');
+    }
+
+    // Extract track ID
+    const trackId = extractTrackIdFromUrl(spotifyUrl);
+    if (!trackId) {
+      throw new Error('Konnte Track-ID aus der URL nicht extrahieren.');
+    }
+
+    // Get track details from Spotify
+    const track = await getTrackById(trackId);
+    if (!track) {
+      throw new Error('Song konnte nicht von Spotify geladen werden.');
+    }
+
+    // Add the request
+    await addMusicRequest(track, userName, deviceId, message);
+    
+  } catch (error) {
+    console.error('❌ Error adding music request from URL:', error);
     throw error;
   }
 };
