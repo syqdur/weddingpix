@@ -22,6 +22,7 @@ import {
   toggleLike,
   addNote
 } from './services/firebaseService';
+import { subscribeSiteStatus, SiteStatus } from './services/siteStatusService';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -34,17 +35,20 @@ function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [status, setStatus] = useState('');
-  const [isUnderConstruction, setIsUnderConstruction] = useState(true);
+  const [siteStatus, setSiteStatus] = useState<SiteStatus | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Subscribe to site status changes
   useEffect(() => {
-    // Check under construction status
-    const constructionStatus = localStorage.getItem('wedding_under_construction');
-    setIsUnderConstruction(constructionStatus !== 'false');
+    const unsubscribe = subscribeSiteStatus((status) => {
+      setSiteStatus(status);
+    });
+
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
-    if (!userName || isUnderConstruction) return;
+    if (!userName || !siteStatus || siteStatus.isUnderConstruction) return;
 
     const unsubscribeGallery = loadGallery(setMediaItems);
     const unsubscribeComments = loadComments(setComments);
@@ -55,7 +59,7 @@ function App() {
       unsubscribeComments();
       unsubscribeLikes();
     };
-  }, [userName, isUnderConstruction]);
+  }, [userName, siteStatus]);
 
   const handleUpload = async (files: FileList) => {
     if (!userName) return;
@@ -172,9 +176,35 @@ function App() {
     );
   };
 
-  // Show under construction page if enabled
-  if (isUnderConstruction) {
-    return <UnderConstructionPage isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />;
+  // Show loading while site status is being fetched
+  if (siteStatus === null) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
+        isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className={`text-lg transition-colors duration-300 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            Lade Website...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show under construction page if site is under construction
+  if (siteStatus.isUnderConstruction) {
+    return (
+      <UnderConstructionPage 
+        isDarkMode={isDarkMode} 
+        toggleDarkMode={toggleDarkMode}
+        siteStatus={siteStatus}
+        isAdmin={isAdmin}
+        onToggleAdmin={setIsAdmin}
+      />
+    );
   }
 
   if (showNamePrompt) {
@@ -279,6 +309,7 @@ function App() {
         isAdmin={isAdmin}
         onToggleAdmin={setIsAdmin}
         mediaItems={mediaItems}
+        siteStatus={siteStatus}
       />
     </div>
   );

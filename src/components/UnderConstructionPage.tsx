@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Sun, Moon, Lock, Unlock, Power } from 'lucide-react';
+import { Heart, Sun, Moon, Lock, Unlock, Power, Globe, Users, Clock } from 'lucide-react';
+import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
 
 interface UnderConstructionPageProps {
   isDarkMode: boolean;
   toggleDarkMode: () => void;
+  siteStatus: SiteStatus;
+  isAdmin: boolean;
+  onToggleAdmin: (isAdmin: boolean) => void;
 }
 
 interface TimeLeft {
@@ -15,22 +19,18 @@ interface TimeLeft {
 
 export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
   isDarkMode,
-  toggleDarkMode
+  toggleDarkMode,
+  siteStatus,
+  isAdmin,
+  onToggleAdmin
 }) => {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [showPasswordInput, setShowPasswordInput] = useState(false);
   const [password, setPassword] = useState('');
-  const [isUnderConstruction, setIsUnderConstruction] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const weddingDate = new Date('2025-07-12T00:00:00');
-
-  useEffect(() => {
-    // Check if under construction is disabled
-    const constructionStatus = localStorage.getItem('wedding_under_construction');
-    if (constructionStatus === 'false') {
-      setIsUnderConstruction(false);
-    }
-  }, []);
+  const correctPIN = "2407";
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -52,37 +52,51 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
 
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'remove') {
-      // Disable under construction temporarily
-      localStorage.setItem('wedding_under_construction', 'false');
-      window.location.reload();
-    } else if (password === 'permanent') {
-      // Disable under construction permanently
-      localStorage.setItem('wedding_under_construction', 'false');
-      localStorage.setItem('wedding_under_construction_permanent', 'true');
-      alert('✅ Under Construction wurde permanent deaktiviert!\n\nDie Website ist jetzt dauerhaft für alle Besucher verfügbar.');
-      window.location.reload();
-    } else if (password === 'aktivieren') {
-      // Enable under construction
-      localStorage.setItem('wedding_under_construction', 'true');
-      localStorage.removeItem('wedding_under_construction_permanent');
+    if (password === correctPIN) {
+      onToggleAdmin(true);
       setShowPasswordInput(false);
       setPassword('');
     } else {
-      alert('Falsches Passwort!\n\nVerfügbare Befehle:\n- "remove" = Temporär deaktivieren\n- "permanent" = Permanent deaktivieren\n- "aktivieren" = Aktivieren');
+      alert('Falscher Admin-Code!');
       setPassword('');
     }
   };
 
-  const isPermanentlyDisabled = () => {
-    return localStorage.getItem('wedding_under_construction_permanent') === 'true';
+  const handleToggleSiteStatus = async () => {
+    if (!isAdmin) return;
+
+    const action = siteStatus.isUnderConstruction ? 'freischalten' : 'sperren';
+    const confirmMessage = siteStatus.isUnderConstruction 
+      ? '🌐 Website für alle Besucher freischalten?\n\nAlle Besucher können dann sofort auf die Galerie zugreifen.'
+      : '🔒 Website für alle Besucher sperren?\n\nAlle Besucher sehen dann die Under Construction Seite.';
+
+    if (window.confirm(confirmMessage)) {
+      setIsUpdating(true);
+      try {
+        await updateSiteStatus(!siteStatus.isUnderConstruction, 'Admin');
+        
+        const successMessage = siteStatus.isUnderConstruction
+          ? '✅ Website wurde erfolgreich freigeschaltet!\n\n🌐 Alle Besucher können jetzt auf die Galerie zugreifen.'
+          : '🔒 Website wurde erfolgreich gesperrt!\n\n⏳ Alle Besucher sehen jetzt die Under Construction Seite.';
+        
+        alert(successMessage);
+      } catch (error) {
+        alert(`❌ Fehler beim ${action} der Website:\n${error}`);
+      } finally {
+        setIsUpdating(false);
+      }
+    }
   };
 
-  // If under construction is disabled, redirect to main app
-  if (!isUnderConstruction) {
-    window.location.reload();
-    return null;
-  }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   return (
     <div className={`min-h-screen flex flex-col transition-colors duration-500 ${
@@ -210,38 +224,75 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
           Wir freuen uns darauf, diesen besonderen Moment mit euch zu teilen! 💕
         </p>
 
-        {/* Status Indicator */}
-        {isPermanentlyDisabled() && (
-          <div className={`mt-6 px-4 py-2 rounded-full transition-colors duration-500 ${
-            isDarkMode ? 'bg-green-900/30 border border-green-700/50' : 'bg-green-100 border border-green-300'
-          }`}>
-            <div className="flex items-center gap-2">
-              <Power className={`w-4 h-4 transition-colors duration-500 ${
-                isDarkMode ? 'text-green-400' : 'text-green-600'
-              }`} />
-              <span className={`text-sm transition-colors duration-500 ${
-                isDarkMode ? 'text-green-300' : 'text-green-700'
-              }`}>
-                Under Construction ist permanent deaktiviert
-              </span>
-            </div>
+        {/* Site Status Info */}
+        <div className={`mt-8 p-4 rounded-xl transition-colors duration-500 ${
+          isDarkMode ? 'bg-white/10 border border-white/20' : 'bg-white/60 border border-white/40'
+        }`}>
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className={`w-4 h-4 transition-colors duration-500 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-600'
+            }`} />
+            <span className={`text-sm transition-colors duration-500 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-600'
+            }`}>
+              Letztes Update: {formatDate(siteStatus.lastUpdated)}
+            </span>
           </div>
-        )}
+          <div className="flex items-center gap-2">
+            <Users className={`w-4 h-4 transition-colors duration-500 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-600'
+            }`} />
+            <span className={`text-sm transition-colors duration-500 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-600'
+            }`}>
+              Aktualisiert von: {siteStatus.updatedBy}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Admin Control Button */}
-      <div className="fixed bottom-6 left-6">
+      {/* Admin Controls */}
+      <div className="fixed bottom-6 left-6 flex flex-col gap-3">
+        {/* Admin Login Button */}
         <button
-          onClick={() => setShowPasswordInput(true)}
+          onClick={() => isAdmin ? onToggleAdmin(false) : setShowPasswordInput(true)}
           className={`p-3 rounded-full transition-all duration-300 ${
             isDarkMode
-              ? 'bg-gray-800/50 hover:bg-gray-700/50 text-gray-400 hover:text-white backdrop-blur-sm'
-              : 'bg-white/50 hover:bg-white/70 text-gray-600 hover:text-gray-800 backdrop-blur-sm'
+              ? isAdmin
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-gray-800/50 hover:bg-gray-700/50 text-gray-400 hover:text-white backdrop-blur-sm'
+              : isAdmin
+                ? 'bg-green-500 hover:bg-green-600 text-white'
+                : 'bg-white/50 hover:bg-white/70 text-gray-600 hover:text-gray-800 backdrop-blur-sm'
           }`}
-          title="Website verwalten"
+          title={isAdmin ? "Admin-Modus verlassen" : "Admin-Modus"}
         >
-          {isUnderConstruction ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+          {isAdmin ? <Unlock className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
         </button>
+
+        {/* Site Control Button (only visible when admin) */}
+        {isAdmin && (
+          <button
+            onClick={handleToggleSiteStatus}
+            disabled={isUpdating}
+            className={`p-3 rounded-full transition-all duration-300 ${
+              isUpdating
+                ? isDarkMode
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : isDarkMode
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-110'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white hover:scale-110'
+            }`}
+            title={siteStatus.isUnderConstruction ? "Website für alle freischalten" : "Website für alle sperren"}
+          >
+            {isUpdating ? (
+              <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Globe className="w-5 h-5" />
+            )}
+          </button>
+        )}
       </div>
 
       {/* Password Input Modal */}
@@ -253,23 +304,28 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
             <h3 className={`text-xl font-semibold mb-6 text-center transition-colors duration-300 ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              Website verwalten
+              Admin-Zugang
             </h3>
             
             <div className={`mb-6 p-4 rounded-xl transition-colors duration-300 ${
               isDarkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-gray-50 border border-gray-200'
             }`}>
-              <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}>
-                Verfügbare Befehle:
-              </h4>
+              <div className="flex items-center gap-2 mb-2">
+                <Power className={`w-4 h-4 transition-colors duration-300 ${
+                  isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                }`} />
+                <span className={`font-semibold text-sm transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Admin-Funktionen:
+                </span>
+              </div>
               <ul className={`text-sm space-y-1 transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-300' : 'text-gray-600'
               }`}>
-                <li><code className="bg-gray-600 text-white px-2 py-1 rounded">remove</code> - Temporär deaktivieren</li>
-                <li><code className="bg-orange-600 text-white px-2 py-1 rounded">permanent</code> - Permanent deaktivieren</li>
-                <li><code className="bg-blue-600 text-white px-2 py-1 rounded">aktivieren</code> - Wieder aktivieren</li>
+                <li>• Website für alle Besucher freischalten/sperren</li>
+                <li>• Medien und Kommentare verwalten</li>
+                <li>• Alle Inhalte herunterladen</li>
               </ul>
             </div>
 
@@ -278,7 +334,7 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Befehl eingeben..."
+                placeholder="Admin-Code eingeben..."
                 className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
                   isDarkMode 
                     ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -305,7 +361,7 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
                   type="submit"
                   className="flex-1 bg-pink-600 hover:bg-pink-700 text-white py-3 px-4 rounded-xl transition-colors"
                 >
-                  Ausführen
+                  Anmelden
                 </button>
               </div>
             </form>

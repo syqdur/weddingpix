@@ -1,25 +1,29 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle, Power, PowerOff } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
+import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
 
 interface AdminPanelProps {
   isDarkMode: boolean;
   isAdmin: boolean;
   onToggleAdmin: (isAdmin: boolean) => void;
   mediaItems?: MediaItem[];
+  siteStatus?: SiteStatus;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ 
   isDarkMode, 
   isAdmin, 
   onToggleAdmin,
-  mediaItems = []
+  mediaItems = [],
+  siteStatus
 }) => {
   const [showPinInput, setShowPinInput] = useState(false);
   const [pin, setPin] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
+  const [isUpdatingSiteStatus, setIsUpdatingSiteStatus] = useState(false);
 
   const correctPIN = "2407";
 
@@ -43,26 +47,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  const toggleUnderConstruction = () => {
-    const currentStatus = localStorage.getItem('wedding_under_construction');
-    const newStatus = currentStatus === 'false' ? 'true' : 'false';
-    localStorage.setItem('wedding_under_construction', newStatus);
-    
-    if (newStatus === 'true') {
-      alert('Under Construction aktiviert! Die Seite wird neu geladen.');
-    } else {
-      alert('Under Construction deaktiviert! Die Seite wird neu geladen.');
-    }
-    
-    window.location.reload();
-  };
+  const handleToggleSiteStatus = async () => {
+    if (!siteStatus) return;
 
-  const permanentlyDisableUnderConstruction = () => {
-    if (window.confirm('Under Construction permanent deaktivieren?\n\nDie Seite wird für alle Besucher dauerhaft verfügbar sein, bis du sie wieder manuell aktivierst.')) {
-      localStorage.setItem('wedding_under_construction', 'false');
-      localStorage.setItem('wedding_under_construction_permanent', 'true');
-      alert('✅ Under Construction wurde permanent deaktiviert!\n\nDie Website ist jetzt dauerhaft für alle Besucher verfügbar.');
-      window.location.reload();
+    const action = siteStatus.isUnderConstruction ? 'freischalten' : 'sperren';
+    const confirmMessage = siteStatus.isUnderConstruction 
+      ? '🌐 Website für alle Besucher freischalten?\n\nAlle Besucher können dann sofort auf die Galerie zugreifen.'
+      : '🔒 Website für alle Besucher sperren?\n\nAlle Besucher sehen dann die Under Construction Seite.';
+
+    if (window.confirm(confirmMessage)) {
+      setIsUpdatingSiteStatus(true);
+      try {
+        await updateSiteStatus(!siteStatus.isUnderConstruction, 'Admin');
+        
+        const successMessage = siteStatus.isUnderConstruction
+          ? '✅ Website wurde erfolgreich freigeschaltet!\n\n🌐 Alle Besucher können jetzt auf die Galerie zugreifen.'
+          : '🔒 Website wurde erfolgreich gesperrt!\n\n⏳ Alle Besucher sehen jetzt die Under Construction Seite.';
+        
+        alert(successMessage);
+      } catch (error) {
+        alert(`❌ Fehler beim ${action} der Website:\n${error}`);
+      } finally {
+        setIsUpdatingSiteStatus(false);
+      }
     }
   };
 
@@ -100,15 +107,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
-  const isUnderConstructionActive = () => {
-    const status = localStorage.getItem('wedding_under_construction');
-    return status !== 'false';
-  };
-
-  const isPermanentlyDisabled = () => {
-    return localStorage.getItem('wedding_under_construction_permanent') === 'true';
-  };
-
   const getDownloadButtonText = () => {
     const imageCount = mediaItems.filter(item => item.type === 'image').length;
     const videoCount = mediaItems.filter(item => item.type === 'video').length;
@@ -122,6 +120,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (noteCount > 0) parts.push(`${noteCount} Notiz${noteCount > 1 ? 'en' : ''}`);
     
     return parts.join(', ') + ' als ZIP herunterladen';
+  };
+
+  const getSiteStatusInfo = () => {
+    if (!siteStatus) return 'Status unbekannt';
+    
+    return siteStatus.isUnderConstruction 
+      ? '🔒 Website ist gesperrt (Under Construction)'
+      : '🌐 Website ist freigeschaltet';
   };
 
   return (
@@ -145,39 +151,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Admin Controls */}
       {isAdmin && (
         <div className="fixed bottom-20 left-4 space-y-2">
-          <button
-            onClick={toggleUnderConstruction}
-            className={`p-3 rounded-full shadow-lg transition-colors duration-300 ${
-              isUnderConstructionActive()
-                ? isDarkMode
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-red-500 hover:bg-red-600 text-white'
-                : isDarkMode
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
-            }`}
-            title={isUnderConstructionActive() ? "Under Construction deaktivieren" : "Under Construction aktivieren"}
-          >
-            <Settings className="w-6 h-6" />
-          </button>
-
-          {/* Permanent Under Construction Toggle */}
-          <button
-            onClick={permanentlyDisableUnderConstruction}
-            className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
-              isPermanentlyDisabled()
-                ? isDarkMode
-                  ? 'bg-green-600 hover:bg-green-700 text-white'
-                  : 'bg-green-500 hover:bg-green-600 text-white'
-                : isDarkMode
-                  ? 'bg-orange-600 hover:bg-orange-700 text-white hover:scale-110'
-                  : 'bg-orange-500 hover:bg-orange-600 text-white hover:scale-110'
-            }`}
-            title={isPermanentlyDisabled() ? "Under Construction ist permanent deaktiviert" : "Under Construction permanent deaktivieren"}
-          >
-            {isPermanentlyDisabled() ? <Power className="w-6 h-6" /> : <PowerOff className="w-6 h-6" />}
-          </button>
+          {/* Site Status Toggle */}
+          {siteStatus && (
+            <button
+              onClick={handleToggleSiteStatus}
+              disabled={isUpdatingSiteStatus}
+              className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
+                isUpdatingSiteStatus
+                  ? isDarkMode
+                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : siteStatus.isUnderConstruction
+                    ? isDarkMode
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-110'
+                      : 'bg-blue-500 hover:bg-blue-600 text-white hover:scale-110'
+                    : isDarkMode
+                      ? 'bg-orange-600 hover:bg-orange-700 text-white hover:scale-110'
+                      : 'bg-orange-500 hover:bg-orange-600 text-white hover:scale-110'
+              }`}
+              title={getSiteStatusInfo()}
+            >
+              {isUpdatingSiteStatus ? (
+                <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Globe className="w-6 h-6" />
+              )}
+            </button>
+          )}
           
+          {/* Download Button */}
           <button
             onClick={handleDownloadAll}
             disabled={isDownloading || mediaItems.length === 0}
@@ -194,9 +196,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <Download className={`w-6 h-6 ${isDownloading ? 'animate-bounce' : ''}`} />
           </button>
+
+          {/* Settings Button */}
+          <button
+            className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
+              isDarkMode
+                ? 'bg-gray-600 hover:bg-gray-500 text-white hover:scale-110'
+                : 'bg-gray-400 hover:bg-gray-500 text-white hover:scale-110'
+            }`}
+            title="Weitere Einstellungen"
+          >
+            <Settings className="w-6 h-6" />
+          </button>
         </div>
       )}
 
+      {/* Admin Login Modal */}
       {showPinInput && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className={`rounded-2xl p-6 max-w-sm w-full transition-colors duration-300 ${
@@ -207,6 +222,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             }`}>
               Admin-Code eingeben
             </h3>
+            
+            <div className={`mb-6 p-4 rounded-xl transition-colors duration-300 ${
+              isDarkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-gray-50 border border-gray-200'
+            }`}>
+              <div className="flex items-center gap-2 mb-2">
+                <Users className={`w-4 h-4 transition-colors duration-300 ${
+                  isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                }`} />
+                <span className={`font-semibold text-sm transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Admin-Funktionen:
+                </span>
+              </div>
+              <ul className={`text-sm space-y-1 transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-600'
+              }`}>
+                <li>• Website für alle freischalten/sperren</li>
+                <li>• Medien und Kommentare löschen</li>
+                <li>• Alle Inhalte herunterladen</li>
+              </ul>
+            </div>
+
             <form onSubmit={handlePinSubmit} className="space-y-4">
               <input
                 type="password"
