@@ -19,6 +19,12 @@ export const ProfileHeader: React.FC = () => {
             </div>
         </div>
       </div>
+      <button
+  className="p-2 rounded text-sm bg-gray-200 dark:bg-gray-700 dark:text-white"
+  onClick={() => setDarkMode(!darkMode)}
+>
+  {darkMode ? '🌙 Dark' : '☀️ Light'}
+</button>
       
       <div className="space-y-2">
         <h3 className="font-semibold">Kristin & Maurizio 💕</h3>
