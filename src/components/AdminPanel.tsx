@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, AlertCircle } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
@@ -91,8 +91,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     
     try {
       await downloadAllMedia(mediaItems);
-      
-      const downloadableItems = mediaItems.filter(item => item.type !== 'note');
       alert(`✅ Download erfolgreich!\n\n📊 Heruntergeladen:\n- ${mediaItems.filter(item => item.type === 'image').length} Bilder\n- ${mediaItems.filter(item => item.type === 'video').length} Videos\n- ${mediaItems.filter(item => item.type === 'note').length} Notizen\n\n💡 Verwende die Bilder für professionelle Fotobuch-Services!`);
     } catch (error) {
       console.error('Download error:', error);
@@ -368,7 +366,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 
                 <div className="text-center">
                   <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-2 transition-colors duration-300 ${
-                    isDarkMode ? 'text-blue-600' : 'bg-blue-500'
+                    isDarkMode ? 'bg-blue-600' : 'bg-blue-500'
                   }`}>
                     <Video className="w-6 h-6 text-white" />
                   </div>

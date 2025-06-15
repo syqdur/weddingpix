@@ -33,8 +33,6 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
 }) => {
   const [commentText, setCommentText] = useState('');
   const [showAllComments, setShowAllComments] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
 
   const isLiked = likes.some(like => like.userName === userName);
   const likeCount = likes.length;
@@ -57,17 +55,6 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
     if (window.confirm('Kommentar wirklich löschen?')) {
       onDeleteComment(commentId);
     }
-  };
-
-  const handleImageLoad = () => {
-    setImageLoading(false);
-    setImageError(false);
-  };
-
-  const handleImageError = () => {
-    setImageLoading(false);
-    setImageError(true);
-    console.error(`❌ Image failed to load: ${item.url}`);
   };
 
   const formatDate = (dateString: string) => {
@@ -159,64 +146,25 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
             className="w-full aspect-square object-cover"
             controls
             preload="metadata"
-            onLoadStart={() => setImageLoading(true)}
-            onLoadedData={() => setImageLoading(false)}
-            onError={() => {
-              setImageLoading(false);
-              setImageError(true);
-            }}
           />
         ) : (
           <div className="relative w-full aspect-square">
-            {imageLoading && (
-              <div className={`absolute inset-0 flex items-center justify-center transition-colors duration-300 ${
-                isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
-              }`}>
-                <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            )}
-            
-            {imageError ? (
-              <div className={`absolute inset-0 flex flex-col items-center justify-center transition-colors duration-300 ${
-                isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
-              }`}>
-                <div className="text-4xl mb-2">📷</div>
-                <p className="text-sm text-center px-4">
-                  Bild nicht verfügbar
+            <div className={`w-full h-full flex items-center justify-center transition-colors duration-300 ${
+              isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+            }`}>
+              <div className="text-center">
+                <div className="text-6xl mb-4">📷</div>
+                <p className="text-lg font-semibold mb-2">
+                  Hochzeitsfoto
                 </p>
-                <p className="text-xs text-center px-4 mt-1 opacity-75">
+                <p className="text-sm opacity-75">
                   Von {item.uploadedBy}
                 </p>
-                <button
-                  onClick={() => {
-                    setImageError(false);
-                    setImageLoading(true);
-                    // Force reload
-                    const img = new Image();
-                    img.onload = handleImageLoad;
-                    img.onerror = handleImageError;
-                    img.src = item.url;
-                  }}
-                  className={`mt-2 px-3 py-1 rounded text-xs transition-colors duration-300 ${
-                    isDarkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                  }`}
-                >
-                  Erneut versuchen
-                </button>
+                <p className="text-xs mt-2 opacity-50">
+                  {formatDate(item.uploadedAt)}
+                </p>
               </div>
-            ) : (
-              <img
-                src={item.url}
-                alt="Hochzeitsfoto"
-                className={`w-full h-full object-cover cursor-pointer transition-opacity duration-300 ${
-                  imageLoading ? 'opacity-0' : 'opacity-100'
-                }`}
-                onClick={onClick}
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-                loading="lazy"
-              />
-            )}
+            </div>
           </div>
         )}
       </div>
