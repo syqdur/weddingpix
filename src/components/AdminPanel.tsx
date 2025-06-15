@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
@@ -93,15 +93,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       await downloadAllMedia(mediaItems);
       
       const downloadableItems = mediaItems.filter(item => item.type !== 'note');
-      alert(`✅ Download erfolgreich abgeschlossen!\n\n📊 Heruntergeladen:\n- ${mediaItems.filter(item => item.type === 'image').length} Bilder\n- ${mediaItems.filter(item => item.type === 'video').length} Videos\n- ${mediaItems.filter(item => item.type === 'note').length} Notizen\n\n💡 Tipp: Überprüfe die Übersichtsdatei in der ZIP für Details.`);
+      alert(`✅ Download erfolgreich!\n\n📊 Heruntergeladen:\n- ${mediaItems.filter(item => item.type === 'image').length} Bilder\n- ${mediaItems.filter(item => item.type === 'video').length} Videos\n- ${mediaItems.filter(item => item.type === 'note').length} Notizen\n\n💡 Verwende die Bilder für professionelle Fotobuch-Services!`);
     } catch (error) {
       console.error('Download error:', error);
       
-      // Check if it's a partial success
       if (error.toString().includes('teilweise erfolgreich')) {
-        alert(`⚠️ ${error}\n\n💡 Die ZIP-Datei enthält:\n- Erfolgreich heruntergeladene Dateien\n- Fehlerbericht für nicht verfügbare Dateien\n- Detaillierte Anleitung zur Fehlerbehebung`);
+        alert(`⚠️ ${error}\n\n💡 Die ZIP-Datei enthält alle verfügbaren Dateien und Fehlerberichte.`);
       } else {
-        alert(`❌ Fehler beim Herunterladen:\n${error}\n\n🔧 Lösungsvorschläge:\n- Versuche es mit einem anderen Browser\n- Überprüfe deine Internetverbindung\n- Deaktiviere temporär Adblocker\n- Verwende den Inkognito-Modus`);
+        alert(`❌ Download-Fehler:\n${error}\n\n🔧 Versuche es erneut oder verwende einen anderen Browser.`);
       }
     } finally {
       setIsDownloading(false);
@@ -120,7 +119,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (videoCount > 0) parts.push(`${videoCount} Video${videoCount > 1 ? 's' : ''}`);
     if (noteCount > 0) parts.push(`${noteCount} Notiz${noteCount > 1 ? 'en' : ''}`);
     
-    return parts.join(', ') + ' als ZIP herunterladen';
+    return parts.join(', ') + ' als ZIP';
   };
 
   const getSiteStatusInfo = () => {
@@ -133,32 +132,58 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const externalServices = [
     {
-      name: 'Shutterfly',
-      description: 'Professionelle Fotobücher mit Premium-Qualität',
-      url: 'https://www.shutterfly.com/photo-books',
-      features: ['Hochwertige Bindung', 'Verschiedene Formate', 'Schnelle Lieferung'],
-      price: 'ab 15€'
+      name: 'CEWE Fotobuch',
+      description: 'Deutschlands Testsieger - Kostenlose Software',
+      url: 'https://www.cewe.de/fotobuch',
+      features: ['Kostenlose Software', 'Testsieger Stiftung Warentest', 'Echtfotopapier', 'Express-Service'],
+      price: 'ab 7,95€',
+      flag: '🇩🇪',
+      free: true
     },
     {
-      name: 'Cewe Fotobuch',
-      description: 'Europas führender Fotobuch-Service',
-      url: 'https://www.cewe.de/fotobuch',
-      features: ['Testsieger Qualität', 'Echtfotopapier', 'Express-Service'],
-      price: 'ab 12€'
+      name: 'dm Fotobuch',
+      description: 'Günstige Fotobücher bei dm-drogerie markt',
+      url: 'https://www.dm.de/services/fotobuch',
+      features: ['Günstige Preise', 'In jeder dm-Filiale abholbar', 'Verschiedene Formate', 'Schnelle Bearbeitung'],
+      price: 'ab 4,95€',
+      flag: '🇩🇪',
+      free: false
     },
     {
       name: 'Pixum',
-      description: 'Deutsche Premium-Fotobücher',
+      description: 'Premium deutsche Fotobücher',
       url: 'https://www.pixum.de/fotobuch',
-      features: ['Made in Germany', 'Umweltfreundlich', 'Lebenslange Garantie'],
-      price: 'ab 18€'
+      features: ['Made in Germany', 'Umweltfreundlich', 'Lebenslange Garantie', 'Premium-Qualität'],
+      price: 'ab 12,95€',
+      flag: '🇩🇪',
+      free: false
     },
     {
-      name: 'Blurb',
-      description: 'Professionelle Buchqualität für besondere Anlässe',
-      url: 'https://www.blurb.de',
-      features: ['Buchhandelsqualität', 'Hardcover Premium', 'Weltweiter Versand'],
-      price: 'ab 25€'
+      name: 'Rossmann Fotobuch',
+      description: 'Fotobücher bei Rossmann - günstig und gut',
+      url: 'https://www.rossmann-fotowelt.de/fotobuch',
+      features: ['Sehr günstig', 'In Rossmann-Filialen abholbar', 'Einfache Bedienung', 'Schnelle Lieferung'],
+      price: 'ab 3,99€',
+      flag: '🇩🇪',
+      free: false
+    },
+    {
+      name: 'Albelli',
+      description: 'Europäischer Fotobuch-Service mit kostenloser Software',
+      url: 'https://www.albelli.de/fotobuch',
+      features: ['Kostenlose Software', 'Hochwertige Bindung', 'Verschiedene Formate', 'Gute Preise'],
+      price: 'ab 9,99€',
+      flag: '🇪🇺',
+      free: true
+    },
+    {
+      name: 'Mein Fotobuch',
+      description: 'Deutscher Anbieter mit kostenloser Software',
+      url: 'https://www.meinfotobuch.de',
+      features: ['Kostenlose Software', 'Deutsche Qualität', 'Persönlicher Service', 'Flexible Gestaltung'],
+      price: 'ab 8,95€',
+      flag: '🇩🇪',
+      free: true
     }
   ];
 
@@ -219,9 +244,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 ? 'bg-purple-600 hover:bg-purple-700 text-white hover:scale-110'
                 : 'bg-purple-500 hover:bg-purple-600 text-white hover:scale-110'
             }`}
-            title="Professionelle Fotobuch-Services"
+            title="Deutsche Fotobuch-Services"
           >
-            <ExternalLink className="w-6 h-6" />
+            <Heart className="w-6 h-6" />
           </button>
           
           {/* ZIP Download Button */}
@@ -259,7 +284,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* External Services Modal */}
       {showExternalServices && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
+          <div className={`rounded-2xl p-6 max-w-5xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
             isDarkMode ? 'bg-gray-800' : 'bg-white'
           }`}>
             {/* Header */}
@@ -268,18 +293,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className={`p-3 rounded-full transition-colors duration-300 ${
                   isDarkMode ? 'bg-purple-600' : 'bg-purple-500'
                 }`}>
-                  <ExternalLink className="w-6 h-6 text-white" />
+                  <Heart className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h3 className={`text-xl font-semibold transition-colors duration-300 ${
                     isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    Professionelle Fotobuch-Services
+                    Deutsche Fotobuch-Services 🇩🇪
                   </h3>
                   <p className={`text-sm transition-colors duration-300 ${
                     isDarkMode ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    Erstelle ein hochwertiges Hochzeitsfotobuch mit professionellen Services
+                    Erstelle ein hochwertiges Hochzeitsfotobuch mit deutschen Anbietern
                   </p>
                 </div>
               </div>
@@ -305,10 +330,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <ol className={`text-sm space-y-1 transition-colors duration-300 ${
                 isDarkMode ? 'text-blue-200' : 'text-blue-700'
               }`}>
-                <li>1. Lade alle Bilder als ZIP herunter (Button unten links)</li>
-                <li>2. Wähle einen der professionellen Services unten aus</li>
-                <li>3. Lade die Bilder hoch und gestalte dein Fotobuch</li>
-                <li>4. Bestelle dein hochwertiges Hochzeitsfotobuch</li>
+                <li>1. 📥 Lade alle Bilder als ZIP herunter (Button links unten)</li>
+                <li>2. 🎯 Wähle einen deutschen Service unten aus</li>
+                <li>3. 📤 Lade die Bilder hoch und gestalte dein Fotobuch</li>
+                <li>4. 📚 Bestelle dein hochwertiges Hochzeitsfotobuch</li>
               </ol>
             </div>
 
@@ -343,7 +368,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 
                 <div className="text-center">
                   <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-2 transition-colors duration-300 ${
-                    isDarkMode ? 'bg-blue-600' : 'bg-blue-500'
+                    isDarkMode ? 'text-blue-600' : 'bg-blue-500'
                   }`}>
                     <Video className="w-6 h-6 text-white" />
                   </div>
@@ -380,45 +405,51 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </div>
 
             {/* Services Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {externalServices.map((service, index) => (
-                <div key={index} className={`p-6 rounded-xl border transition-all duration-300 hover:scale-105 ${
+                <div key={index} className={`p-4 rounded-xl border transition-all duration-300 hover:scale-105 ${
                   isDarkMode 
                     ? 'bg-gray-700/50 border-gray-600 hover:bg-gray-700' 
                     : 'bg-white border-gray-200 hover:bg-gray-50 shadow-lg'
                 }`}>
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h4 className={`text-lg font-semibold transition-colors duration-300 ${
-                        isDarkMode ? 'text-white' : 'text-gray-900'
-                      }`}>
-                        {service.name}
-                      </h4>
-                      <p className={`text-sm transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                      }`}>
-                        {service.description}
-                      </p>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{service.flag}</span>
+                      {service.free && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold transition-colors duration-300 ${
+                          isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
+                        }`}>
+                          <Gift className="w-3 h-3 inline mr-1" />
+                          Kostenlos
+                        </span>
+                      )}
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors duration-300 ${
-                      isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold transition-colors duration-300 ${
+                      isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
                     }`}>
                       {service.price}
                     </span>
                   </div>
                   
+                  <h4 className={`text-lg font-semibold mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    {service.name}
+                  </h4>
+                  
+                  <p className={`text-sm mb-3 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    {service.description}
+                  </p>
+                  
                   <div className="mb-4">
-                    <h5 className={`text-sm font-semibold mb-2 transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      Features:
-                    </h5>
-                    <ul className={`text-sm space-y-1 transition-colors duration-300 ${
+                    <ul className={`text-xs space-y-1 transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-600'
                     }`}>
                       {service.features.map((feature, featureIndex) => (
                         <li key={featureIndex} className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                          <div className="w-1 h-1 bg-purple-500 rounded-full"></div>
                           {feature}
                         </li>
                       ))}
@@ -429,13 +460,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     href={service.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg transition-all duration-300 ${
+                    className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm transition-all duration-300 ${
                       isDarkMode
                         ? 'bg-purple-600 hover:bg-purple-700 text-white'
                         : 'bg-purple-500 hover:bg-purple-600 text-white'
                     }`}
                   >
-                    <ExternalLink className="w-4 h-4" />
+                    <ExternalLink className="w-3 h-3" />
                     Service besuchen
                   </a>
                 </div>
@@ -489,7 +520,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               }`}>
                 <li>• Website für alle freischalten/sperren</li>
                 <li>• Medien und Kommentare löschen</li>
-                <li>• Professionelle Fotobuch-Services</li>
+                <li>• Deutsche Fotobuch-Services</li>
                 <li>• Alle Inhalte herunterladen</li>
               </ul>
             </div>
@@ -541,7 +572,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             isDarkMode ? 'bg-gray-800' : 'bg-white'
           }`}>
             <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="w-6 h-6 text-yellow-500" />
+              <Download className="w-6 h-6 text-blue-500" />
               <h3 className={`text-lg font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
@@ -566,7 +597,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               }`}>
                 <p className="text-xs">
                   <strong>💡 Tipp:</strong><br/>
-                  Verwende die heruntergeladenen Bilder für professionelle Fotobuch-Services wie Cewe, Shutterfly oder Pixum für beste Qualität!
+                  Verwende die heruntergeladenen Bilder für deutsche Fotobuch-Services wie CEWE, dm oder Pixum für beste Qualität!
                 </p>
               </div>
             </div>
