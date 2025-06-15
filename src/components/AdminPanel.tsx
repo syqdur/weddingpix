@@ -57,18 +57,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleDownloadAll = async () => {
-    if (mediaItems.length === 0) {
+    const downloadableItems = mediaItems.filter(item => item.type !== 'note');
+    
+    if (downloadableItems.length === 0) {
       alert('Keine Medien zum Herunterladen vorhanden.');
+      return;
+    }
+
+    const confirmMessage = `${downloadableItems.length} Medien-Dateien und ${mediaItems.filter(item => item.type === 'note').length} Notizen werden heruntergeladen.\n\nDies kann einige Minuten dauern. Fortfahren?`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     setIsDownloading(true);
     try {
       await downloadAllMedia(mediaItems);
-      alert(`${mediaItems.filter(item => item.type !== 'note').length} Dateien erfolgreich heruntergeladen!`);
+      alert(`✅ Download erfolgreich!\n\n📊 Heruntergeladen:\n- ${mediaItems.filter(item => item.type === 'image').length} Bilder\n- ${mediaItems.filter(item => item.type === 'video').length} Videos\n- ${mediaItems.filter(item => item.type === 'note').length} Notizen`);
     } catch (error) {
       console.error('Download error:', error);
-      alert('Fehler beim Herunterladen der Dateien.');
+      alert(`❌ Fehler beim Herunterladen:\n${error}\n\nBitte versuche es erneut oder kontaktiere den Support.`);
     } finally {
       setIsDownloading(false);
     }
@@ -77,6 +85,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const isUnderConstructionActive = () => {
     const status = localStorage.getItem('wedding_under_construction');
     return status !== 'false';
+  };
+
+  const getDownloadButtonText = () => {
+    const imageCount = mediaItems.filter(item => item.type === 'image').length;
+    const videoCount = mediaItems.filter(item => item.type === 'video').length;
+    const noteCount = mediaItems.filter(item => item.type === 'note').length;
+    
+    if (mediaItems.length === 0) return 'Keine Medien';
+    
+    const parts = [];
+    if (imageCount > 0) parts.push(`${imageCount} Bild${imageCount > 1 ? 'er' : ''}`);
+    if (videoCount > 0) parts.push(`${videoCount} Video${videoCount > 1 ? 's' : ''}`);
+    if (noteCount > 0) parts.push(`${noteCount} Notiz${noteCount > 1 ? 'en' : ''}`);
+    
+    return parts.join(', ') + ' herunterladen';
   };
 
   return (
@@ -119,16 +142,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <button
             onClick={handleDownloadAll}
             disabled={isDownloading || mediaItems.length === 0}
-            className={`p-3 rounded-full shadow-lg transition-colors duration-300 ${
+            className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
               isDownloading || mediaItems.length === 0
                 ? isDarkMode
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : isDarkMode
-                  ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                  : 'bg-purple-500 hover:bg-purple-600 text-white'
+                  ? 'bg-purple-600 hover:bg-purple-700 text-white hover:scale-110'
+                  : 'bg-purple-500 hover:bg-purple-600 text-white hover:scale-110'
             }`}
-            title={`Alle Medien herunterladen (${mediaItems.filter(item => item.type !== 'note').length} Dateien)`}
+            title={getDownloadButtonText()}
           >
             <Download className={`w-6 h-6 ${isDownloading ? 'animate-bounce' : ''}`} />
           </button>
