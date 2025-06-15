@@ -21,11 +21,30 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
   const [requests, setRequests] = useState<MusicRequest[]>([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'played'>('all');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = loadMusicRequests(setRequests);
-    return unsubscribe;
-  }, []);
+    console.log(`🎵 === MUSIC REQUESTS SECTION MOUNTED ===`);
+    console.log(`👤 User: ${userName} (${deviceId})`);
+    console.log(`👑 Admin: ${isAdmin}`);
+    
+    setIsLoading(true);
+    
+    const unsubscribe = loadMusicRequests((loadedRequests) => {
+      console.log(`🎵 Music requests loaded: ${loadedRequests.length}`);
+      loadedRequests.forEach((request, index) => {
+        console.log(`  ${index + 1}. "${request.songTitle}" by ${request.artist} (requested by ${request.requestedBy})`);
+      });
+      
+      setRequests(loadedRequests);
+      setIsLoading(false);
+    });
+    
+    return () => {
+      console.log(`🎵 Unsubscribing from music requests`);
+      unsubscribe();
+    };
+  }, [userName, deviceId, isAdmin]);
 
   const filteredRequests = requests.filter(request => {
     if (filter === 'all') return true;
@@ -190,16 +209,37 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="px-4 pb-4">
+          <div className="text-center py-12">
+            <div className="w-8 h-8 mx-auto border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className={`text-lg font-semibold transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Lade Musikwünsche...
+            </p>
+            <p className={`text-sm mt-1 transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Verbinde mit Firebase...
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Requests List */}
-      <div className="px-4 pb-4">
-        <MusicRequestsList
-          requests={filteredRequests}
-          currentUser={userName}
-          deviceId={deviceId}
-          isAdmin={isAdmin}
-          isDarkMode={isDarkMode}
-        />
-      </div>
+      {!isLoading && (
+        <div className="px-4 pb-4">
+          <MusicRequestsList
+            requests={filteredRequests}
+            currentUser={userName}
+            deviceId={deviceId}
+            isAdmin={isAdmin}
+            isDarkMode={isDarkMode}
+          />
+        </div>
+      )}
 
       {/* Music Request Modal */}
       <MusicRequestModal

@@ -44,7 +44,10 @@ export const addMusicRequest = async (
   message?: string
 ): Promise<void> => {
   try {
-    console.log(`🎵 Adding music request: ${track.name} by ${track.artists[0].name}`);
+    console.log(`🎵 === ADDING MUSIC REQUEST ===`);
+    console.log(`🎵 Song: ${track.name} by ${track.artists[0].name}`);
+    console.log(`👤 User: ${userName} (${deviceId})`);
+    console.log(`💬 Message: ${message || 'none'}`);
 
     const musicRequest: Omit<MusicRequest, 'id'> = {
       songTitle: track.name,
@@ -65,8 +68,10 @@ export const addMusicRequest = async (
       popularity: track.popularity
     };
 
-    await addDoc(collection(db, 'music_requests'), musicRequest);
-    console.log('✅ Music request added successfully');
+    console.log(`💾 Saving to Firestore...`);
+    const docRef = await addDoc(collection(db, 'music_requests'), musicRequest);
+    console.log(`✅ Music request added successfully with ID: ${docRef.id}`);
+    
   } catch (error) {
     console.error('❌ Error adding music request:', error);
     throw error;
@@ -112,6 +117,8 @@ export const addMusicRequestFromUrl = async (
 
 // Load music requests with real-time updates
 export const loadMusicRequests = (callback: (requests: MusicRequest[]) => void): (() => void) => {
+  console.log(`🎵 === SUBSCRIBING TO MUSIC REQUESTS ===`);
+  
   const q = query(
     collection(db, 'music_requests'), 
     orderBy('votes', 'desc'),
@@ -119,16 +126,35 @@ export const loadMusicRequests = (callback: (requests: MusicRequest[]) => void):
   );
   
   return onSnapshot(q, (snapshot) => {
-    const requests: MusicRequest[] = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as MusicRequest));
+    console.log(`🎵 === MUSIC REQUESTS SNAPSHOT ===`);
+    console.log(`📊 Total docs: ${snapshot.docs.length}`);
     
-    console.log(`🎵 Loaded ${requests.length} music requests`);
+    const requests: MusicRequest[] = snapshot.docs.map((doc, index) => {
+      const data = doc.data();
+      const request = {
+        id: doc.id,
+        ...data
+      } as MusicRequest;
+      
+      console.log(`  ${index + 1}. "${request.songTitle}" by ${request.artist}`);
+      console.log(`      👤 Requested by: ${request.requestedBy}`);
+      console.log(`      📅 Date: ${request.requestedAt}`);
+      console.log(`      ⭐ Status: ${request.status}`);
+      console.log(`      👍 Votes: ${request.votes}`);
+      
+      return request;
+    });
+    
+    console.log(`✅ Loaded ${requests.length} music requests`);
     callback(requests);
     
   }, (error) => {
     console.error('❌ Error loading music requests:', error);
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
     callback([]);
   });
 };
@@ -139,6 +165,8 @@ export const voteMusicRequest = async (
   deviceId: string
 ): Promise<void> => {
   try {
+    console.log(`👍 Voting for request: ${requestId} by device: ${deviceId}`);
+    
     const requestRef = doc(db, 'music_requests', requestId);
     
     // Check if user already voted
@@ -179,6 +207,8 @@ export const updateMusicRequestStatus = async (
   status: MusicRequest['status']
 ): Promise<void> => {
   try {
+    console.log(`🔄 Updating request ${requestId} status to: ${status}`);
+    
     const requestRef = doc(db, 'music_requests', requestId);
     await updateDoc(requestRef, { status });
     console.log(`✅ Music request status updated to: ${status}`);
@@ -191,6 +221,8 @@ export const updateMusicRequestStatus = async (
 // Delete music request
 export const deleteMusicRequest = async (requestId: string): Promise<void> => {
   try {
+    console.log(`🗑️ Deleting music request: ${requestId}`);
+    
     await deleteDoc(doc(db, 'music_requests', requestId));
     console.log('✅ Music request deleted successfully');
   } catch (error) {
