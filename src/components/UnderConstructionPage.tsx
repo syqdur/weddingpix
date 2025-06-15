@@ -226,13 +226,6 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
             }`}>
               Website verwalten
             </h3>
-            <div className={`text-sm mb-4 p-3 rounded-lg transition-colors duration-300 ${
-              isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
-            }`}>
-              <p className="mb-2"><strong>Passwörter:</strong></p>
-              <p>• <code className="bg-gray-600 text-white px-1 rounded">remove</code> - Website für Gäste aktivieren</p>
-              <p>• <code className="bg-gray-600 text-white px-1 rounded">aktivieren</code> - Under Construction aktivieren</p>
-            </div>
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               <input
                 type="password"
