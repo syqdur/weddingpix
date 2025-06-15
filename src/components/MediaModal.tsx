@@ -36,12 +36,22 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   isDarkMode
 }) => {
   const [commentText, setCommentText] = useState('');
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
 
   const currentItem = items[currentIndex];
   const currentComments = comments.filter(c => c.mediaId === currentItem?.id);
   const currentLikes = likes.filter(l => l.mediaId === currentItem?.id);
   const isLiked = currentLikes.some(like => like.userName === userName);
   const likeCount = currentLikes.length;
+
+  // Reset loading states when item changes
+  useEffect(() => {
+    if (currentItem) {
+      setImageError(false);
+      setImageLoading(true);
+    }
+  }, [currentItem?.id]);
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -78,6 +88,17 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     if (window.confirm('Kommentar wirklich löschen?')) {
       onDeleteComment(commentId);
     }
+  };
+
+  const handleImageLoad = () => {
+    setImageLoading(false);
+    setImageError(false);
+  };
+
+  const handleImageError = () => {
+    setImageLoading(false);
+    setImageError(true);
+    console.error(`❌ Modal image failed to load: ${currentItem.url}`);
   };
 
   const formatDate = (dateString: string) => {
@@ -146,6 +167,12 @@ export const MediaModal: React.FC<MediaModalProps> = ({
               controls
               className="max-w-full max-h-full"
               preload="metadata"
+              onLoadStart={() => setImageLoading(true)}
+              onLoadedData={() => setImageLoading(false)}
+              onError={() => {
+                setImageLoading(false);
+                setImageError(true);
+              }}
             />
           ) : currentItem.type === 'note' ? (
             <div className={`w-full h-full flex flex-col items-center justify-center p-8 transition-colors duration-300 ${
@@ -176,11 +203,35 @@ export const MediaModal: React.FC<MediaModalProps> = ({
               </div>
             </div>
           ) : (
-            <img
-              src={currentItem.url}
-              alt="Hochzeitsfoto"
-              className="max-w-full max-h-full object-contain"
-            />
+            <div className="relative w-full h-full flex items-center justify-center">
+              {imageLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black">
+                  <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+              
+              {imageError ? (
+                <div className="flex flex-col items-center justify-center text-white p-8">
+                  <div className="text-6xl mb-4">📷</div>
+                  <p className="text-lg text-center mb-2">
+                    Bild konnte nicht geladen werden
+                  </p>
+                  <p className="text-sm text-center opacity-75">
+                    Von {currentItem.uploadedBy}
+                  </p>
+                </div>
+              ) : (
+                <img
+                  src={currentItem.url}
+                  alt="Hochzeitsfoto"
+                  className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
+                    imageLoading ? 'opacity-0' : 'opacity-100'
+                  }`}
+                  onLoad={handleImageLoad}
+                  onError={handleImageError}
+                />
+              )}
+            </div>
           )}
           
           {items.length > 1 && (

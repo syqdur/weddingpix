@@ -95,6 +95,7 @@ export const loadGallery = (callback: (items: MediaItem[]) => void): () => void 
   return onSnapshot(q, async (snapshot) => {
     const items: MediaItem[] = [];
     
+    // Process items sequentially to avoid overwhelming Firebase
     for (const doc of snapshot.docs) {
       const data = doc.data();
       
@@ -114,36 +115,94 @@ export const loadGallery = (callback: (items: MediaItem[]) => void): () => void 
         // Handle media items (images/videos)
         try {
           const storageRef = ref(storage, `uploads/${data.name}`);
-          const url = await getDownloadURL(storageRef);
           
+          // Add retry logic for URL generation
+          let url = '';
+          let retries = 3;
+          
+          while (retries > 0 && !url) {
+            try {
+              url = await getDownloadURL(storageRef);
+              console.log(`✅ URL loaded for ${data.name}`);
+              break;
+            } catch (urlError) {
+              console.warn(`⚠️ Retry ${4 - retries} for ${data.name}:`, urlError);
+              retries--;
+              
+              if (retries > 0) {
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              }
+            }
+          }
+          
+          if (url) {
+            items.push({
+              id: doc.id,
+              name: data.name,
+              url,
+              uploadedBy: data.uploadedBy,
+              uploadedAt: data.uploadedAt,
+              deviceId: data.deviceId,
+              type: data.type
+            });
+          } else {
+            console.error(`❌ Failed to load URL for ${data.name} after retries`);
+            
+            // Add placeholder item to show the error
+            items.push({
+              id: doc.id,
+              name: data.name,
+              url: '/placeholder-error.jpg', // Fallback
+              uploadedBy: data.uploadedBy,
+              uploadedAt: data.uploadedAt,
+              deviceId: data.deviceId,
+              type: data.type
+            });
+          }
+          
+        } catch (error) {
+          console.error(`❌ Error loading item ${data.name}:`, error);
+          
+          // Add error item to show in gallery
           items.push({
             id: doc.id,
             name: data.name,
-            url,
+            url: '/placeholder-error.jpg', // Fallback
             uploadedBy: data.uploadedBy,
             uploadedAt: data.uploadedAt,
             deviceId: data.deviceId,
             type: data.type
           });
-        } catch (error) {
-          console.error('Error loading item:', error);
         }
       }
     }
     
+    console.log(`📊 Loaded ${items.length} items (${items.filter(i => i.type === 'image').length} images, ${items.filter(i => i.type === 'video').length} videos, ${items.filter(i => i.type === 'note').length} notes)`);
     callback(items);
+  }, (error) => {
+    console.error('❌ Error in gallery listener:', error);
+    // Call callback with empty array on error
+    callback([]);
   });
 };
 
 export const deleteMediaItem = async (item: MediaItem): Promise<void> => {
   // Delete from storage (only if it's not a note)
   if (item.type !== 'note') {
-    const storageRef = ref(storage, `uploads/${item.name}`);
-    await deleteObject(storageRef);
+    try {
+      const storageRef = ref(storage, `uploads/${item.name}`);
+      await deleteObject(storageRef);
+      console.log(`✅ Deleted from storage: ${item.name}`);
+    } catch (storageError) {
+      console.warn(`⚠️ Could not delete from storage: ${item.name}`, storageError);
+      // Continue with Firestore deletion even if storage deletion fails
+    }
   }
   
   // Delete from Firestore
   await deleteDoc(doc(db, 'media', item.id));
+  console.log(`✅ Deleted from Firestore: ${item.id}`);
   
   // Delete associated comments
   const commentsQuery = query(
@@ -168,6 +227,7 @@ export const deleteMediaItem = async (item: MediaItem): Promise<void> => {
   );
   
   await Promise.all([...deleteCommentPromises, ...deleteLikePromises]);
+  console.log(`✅ Deleted associated comments and likes for: ${item.id}`);
 };
 
 export const loadComments = (callback: (comments: Comment[]) => void): () => void => {
@@ -180,6 +240,9 @@ export const loadComments = (callback: (comments: Comment[]) => void): () => voi
     } as Comment));
     
     callback(comments);
+  }, (error) => {
+    console.error('❌ Error loading comments:', error);
+    callback([]);
   });
 };
 
@@ -212,6 +275,9 @@ export const loadLikes = (callback: (likes: Like[]) => void): () => void => {
     } as Like));
     
     callback(likes);
+  }, (error) => {
+    console.error('❌ Error loading likes:', error);
+    callback([]);
   });
 };
 
