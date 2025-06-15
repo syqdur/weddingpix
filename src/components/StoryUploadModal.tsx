@@ -29,11 +29,15 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
       return;
     }
 
-    // Validate file size (max 50MB)
-    if (file.size > 50 * 1024 * 1024) {
-      alert('Datei ist zu groß. Maximum: 50MB');
+    // Validate file size (max 100MB for stories - more generous limit)
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    if (file.size > maxSize) {
+      const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
+      alert(`Datei ist zu groß (${fileSizeMB}MB). Maximum für Stories: 100MB`);
       return;
     }
+
+    console.log(`📤 Story Upload: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
 
     setIsUploading(true);
     try {
@@ -54,6 +58,7 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
     try {
       // Convert blob to file for upload
       const file = new File([videoBlob], `story-${Date.now()}.webm`, { type: 'video/webm' });
+      console.log(`📤 Story Video Upload: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
       await onUpload(file);
       onClose();
     } catch (error) {
@@ -101,6 +106,11 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
             }`}>
               Perfekt für spontane Momente während der Hochzeit!
             </p>
+            <p className={`text-xs mt-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-blue-300' : 'text-blue-600'
+            }`}>
+              📁 Max. Dateigröße: 100MB
+            </p>
           </div>
 
           <input
@@ -140,7 +150,7 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
                 <p className={`text-sm transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Aus der Galerie auswählen
+                  Aus der Galerie auswählen (max. 100MB)
                 </p>
               </div>
             </button>
@@ -173,7 +183,7 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
                 <p className={`text-sm transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Direkt mit der Kamera
+                  Direkt mit der Kamera (max. 10s)
                 </p>
               </div>
             </button>
