@@ -22,8 +22,11 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
   const [deletingRequests, setDeletingRequests] = useState<Set<string>>(new Set());
   const [updatingRequests, setUpdatingRequests] = useState<Set<string>>(new Set());
 
-  // 🎧 DJ SYSTEM: Check if current user is DJ or Admin
-  const isDJ = currentUser.toLowerCase() === 'dj' || currentUser.toLowerCase() === 'maurizio' || isAdmin;
+  // 🎧 DJ SYSTEM: Check if current user is DJ, Mauro, or Admin
+  const isDJ = currentUser.toLowerCase() === 'dj' || 
+              currentUser.toLowerCase() === 'mauro' || 
+              currentUser.toLowerCase() === 'maurizio' || 
+              isAdmin;
 
   console.log(`🎧 === DJ SYSTEM CHECK ===`);
   console.log(`👤 Current User: ${currentUser}`);
