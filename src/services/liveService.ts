@@ -95,7 +95,7 @@ export const subscribeLiveUsers = (callback: (users: LiveUser[]) => void): (() =
   });
 };
 
-// Stories Functions - FIXED VERSION
+// Stories Functions - ENHANCED VERSION WITH BETTER ERROR HANDLING
 export const addStory = async (
   file: File,
   mediaType: 'image' | 'video',
@@ -103,35 +103,94 @@ export const addStory = async (
   deviceId: string
 ): Promise<void> => {
   try {
-    console.log(`📤 Starting story upload for ${userName}...`);
-    console.log(`   📁 File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`🚀 === STORY UPLOAD START ===`);
+    console.log(`👤 User: ${userName} (${deviceId})`);
+    console.log(`📁 File: ${file.name}`);
+    console.log(`📊 Size: ${file.size} bytes (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`🎬 Type: ${mediaType} (${file.type})`);
     
-    // Generate unique filename
+    // Validate file size (client-side check)
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    if (file.size > maxSize) {
+      throw new Error(`Datei zu groß: ${(file.size / 1024 / 1024).toFixed(1)}MB (max. 100MB)`);
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      throw new Error(`Ungültiger Dateityp: ${file.type}`);
+    }
+    
+    // Generate unique filename with better naming
     const timestamp = Date.now();
-    const fileExtension = file.name.split('.').pop() || (mediaType === 'video' ? 'mp4' : 'jpg');
-    const fileName = `${timestamp}-${userName.replace(/[^a-zA-Z0-9]/g, '_')}.${fileExtension}`;
+    const cleanUserName = userName.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_');
+    const fileExtension = file.name.split('.').pop()?.toLowerCase() || (mediaType === 'video' ? 'mp4' : 'jpg');
+    const fileName = `story_${timestamp}_${cleanUserName}.${fileExtension}`;
     
-    console.log(`   🏷️ Generated filename: ${fileName}`);
+    console.log(`🏷️ Generated filename: ${fileName}`);
     
-    // Upload to Firebase Storage
+    // Test Firebase connection first
+    console.log(`🔗 Testing Firebase connection...`);
+    try {
+      // Try to access Firestore first
+      const testQuery = query(collection(db, 'stories'), where('userName', '==', 'test'));
+      console.log(`✅ Firestore connection OK`);
+    } catch (connectionError) {
+      console.error(`❌ Firebase connection failed:`, connectionError);
+      throw new Error(`Verbindung zu Firebase fehlgeschlagen. Prüfe deine Internetverbindung.`);
+    }
+    
+    // Upload to Firebase Storage with progress tracking
+    console.log(`📤 Starting upload to Firebase Storage...`);
     const storageRef = ref(storage, `stories/${fileName}`);
-    console.log(`   ⬆️ Uploading to storage...`);
     
-    await uploadBytes(storageRef, file);
-    console.log(`   ✅ Upload to storage completed`);
+    try {
+      const uploadResult = await uploadBytes(storageRef, file);
+      console.log(`✅ Upload to storage completed`);
+      console.log(`📊 Upload metadata:`, {
+        bucket: uploadResult.metadata.bucket,
+        fullPath: uploadResult.metadata.fullPath,
+        size: uploadResult.metadata.size,
+        timeCreated: uploadResult.metadata.timeCreated
+      });
+    } catch (uploadError) {
+      console.error(`❌ Storage upload failed:`, uploadError);
+      
+      // Provide specific error messages based on error type
+      if (uploadError.code === 'storage/unauthorized') {
+        throw new Error('Keine Berechtigung zum Hochladen. Lade die Seite neu und versuche es erneut.');
+      } else if (uploadError.code === 'storage/canceled') {
+        throw new Error('Upload wurde abgebrochen.');
+      } else if (uploadError.code === 'storage/quota-exceeded') {
+        throw new Error('Speicherplatz voll. Kontaktiere Kristin oder Maurizio.');
+      } else if (uploadError.code === 'storage/invalid-format') {
+        throw new Error('Ungültiges Dateiformat.');
+      } else if (uploadError.message?.includes('network')) {
+        throw new Error('Netzwerkfehler. Prüfe deine Internetverbindung.');
+      } else {
+        throw new Error(`Upload-Fehler: ${uploadError.message || 'Unbekannter Fehler'}`);
+      }
+    }
     
     // Get download URL
-    console.log(`   🔗 Getting download URL...`);
-    const downloadURL = await getDownloadURL(storageRef);
-    console.log(`   ✅ Download URL obtained: ${downloadURL.substring(0, 50)}...`);
+    console.log(`🔗 Getting download URL...`);
+    let downloadURL: string;
+    try {
+      downloadURL = await getDownloadURL(storageRef);
+      console.log(`✅ Download URL obtained: ${downloadURL.substring(0, 80)}...`);
+    } catch (urlError) {
+      console.error(`❌ Failed to get download URL:`, urlError);
+      throw new Error('Fehler beim Erstellen der Download-URL. Versuche es erneut.');
+    }
     
     // Calculate expiry (24 hours from now)
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     
+    console.log(`📅 Story expires at: ${expiresAt.toISOString()}`);
+    
     // Add to Firestore
-    console.log(`   💾 Adding to Firestore...`);
-    const docRef = await addDoc(collection(db, 'stories'), {
+    console.log(`💾 Adding story to Firestore...`);
+    const storyData = {
       mediaUrl: downloadURL,
       mediaType,
       userName,
@@ -140,25 +199,35 @@ export const addStory = async (
       expiresAt: expiresAt.toISOString(),
       views: [],
       fileName: fileName
-    });
+    };
     
-    console.log(`   ✅ Story added to Firestore with ID: ${docRef.id}`);
-    console.log(`🎉 Story upload completed successfully!`);
+    try {
+      const docRef = await addDoc(collection(db, 'stories'), storyData);
+      console.log(`✅ Story added to Firestore with ID: ${docRef.id}`);
+      console.log(`🎉 === STORY UPLOAD COMPLETED SUCCESSFULLY ===`);
+    } catch (firestoreError) {
+      console.error(`❌ Firestore save failed:`, firestoreError);
+      
+      // Try to clean up the uploaded file
+      try {
+        await deleteObject(storageRef);
+        console.log(`🧹 Cleaned up uploaded file after Firestore error`);
+      } catch (cleanupError) {
+        console.warn(`⚠️ Could not clean up uploaded file:`, cleanupError);
+      }
+      
+      throw new Error(`Fehler beim Speichern der Story-Daten: ${firestoreError.message || 'Unbekannter Fehler'}`);
+    }
     
   } catch (error) {
-    console.error('❌ Error adding story:', error);
+    console.error('❌ === STORY UPLOAD FAILED ===');
+    console.error('Error details:', error);
     
-    // Provide more specific error messages
-    if (error.code === 'storage/unauthorized') {
-      throw new Error('Keine Berechtigung zum Hochladen. Bitte versuche es erneut.');
-    } else if (error.code === 'storage/canceled') {
-      throw new Error('Upload wurde abgebrochen.');
-    } else if (error.code === 'storage/quota-exceeded') {
-      throw new Error('Speicherplatz voll. Bitte kontaktiere den Administrator.');
-    } else if (error.code === 'storage/invalid-format') {
-      throw new Error('Ungültiges Dateiformat. Nur Bilder und Videos sind erlaubt.');
+    // Re-throw with user-friendly message
+    if (error instanceof Error) {
+      throw error; // Already has a user-friendly message
     } else {
-      throw new Error(`Upload-Fehler: ${error.message || 'Unbekannter Fehler'}`);
+      throw new Error(`Unbekannter Fehler beim Story-Upload: ${error}`);
     }
   }
 };

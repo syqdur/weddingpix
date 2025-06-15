@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Camera, Image, Video } from 'lucide-react';
+import { X, Camera, Image, Video, AlertCircle } from 'lucide-react';
 import { VideoRecorder } from './VideoRecorder';
 
 interface StoryUploadModalProps {
@@ -17,47 +17,82 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [showVideoRecorder, setShowVideoRecorder] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setUploadError(null);
+
     // Log file info for debugging
     const fileSizeKB = (file.size / 1024).toFixed(1);
     const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-    console.log(`📤 Story Upload: ${file.name}`);
+    console.log(`📤 Story Upload Debug:`);
+    console.log(`   📁 Name: ${file.name}`);
     console.log(`   📊 Größe: ${file.size} bytes (${fileSizeKB} KB / ${fileSizeMB} MB)`);
     console.log(`   📁 Typ: ${file.type}`);
+    console.log(`   📅 Letzte Änderung: ${new Date(file.lastModified).toISOString()}`);
 
     // Validate file type
     if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-      alert('Bitte wähle ein Bild oder Video aus.');
+      const errorMsg = `❌ Ungültiger Dateityp: ${file.type}\n\n✅ Erlaubt: Bilder (JPG, PNG, GIF) und Videos (MP4, WebM, MOV)`;
+      setUploadError(errorMsg);
+      alert(errorMsg);
       return;
     }
 
-    // Validate file size (max 200MB for stories - increased limit)
-    const maxSize = 200 * 1024 * 1024; // 200MB in bytes
+    // Validate file size (max 100MB for stories - reduced from 200MB)
+    const maxSize = 100 * 1024 * 1024; // 100MB in bytes
     if (file.size > maxSize) {
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
-      alert(`📁 Datei ist zu groß (${fileSizeMB}MB)\n\n⚠️ Maximum für Stories: 200MB\n\n💡 Tipp: Komprimiere das Bild/Video oder wähle eine kleinere Datei.`);
+      const errorMsg = `📁 Datei ist zu groß (${fileSizeMB}MB)\n\n⚠️ Maximum für Stories: 100MB\n\n💡 Tipp: Komprimiere das Bild/Video oder wähle eine kleinere Datei.`;
+      setUploadError(errorMsg);
+      alert(errorMsg);
       return;
     }
 
     // Show warning for large files
-    if (file.size > 50 * 1024 * 1024) { // 50MB+
+    if (file.size > 20 * 1024 * 1024) { // 20MB+
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
       const proceed = window.confirm(`📁 Große Datei erkannt (${fileSizeMB}MB)\n\n⏳ Upload kann länger dauern.\n\n✅ Trotzdem hochladen?`);
       if (!proceed) return;
     }
 
     setIsUploading(true);
+    console.log(`🚀 Starting story upload process...`);
+    
     try {
       await onUpload(file);
+      console.log(`✅ Story upload completed successfully!`);
       onClose();
     } catch (error) {
-      console.error('Story upload error:', error);
-      alert('Fehler beim Hochladen der Story. Bitte versuche es erneut.');
+      console.error('❌ Story upload error:', error);
+      
+      let errorMessage = 'Unbekannter Fehler beim Hochladen der Story.';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      // More specific error handling
+      if (errorMessage.includes('storage/unauthorized')) {
+        errorMessage = '🔒 Keine Berechtigung zum Hochladen.\n\n💡 Versuche die Seite neu zu laden.';
+      } else if (errorMessage.includes('storage/quota-exceeded')) {
+        errorMessage = '💾 Speicherplatz voll.\n\n📞 Bitte kontaktiere Kristin oder Maurizio.';
+      } else if (errorMessage.includes('storage/canceled')) {
+        errorMessage = '⏹️ Upload wurde abgebrochen.\n\n🔄 Versuche es erneut.';
+      } else if (errorMessage.includes('network')) {
+        errorMessage = '📶 Netzwerkfehler.\n\n💡 Prüfe deine Internetverbindung und versuche es erneut.';
+      } else if (errorMessage.includes('Firebase')) {
+        errorMessage = '☁️ Server-Fehler.\n\n⏳ Versuche es in wenigen Sekunden erneut.';
+      }
+      
+      setUploadError(errorMessage);
+      alert(`❌ Fehler beim Hochladen der Story:\n\n${errorMessage}`);
     } finally {
       setIsUploading(false);
     }
@@ -65,6 +100,7 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
 
   const handleVideoRecorded = async (videoBlob: Blob) => {
     setShowVideoRecorder(false);
+    setUploadError(null);
     setIsUploading(true);
     
     try {
@@ -74,14 +110,23 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
       // Log video info for debugging
       const fileSizeKB = (file.size / 1024).toFixed(1);
       const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-      console.log(`📤 Story Video Upload: ${file.name}`);
+      console.log(`📤 Story Video Upload Debug:`);
+      console.log(`   📁 Name: ${file.name}`);
       console.log(`   📊 Größe: ${file.size} bytes (${fileSizeKB} KB / ${fileSizeMB} MB)`);
+      console.log(`   📁 Typ: ${file.type}`);
       
       await onUpload(file);
       onClose();
     } catch (error) {
       console.error('Story video upload error:', error);
-      alert('Fehler beim Hochladen des Videos. Bitte versuche es erneut.');
+      
+      let errorMessage = 'Unbekannter Fehler beim Hochladen des Videos.';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setUploadError(errorMessage);
+      alert(`❌ Fehler beim Hochladen des Videos:\n\n${errorMessage}`);
     } finally {
       setIsUploading(false);
     }
@@ -129,7 +174,7 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
             }`}>
               <div className="flex items-center gap-2">
                 <span>📁</span>
-                <span>Max. Dateigröße: 200MB</span>
+                <span>Max. Dateigröße: 100MB</span>
               </div>
               <div className="flex items-center gap-2">
                 <span>🎥</span>
@@ -141,6 +186,23 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Error Display */}
+          {uploadError && (
+            <div className={`mb-4 p-3 rounded-xl border transition-colors duration-300 ${
+              isDarkMode 
+                ? 'bg-red-900/20 border-red-700/30 text-red-300' 
+                : 'bg-red-50 border-red-200 text-red-700'
+            }`}>
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <div className="font-semibold mb-1">Upload-Fehler:</div>
+                  <div className="whitespace-pre-line">{uploadError}</div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <input
             ref={fileInputRef}
@@ -179,7 +241,7 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
                 <p className={`text-sm transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Aus der Galerie auswählen (max. 200MB)
+                  Aus der Galerie auswählen (max. 100MB)
                 </p>
               </div>
             </button>
@@ -225,6 +287,11 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
                 Story wird hochgeladen...
+              </p>
+              <p className={`text-xs mt-1 transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-500' : 'text-gray-500'
+              }`}>
+                Bei großen Dateien kann dies länger dauern
               </p>
             </div>
           )}
