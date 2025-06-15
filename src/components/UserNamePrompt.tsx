@@ -21,12 +21,12 @@ export const UserNamePrompt: React.FC<UserNamePromptProps> = ({ onSubmit }) => {
         <div className="mb-8">
           <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden border-4 border-pink-200">
             <img 
-              src="/public/image_with_edge_to_edge_grid_and_labels.jpg" 
-              alt="Maurizio & Kristin"
+              src="https://i.ibb.co/PvXjwss4/profil.jpg" 
+              alt="Kristin & Maurizio"
               className="w-full h-full object-cover"
             />
           </div>
-          <h1 className="text-2xl font-light mb-2">kristinundmauro</h1>
+          <h1 className="text-2xl font-light mb-2">kristinundmauro.de</h1>
           <p className="text-gray-600 text-sm mb-6">
             Willkommen zu unserer Hochzeitsgalerie! 💕<br/>
             Teile deine schönsten Momente mit uns.

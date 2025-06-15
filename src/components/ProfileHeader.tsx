@@ -13,7 +13,7 @@ export const ProfileHeader: React.FC = () => {
           />
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-semibold">kristinundmauro</h2>
+          <h2 className="text-xl font-semibold">kristinundmauro.de</h2>
           <div className="flex gap-6 mt-2 text-sm">
             <span><strong>∞</strong> Follower</span>
             </div>
