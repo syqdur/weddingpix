@@ -96,7 +96,7 @@ export const subscribeLiveUsers = (callback: (users: LiveUser[]) => void): (() =
   });
 };
 
-// Stories Functions - COMPLETELY REWRITTEN WITH ROBUST ERROR HANDLING
+// Stories Functions - FIXED TO USE SAME STORAGE PATH AS REGULAR UPLOADS
 export const addStory = async (
   file: File,
   mediaType: 'image' | 'video',
@@ -135,7 +135,9 @@ export const addStory = async (
     const timestamp = Date.now();
     const cleanUserName = userName.replace(/[^a-zA-Z0-9äöüÄÖÜß]/g, '_');
     const fileExtension = file.name.split('.').pop()?.toLowerCase() || (mediaType === 'video' ? 'mp4' : 'jpg');
-    const fileName = `story_${timestamp}_${cleanUserName}.${fileExtension}`;
+    
+    // 🔧 FIX: Use same path as regular uploads to avoid permission issues
+    const fileName = `STORY_${timestamp}_${cleanUserName}.${fileExtension}`;
     
     console.log(`✅ Generated filename: ${fileName}`);
     
@@ -159,10 +161,11 @@ export const addStory = async (
     // === STEP 4: UPLOAD TO STORAGE ===
     console.log(`📤 Step 4: Uploading to Firebase Storage...`);
     
-    storageRef = ref(storage, `stories/${fileName}`);
+    // 🔧 FIX: Use 'uploads/' path instead of 'stories/' to match existing permissions
+    storageRef = ref(storage, `uploads/${fileName}`);
     
     try {
-      console.log(`📤 Starting upload...`);
+      console.log(`📤 Starting upload to: uploads/${fileName}`);
       const uploadResult = await uploadBytes(storageRef, file);
       uploadedToStorage = true;
       
@@ -219,7 +222,8 @@ export const addStory = async (
       createdAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
       views: [],
-      fileName: fileName
+      fileName: fileName, // Store filename for deletion
+      isStory: true // Mark as story for identification
     };
     
     console.log(`📅 Story expires at: ${expiresAt.toISOString()}`);
@@ -355,7 +359,8 @@ export const deleteStory = async (storyId: string): Promise<void> => {
       // Delete from storage if fileName exists
       if (storyData.fileName) {
         try {
-          const storageRef = ref(storage, `stories/${storyData.fileName}`);
+          // 🔧 FIX: Use 'uploads/' path for deletion too
+          const storageRef = ref(storage, `uploads/${storyData.fileName}`);
           await deleteObject(storageRef);
           console.log(`✅ Deleted story from storage: ${storyData.fileName}`);
         } catch (storageError) {
@@ -391,7 +396,8 @@ export const cleanupExpiredStories = async (): Promise<void> => {
       // Delete from storage if fileName exists
       if (storyData.fileName) {
         try {
-          const storageRef = ref(storage, `stories/${storyData.fileName}`);
+          // 🔧 FIX: Use 'uploads/' path for cleanup too
+          const storageRef = ref(storage, `uploads/${storyData.fileName}`);
           await deleteObject(storageRef);
         } catch (storageError) {
           console.warn(`⚠️ Could not delete expired story from storage: ${storyData.fileName}`, storageError);
