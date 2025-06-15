@@ -17,7 +17,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { storage, db } from '../config/firebase';
-import { MediaItem, Comment } from '../types';
+import { MediaItem, Comment, Like } from '../types';
 
 export const uploadFiles = async (
   files: FileList, 
@@ -46,6 +46,26 @@ export const uploadFiles = async (
     uploaded++;
     onProgress((uploaded / files.length) * 100);
   }
+};
+
+export const uploadAudio = async (
+  audioBlob: Blob,
+  userName: string,
+  deviceId: string
+): Promise<void> => {
+  const fileName = `${Date.now()}-audio.webm`;
+  const storageRef = ref(storage, `uploads/${fileName}`);
+  
+  await uploadBytes(storageRef, audioBlob);
+  
+  // Add metadata to Firestore
+  await addDoc(collection(db, 'media'), {
+    name: fileName,
+    uploadedBy: userName,
+    deviceId: deviceId,
+    uploadedAt: new Date().toISOString(),
+    type: 'audio'
+  });
 };
 
 export const loadGallery = (callback: (items: MediaItem[]) => void): () => void => {
@@ -93,11 +113,22 @@ export const deleteMediaItem = async (item: MediaItem): Promise<void> => {
   );
   const commentsSnapshot = await getDocs(commentsQuery);
   
-  const deletePromises = commentsSnapshot.docs.map(commentDoc => 
+  const deleteCommentPromises = commentsSnapshot.docs.map(commentDoc => 
     deleteDoc(doc(db, 'comments', commentDoc.id))
   );
   
-  await Promise.all(deletePromises);
+  // Delete associated likes
+  const likesQuery = query(
+    collection(db, 'likes'), 
+    where('mediaId', '==', item.id)
+  );
+  const likesSnapshot = await getDocs(likesQuery);
+  
+  const deleteLikePromises = likesSnapshot.docs.map(likeDoc => 
+    deleteDoc(doc(db, 'likes', likeDoc.id))
+  );
+  
+  await Promise.all([...deleteCommentPromises, ...deleteLikePromises]);
 };
 
 export const loadComments = (callback: (comments: Comment[]) => void): () => void => {
@@ -126,4 +157,51 @@ export const addComment = async (
     deviceId,
     createdAt: new Date().toISOString()
   });
+};
+
+export const deleteComment = async (commentId: string): Promise<void> => {
+  await deleteDoc(doc(db, 'comments', commentId));
+};
+
+export const loadLikes = (callback: (likes: Like[]) => void): () => void => {
+  const q = query(collection(db, 'likes'), orderBy('createdAt', 'desc'));
+  
+  return onSnapshot(q, (snapshot) => {
+    const likes: Like[] = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Like));
+    
+    callback(likes);
+  });
+};
+
+export const toggleLike = async (
+  mediaId: string,
+  userName: string,
+  deviceId: string
+): Promise<void> => {
+  // Check if user already liked this media
+  const likesQuery = query(
+    collection(db, 'likes'),
+    where('mediaId', '==', mediaId),
+    where('userName', '==', userName),
+    where('deviceId', '==', deviceId)
+  );
+  
+  const likesSnapshot = await getDocs(likesQuery);
+  
+  if (likesSnapshot.empty) {
+    // Add like
+    await addDoc(collection(db, 'likes'), {
+      mediaId,
+      userName,
+      deviceId,
+      createdAt: new Date().toISOString()
+    });
+  } else {
+    // Remove like
+    const likeDoc = likesSnapshot.docs[0];
+    await deleteDoc(doc(db, 'likes', likeDoc.id));
+  }
 };

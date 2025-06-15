@@ -5,13 +5,21 @@ export interface MediaItem {
   uploadedBy: string;
   uploadedAt: string;
   deviceId: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
 }
 
 export interface Comment {
   id: string;
   mediaId: string;
   text: string;
+  userName: string;
+  deviceId: string;
+  createdAt: string;
+}
+
+export interface Like {
+  id: string;
+  mediaId: string;
   userName: string;
   deviceId: string;
   createdAt: string;
