@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Music, Heart, Clock, ExternalLink, MessageSquare, Users, Play, Check, X, Trash2, Crown } from 'lucide-react';
+import { Music, Heart, Clock, ExternalLink, MessageSquare, Users, Play, Check, X, Trash2, Crown, Headphones } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { voteMusicRequest, updateMusicRequestStatus, deleteMusicRequest } from '../services/musicService';
 
@@ -20,6 +20,15 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
 }) => {
   const [votingRequests, setVotingRequests] = useState<Set<string>>(new Set());
   const [deletingRequests, setDeletingRequests] = useState<Set<string>>(new Set());
+  const [updatingRequests, setUpdatingRequests] = useState<Set<string>>(new Set());
+
+  // 🎧 DJ SYSTEM: Check if current user is DJ or Admin
+  const isDJ = currentUser.toLowerCase() === 'dj' || currentUser.toLowerCase() === 'maurizio' || isAdmin;
+
+  console.log(`🎧 === DJ SYSTEM CHECK ===`);
+  console.log(`👤 Current User: ${currentUser}`);
+  console.log(`🎧 Is DJ: ${isDJ}`);
+  console.log(`👑 Is Admin: ${isAdmin}`);
 
   const handleVote = async (requestId: string) => {
     if (votingRequests.has(requestId)) return;
@@ -39,15 +48,26 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
   };
 
   const handleStatusUpdate = async (requestId: string, status: MusicRequest['status']) => {
+    if (updatingRequests.has(requestId)) return;
+
+    setUpdatingRequests(prev => new Set(prev).add(requestId));
     try {
+      console.log(`🎧 DJ updating status: ${requestId} -> ${status}`);
       await updateMusicRequestStatus(requestId, status);
     } catch (error) {
       console.error('Error updating status:', error);
+      alert('Fehler beim Aktualisieren des Status. Bitte versuche es erneut.');
+    } finally {
+      setUpdatingRequests(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(requestId);
+        return newSet;
+      });
     }
   };
 
   const handleDelete = async (request: MusicRequest) => {
-    // 🎯 NEW: Only allow deletion of own requests (or admin can delete any)
+    // Only allow deletion of own requests (or admin can delete any)
     const canDelete = isAdmin || request.requestedBy === currentUser;
     if (!canDelete) {
       alert('Du kannst nur deine eigenen Musikwünsche löschen.');
@@ -88,11 +108,11 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
 
   const getStatusColor = (status: MusicRequest['status']) => {
     switch (status) {
-      case 'pending': return isDarkMode ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-800';
-      case 'approved': return isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800';
-      case 'played': return isDarkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-800';
-      case 'rejected': return isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800';
-      default: return isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800';
+      case 'pending': return isDarkMode ? 'bg-yellow-900/30 text-yellow-300 border-yellow-700/30' : 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'approved': return isDarkMode ? 'bg-green-900/30 text-green-300 border-green-700/30' : 'bg-green-100 text-green-800 border-green-200';
+      case 'played': return isDarkMode ? 'bg-blue-900/30 text-blue-300 border-blue-700/30' : 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'rejected': return isDarkMode ? 'bg-red-900/30 text-red-300 border-red-700/30' : 'bg-red-100 text-red-800 border-red-200';
+      default: return isDarkMode ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -140,11 +160,41 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* DJ Info Banner */}
+      {isDJ && (
+        <div className={`p-4 rounded-xl border transition-colors duration-300 ${
+          isDarkMode 
+            ? 'bg-purple-900/20 border-purple-700/30' 
+            : 'bg-purple-50 border-purple-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-full transition-colors duration-300 ${
+              isDarkMode ? 'bg-purple-600' : 'bg-purple-500'
+            }`}>
+              <Headphones className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h4 className={`font-semibold transition-colors duration-300 ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              }`}>
+                🎧 DJ-Modus aktiv
+              </h4>
+              <p className={`text-sm transition-colors duration-300 ${
+                isDarkMode ? 'text-purple-200' : 'text-purple-700'
+              }`}>
+                Du kannst Musikwünsche genehmigen und als gespielt markieren
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {requests.map((request) => {
         const hasVoted = request.votedBy.includes(deviceId);
         const canDelete = isAdmin || request.requestedBy === currentUser;
         const isVoting = votingRequests.has(request.id);
         const isDeleting = deletingRequests.has(request.id);
+        const isUpdating = updatingRequests.has(request.id);
 
         return (
           <div key={request.id} className={`p-4 rounded-xl border transition-all duration-300 ${
@@ -253,8 +303,12 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                     </span>
                   </div>
 
-                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${getStatusColor(request.status)}`}>
-                    {getStatusIcon(request.status)}
+                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs border ${getStatusColor(request.status)}`}>
+                    {isUpdating ? (
+                      <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      getStatusIcon(request.status)
+                    )}
                     {getStatusText(request.status)}
                   </div>
 
@@ -317,34 +371,69 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                     </span>
                   </button>
 
-                  {/* Admin Controls */}
-                  {isAdmin && request.status === 'pending' && !isDeleting && (
+                  {/* 🎧 DJ CONTROLS - Only visible to DJ and Admin */}
+                  {isDJ && !isDeleting && (
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleStatusUpdate(request.id, 'approved')}
-                        className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs transition-colors"
-                      >
-                        <Check className="w-3 h-3" />
-                        Genehmigen
-                      </button>
-                      <button
-                        onClick={() => handleStatusUpdate(request.id, 'rejected')}
-                        className="flex items-center gap-1 px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs transition-colors"
-                      >
-                        <X className="w-3 h-3" />
-                        Ablehnen
-                      </button>
-                    </div>
-                  )}
+                      {request.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleStatusUpdate(request.id, 'approved')}
+                            disabled={isUpdating}
+                            className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs transition-colors ${
+                              isUpdating
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-green-600 hover:bg-green-700'
+                            } text-white`}
+                          >
+                            {isUpdating ? (
+                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Check className="w-3 h-3" />
+                            )}
+                            Genehmigen
+                          </button>
+                          <button
+                            onClick={() => handleStatusUpdate(request.id, 'rejected')}
+                            disabled={isUpdating}
+                            className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs transition-colors ${
+                              isUpdating
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-red-600 hover:bg-red-700'
+                            } text-white`}
+                          >
+                            <X className="w-3 h-3" />
+                            Ablehnen
+                          </button>
+                        </>
+                      )}
 
-                  {isAdmin && request.status === 'approved' && !isDeleting && (
-                    <button
-                      onClick={() => handleStatusUpdate(request.id, 'played')}
-                      className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs transition-colors"
-                    >
-                      <Play className="w-3 h-3" />
-                      Als gespielt markieren
-                    </button>
+                      {request.status === 'approved' && (
+                        <button
+                          onClick={() => handleStatusUpdate(request.id, 'played')}
+                          disabled={isUpdating}
+                          className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs transition-colors ${
+                            isUpdating
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700'
+                          } text-white`}
+                        >
+                          {isUpdating ? (
+                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Play className="w-3 h-3" />
+                          )}
+                          Als gespielt markieren
+                        </button>
+                      )}
+
+                      {/* DJ Badge */}
+                      <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors duration-300 ${
+                        isDarkMode ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-800'
+                      }`}>
+                        <Headphones className="w-3 h-3" />
+                        DJ
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
