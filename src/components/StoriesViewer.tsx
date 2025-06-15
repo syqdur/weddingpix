@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Pause, Play, Trash2 } from 'lucide-react';
 import { Story } from '../services/liveService';
 
 interface StoriesViewerProps {
@@ -9,6 +9,8 @@ interface StoriesViewerProps {
   currentUser: string;
   onClose: () => void;
   onStoryViewed: (storyId: string) => void;
+  onDeleteStory: (storyId: string) => void;
+  isAdmin: boolean;
   isDarkMode: boolean;
 }
 
@@ -19,6 +21,8 @@ export const StoriesViewer: React.FC<StoriesViewerProps> = ({
   currentUser,
   onClose,
   onStoryViewed,
+  onDeleteStory,
+  isAdmin,
   isDarkMode
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialStoryIndex);
@@ -28,6 +32,9 @@ export const StoriesViewer: React.FC<StoriesViewerProps> = ({
 
   const currentStory = stories[currentIndex];
   const STORY_DURATION = 5000; // 5 seconds per story
+
+  // Check if current user can delete this story
+  const canDeleteStory = isAdmin || (currentStory && currentStory.userName === currentUser);
 
   useEffect(() => {
     if (!isOpen || !currentStory) return;
@@ -90,6 +97,32 @@ export const StoriesViewer: React.FC<StoriesViewerProps> = ({
 
   const togglePause = () => {
     setIsPaused(prev => !prev);
+  };
+
+  const handleDeleteStory = () => {
+    if (!currentStory || !canDeleteStory) return;
+
+    const storyType = currentStory.mediaType === 'video' ? 'Video-Story' : 'Foto-Story';
+    const confirmMessage = isAdmin 
+      ? `${storyType} von ${currentStory.userName} wirklich löschen?`
+      : `Deine ${storyType} wirklich löschen?`;
+
+    if (window.confirm(confirmMessage)) {
+      onDeleteStory(currentStory.id);
+      
+      // Move to next story or close if this was the last one
+      if (stories.length > 1) {
+        if (currentIndex < stories.length - 1) {
+          // Stay at current index, next story will shift into this position
+        } else {
+          // Go to previous story if this was the last one
+          setCurrentIndex(prev => prev - 1);
+        }
+      } else {
+        // Close viewer if this was the only story
+        onClose();
+      }
+    }
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -168,6 +201,15 @@ export const StoriesViewer: React.FC<StoriesViewerProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {canDeleteStory && (
+            <button
+              onClick={handleDeleteStory}
+              className="p-2 rounded-full bg-red-600/80 text-white hover:bg-red-600 transition-colors"
+              title="Story löschen"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={togglePause}
             className="p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"

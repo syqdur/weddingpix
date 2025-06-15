@@ -12,7 +12,8 @@ import {
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { ref, deleteObject } from 'firebase/storage';
+import { db, storage } from '../config/firebase';
 
 // Live View Counter Types
 export interface LiveUser {
@@ -33,6 +34,7 @@ export interface Story {
   createdAt: string;
   expiresAt: string;
   views: string[]; // Array of user IDs who viewed this story
+  fileName?: string; // For deletion from storage
 }
 
 // Live View Counter Functions
@@ -98,7 +100,8 @@ export const addStory = async (
   mediaUrl: string,
   mediaType: 'image' | 'video',
   userName: string,
-  deviceId: string
+  deviceId: string,
+  fileName?: string
 ): Promise<void> => {
   try {
     const now = new Date();
@@ -111,7 +114,8 @@ export const addStory = async (
       deviceId,
       createdAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
-      views: []
+      views: [],
+      fileName: fileName || `story-${Date.now()}`
     });
   } catch (error) {
     console.error('Error adding story:', error);
@@ -141,6 +145,26 @@ export const subscribeStories = (callback: (stories: Story[]) => void): (() => v
   });
 };
 
+// Subscribe to ALL stories for admin (including expired ones)
+export const subscribeAllStories = (callback: (stories: Story[]) => void): (() => void) => {
+  const q = query(
+    collection(db, 'stories'),
+    orderBy('createdAt', 'desc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const stories: Story[] = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Story));
+    
+    callback(stories);
+  }, (error) => {
+    console.error('Error listening to all stories:', error);
+    callback([]);
+  });
+};
+
 export const markStoryAsViewed = async (storyId: string, deviceId: string): Promise<void> => {
   try {
     const storyRef = doc(db, 'stories', storyId);
@@ -161,6 +185,38 @@ export const markStoryAsViewed = async (storyId: string, deviceId: string): Prom
   }
 };
 
+// Delete a specific story
+export const deleteStory = async (storyId: string): Promise<void> => {
+  try {
+    // Get story data first to get the fileName for storage deletion
+    const storyDoc = await getDocs(query(collection(db, 'stories'), where('__name__', '==', storyId)));
+    
+    if (!storyDoc.empty) {
+      const storyData = storyDoc.docs[0].data();
+      
+      // Delete from storage if fileName exists
+      if (storyData.fileName) {
+        try {
+          const storageRef = ref(storage, `stories/${storyData.fileName}`);
+          await deleteObject(storageRef);
+          console.log(`✅ Deleted story from storage: ${storyData.fileName}`);
+        } catch (storageError) {
+          console.warn(`⚠️ Could not delete story from storage: ${storyData.fileName}`, storageError);
+          // Continue with Firestore deletion even if storage deletion fails
+        }
+      }
+    }
+    
+    // Delete from Firestore
+    await deleteDoc(doc(db, 'stories', storyId));
+    console.log(`✅ Deleted story from Firestore: ${storyId}`);
+    
+  } catch (error) {
+    console.error('Error deleting story:', error);
+    throw error;
+  }
+};
+
 // Cleanup expired stories (should be called periodically)
 export const cleanupExpiredStories = async (): Promise<void> => {
   try {
@@ -171,7 +227,22 @@ export const cleanupExpiredStories = async (): Promise<void> => {
     );
     
     const snapshot = await getDocs(q);
-    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+    const deletePromises = snapshot.docs.map(async (doc) => {
+      const storyData = doc.data();
+      
+      // Delete from storage if fileName exists
+      if (storyData.fileName) {
+        try {
+          const storageRef = ref(storage, `stories/${storyData.fileName}`);
+          await deleteObject(storageRef);
+        } catch (storageError) {
+          console.warn(`⚠️ Could not delete expired story from storage: ${storyData.fileName}`, storageError);
+        }
+      }
+      
+      // Delete from Firestore
+      return deleteDoc(doc.ref);
+    });
     
     await Promise.all(deletePromises);
     console.log(`Cleaned up ${snapshot.docs.length} expired stories`);

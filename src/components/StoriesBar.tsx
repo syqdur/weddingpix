@@ -34,10 +34,8 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
     hasUnviewed: userStoriesArray.some(story => !story.views.includes(currentUser))
   }));
 
-  // Sort: current user first, then by latest story time
+  // Sort by latest story time
   userStories.sort((a, b) => {
-    if (a.userName === currentUser) return -1;
-    if (b.userName === currentUser) return 1;
     return new Date(b.latestStory.createdAt).getTime() - new Date(a.latestStory.createdAt).getTime();
   });
 
@@ -71,32 +69,15 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
     }
   };
 
+  if (userStories.length === 0) {
+    return null; // Don't show stories bar if no stories exist
+  }
+
   return (
     <div className={`p-4 border-b transition-colors duration-300 ${
       isDarkMode ? 'border-gray-700' : 'border-gray-100'
     }`}>
       <div className="flex gap-4 overflow-x-auto pb-2">
-        {/* Add Story Button */}
-        <div className="flex flex-col items-center gap-2 flex-shrink-0">
-          <button
-            onClick={onAddStory}
-            className={`w-16 h-16 rounded-full border-2 border-dashed flex items-center justify-center transition-all duration-300 ${
-              isDarkMode 
-                ? 'border-gray-600 hover:border-gray-500 hover:bg-gray-700/30' 
-                : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-            }`}
-          >
-            <Plus className={`w-6 h-6 transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-500' : 'text-gray-400'
-            }`} />
-          </button>
-          <span className={`text-xs text-center transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
-            Deine Story
-          </span>
-        </div>
-
         {/* User Stories */}
         {userStories.map((userStory) => (
           <div key={userStory.userName} className="flex flex-col items-center gap-2 flex-shrink-0">

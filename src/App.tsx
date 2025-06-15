@@ -33,8 +33,10 @@ import {
   setUserOffline,
   subscribeLiveUsers,
   subscribeStories,
+  subscribeAllStories,
   addStory,
   markStoryAsViewed,
+  deleteStory,
   cleanupExpiredStories,
   LiveUser,
   Story
@@ -85,8 +87,10 @@ function App() {
     // Subscribe to live users
     const unsubscribeLiveUsers = subscribeLiveUsers(setLiveUsers);
 
-    // Subscribe to stories
-    const unsubscribeStories = subscribeStories(setStories);
+    // Subscribe to stories (admin sees all, users see only active)
+    const unsubscribeStories = isAdmin 
+      ? subscribeAllStories(setStories)
+      : subscribeStories(setStories);
 
     // Cleanup expired stories periodically
     const cleanupInterval = setInterval(() => {
@@ -108,7 +112,7 @@ function App() {
       unsubscribeLiveUsers();
       unsubscribeStories();
     };
-  }, [userName, deviceId, siteStatus]);
+  }, [userName, deviceId, siteStatus, isAdmin]);
 
   useEffect(() => {
     if (!userName || !siteStatus || siteStatus.isUnderConstruction) return;
@@ -265,15 +269,15 @@ function App() {
 
     try {
       // Upload file to Firebase Storage
-      const fileName = `stories/${Date.now()}-${file.name}`;
-      const storageRef = ref(storage, fileName);
+      const fileName = `${Date.now()}-${file.name}`;
+      const storageRef = ref(storage, `stories/${fileName}`);
       
       await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(storageRef);
       
       // Add story to Firestore
       const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
-      await addStory(downloadURL, mediaType, userName, deviceId);
+      await addStory(downloadURL, mediaType, userName, deviceId, fileName);
       
       setStatus('✅ Story erfolgreich hinzugefügt!');
       setTimeout(() => setStatus(''), 3000);
@@ -291,6 +295,18 @@ function App() {
 
   const handleStoryViewed = async (storyId: string) => {
     await markStoryAsViewed(storyId, deviceId);
+  };
+
+  const handleDeleteStory = async (storyId: string) => {
+    try {
+      await deleteStory(storyId);
+      setStatus('✅ Story erfolgreich gelöscht!');
+      setTimeout(() => setStatus(''), 3000);
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      setStatus('❌ Fehler beim Löschen der Story.');
+      setTimeout(() => setStatus(''), 5000);
+    }
   };
 
   const openModal = (index: number) => {
@@ -464,6 +480,8 @@ function App() {
         currentUser={userName || ''}
         onClose={() => setShowStoriesViewer(false)}
         onStoryViewed={handleStoryViewed}
+        onDeleteStory={handleDeleteStory}
+        isAdmin={isAdmin}
         isDarkMode={isDarkMode}
       />
 
