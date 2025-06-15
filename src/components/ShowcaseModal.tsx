@@ -364,7 +364,7 @@ export const ShowcaseModal: React.FC<ShowcaseModalProps> = ({
                     <div className={`text-3xl font-bold transition-colors duration-300 ${
                       isDarkMode ? 'text-blue-400' : 'text-blue-600'
                     }`}>
-                      <1s
+                      &lt;1s
                     </div>
                     <div className={`text-sm transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-600'
