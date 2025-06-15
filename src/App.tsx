@@ -11,6 +11,7 @@ import { LiveViewCounter } from './components/LiveViewCounter';
 import { StoriesBar } from './components/StoriesBar';
 import { StoriesViewer } from './components/StoriesViewer';
 import { StoryUploadModal } from './components/StoryUploadModal';
+import { MusicRequestsSection } from './components/MusicRequestsSection';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -426,6 +427,14 @@ function App() {
           onAddStory={() => setShowStoryUpload(true)}
           isUploading={isUploading}
           progress={uploadProgress}
+          isDarkMode={isDarkMode}
+        />
+
+        {/* Music Requests Section */}
+        <MusicRequestsSection
+          userName={userName || ''}
+          deviceId={deviceId}
+          isAdmin={isAdmin}
           isDarkMode={isDarkMode}
         />
 
