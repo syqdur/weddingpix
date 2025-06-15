@@ -13,151 +13,30 @@ import {
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { MusicRequest, SpotifyTrack } from '../types';
-import { searchSpotifyTracks as searchSpotifyAPI, getTrackById, validateSpotifyUrl, extractTrackIdFromUrl } from './spotifyService';
+import { 
+  searchSpotifyTracks as searchSpotifyMock, 
+  getTrackByUrl, 
+  validateSpotifyUrl, 
+  hasTrackInDatabase 
+} from './spotifyService';
 
-// Enhanced search that uses real Spotify API
+// Search function that uses mock Spotify data
 export const searchSpotifyTracks = async (query: string): Promise<SpotifyTrack[]> => {
   console.log(`🔍 Searching for: "${query}"`);
   
   try {
-    // Use real Spotify API
-    const results = await searchSpotifyAPI(query);
-    console.log(`✅ Found ${results.length} tracks from Spotify API`);
+    // Use mock Spotify service
+    const results = await searchSpotifyMock(query);
+    console.log(`✅ Found ${results.length} tracks from mock database`);
     return results;
     
   } catch (error) {
-    console.error('❌ Spotify API search failed:', error);
-    
-    // Fallback to mock data
-    console.log('🔄 Using fallback mock data...');
-    return searchMockTracks(query);
+    console.error('❌ Mock search failed:', error);
+    return [];
   }
 };
 
-// Fallback mock search (enhanced version)
-const searchMockTracks = async (query: string): Promise<SpotifyTrack[]> => {
-  // Enhanced mock data for better demo experience
-  const MOCK_TRACKS_DATABASE: SpotifyTrack[] = [
-    // Hochzeitsklassiker
-    {
-      id: 'perfect-ed-sheeran',
-      name: 'Perfect',
-      artists: [{ name: 'Ed Sheeran' }],
-      album: {
-        name: '÷ (Divide)',
-        images: [{ url: 'https://images.pexels.com/photos/1190297/pexels-photo-1190297.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-      },
-      external_urls: { spotify: 'https://open.spotify.com/track/0tgVpDi06FyKpA1z0VMD4v' },
-      preview_url: null,
-      duration_ms: 263000,
-      popularity: 95
-    },
-    {
-      id: 'thinking-out-loud',
-      name: 'Thinking Out Loud',
-      artists: [{ name: 'Ed Sheeran' }],
-      album: {
-        name: 'x (Multiply)',
-        images: [{ url: 'https://images.pexels.com/photos/1190298/pexels-photo-1190298.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-      },
-      external_urls: { spotify: 'https://open.spotify.com/track/1KKAHNZhynbGhJJZaWRZZE' },
-      preview_url: null,
-      duration_ms: 281000,
-      popularity: 89
-    },
-    {
-      id: 'all-of-me',
-      name: 'All of Me',
-      artists: [{ name: 'John Legend' }],
-      album: {
-        name: 'Love in the Future',
-        images: [{ url: 'https://images.pexels.com/photos/1105666/pexels-photo-1105666.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-      },
-      external_urls: { spotify: 'https://open.spotify.com/track/3U4isOIWM3VvDubwSI3y7a' },
-      preview_url: null,
-      duration_ms: 269000,
-      popularity: 92
-    },
-    // Party & Tanzmusik
-    {
-      id: 'uptown-funk',
-      name: 'Uptown Funk',
-      artists: [{ name: 'Mark Ronson' }, { name: 'Bruno Mars' }],
-      album: {
-        name: 'Uptown Special',
-        images: [{ url: 'https://images.pexels.com/photos/1444442/pexels-photo-1444442.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-      },
-      external_urls: { spotify: 'https://open.spotify.com/track/32OlwWuMpZ6b0aN2RZOeMS' },
-      preview_url: null,
-      duration_ms: 269000,
-      popularity: 88
-    },
-    {
-      id: 'cant-stop-feeling',
-      name: "Can't Stop the Feeling!",
-      artists: [{ name: 'Justin Timberlake' }],
-      album: {
-        name: 'Trolls (Original Motion Picture Soundtrack)',
-        images: [{ url: 'https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-      },
-      external_urls: { spotify: 'https://open.spotify.com/track/6KuQTIu1KoTTkLXKrwlLPV' },
-      preview_url: null,
-      duration_ms: 236000,
-      popularity: 92
-    },
-    {
-      id: 'happy',
-      name: 'Happy',
-      artists: [{ name: 'Pharrell Williams' }],
-      album: {
-        name: 'G I R L',
-        images: [{ url: 'https://images.pexels.com/photos/1616113/pexels-photo-1616113.jpeg?auto=compress&cs=tinysrgb&w=300&h=300&fit=crop', height: 300, width: 300 }]
-      },
-      external_urls: { spotify: 'https://open.spotify.com/track/60nZcImufyMA1MKQY3dcCH' },
-      preview_url: null,
-      duration_ms: 232000,
-      popularity: 85
-    }
-  ];
-
-  const searchTerms = query.toLowerCase().split(' ');
-  
-  const results = MOCK_TRACKS_DATABASE.filter(track => {
-    const trackName = track.name.toLowerCase();
-    const artistName = track.artists.map(a => a.name.toLowerCase()).join(' ');
-    const albumName = track.album.name.toLowerCase();
-    const searchText = `${trackName} ${artistName} ${albumName}`;
-    
-    return searchTerms.some(term => 
-      searchText.includes(term) || 
-      trackName.includes(term) || 
-      artistName.includes(term)
-    );
-  });
-
-  // Sort by popularity and relevance
-  results.sort((a, b) => {
-    const aRelevance = searchTerms.reduce((score, term) => {
-      if (a.name.toLowerCase().includes(term)) score += 10;
-      if (a.artists[0].name.toLowerCase().includes(term)) score += 5;
-      return score;
-    }, 0);
-    
-    const bRelevance = searchTerms.reduce((score, term) => {
-      if (b.name.toLowerCase().includes(term)) score += 10;
-      if (b.artists[0].name.toLowerCase().includes(term)) score += 5;
-      return score;
-    }, 0);
-    
-    if (aRelevance !== bRelevance) return bRelevance - aRelevance;
-    return b.popularity - a.popularity;
-  });
-  
-  console.log(`✅ Found ${results.length} tracks from mock data for "${query}"`);
-  return results.slice(0, 10);
-};
-
-// Add music request with Spotify URL validation
+// Add music request with track data
 export const addMusicRequest = async (
   track: SpotifyTrack,
   userName: string,
@@ -165,10 +44,7 @@ export const addMusicRequest = async (
   message?: string
 ): Promise<void> => {
   try {
-    // Validate Spotify URL
-    if (track.external_urls.spotify && !validateSpotifyUrl(track.external_urls.spotify)) {
-      throw new Error('Ungültige Spotify-URL');
-    }
+    console.log(`🎵 Adding music request: ${track.name} by ${track.artists[0].name}`);
 
     const musicRequest: Omit<MusicRequest, 'id'> = {
       songTitle: track.name,
@@ -205,22 +81,25 @@ export const addMusicRequestFromUrl = async (
   message?: string
 ): Promise<void> => {
   try {
+    console.log(`🔗 Adding music request from URL: ${spotifyUrl}`);
+    
     // Validate URL
     if (!validateSpotifyUrl(spotifyUrl)) {
       throw new Error('Ungültige Spotify-URL. Bitte verwende einen Link zu einem einzelnen Song.');
     }
 
-    // Extract track ID
-    const trackId = extractTrackIdFromUrl(spotifyUrl);
-    if (!trackId) {
-      throw new Error('Konnte Track-ID aus der URL nicht extrahieren.');
+    // Check if we have this track in our mock database
+    if (!hasTrackInDatabase(spotifyUrl)) {
+      throw new Error('Dieser Song ist nicht in unserer Demo-Datenbank verfügbar. Versuche einen der vorgeschlagenen Songs oder verwende die Suchfunktion.');
     }
 
-    // Get track details from Spotify
-    const track = await getTrackById(trackId);
+    // Get track details from mock database
+    const track = await getTrackByUrl(spotifyUrl);
     if (!track) {
-      throw new Error('Song konnte nicht von Spotify geladen werden.');
+      throw new Error('Song konnte nicht aus der Demo-Datenbank geladen werden.');
     }
+
+    console.log(`✅ Found track from URL: ${track.name} by ${track.artists[0].name}`);
 
     // Add the request
     await addMusicRequest(track, userName, deviceId, message);
@@ -278,12 +157,14 @@ export const voteMusicRequest = async (
           votes: increment(-1),
           votedBy: votedBy.filter((id: string) => id !== deviceId)
         });
+        console.log('👎 Vote removed');
       } else {
         // Add vote
         await updateDoc(requestRef, {
           votes: increment(1),
           votedBy: [...votedBy, deviceId]
         });
+        console.log('👍 Vote added');
       }
     }
   } catch (error) {
@@ -338,3 +219,5 @@ export const getPopularRequests = async (): Promise<MusicRequest[]> => {
     return [];
   }
 };
+
+console.log('🎵 Music Service initialized with mock Spotify integration');
