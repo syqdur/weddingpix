@@ -6,7 +6,7 @@ const ADMIN_MODE_KEY = 'wedding_admin_mode';
 export const useUnderConstruction = () => {
   const [isUnderConstruction, setIsUnderConstruction] = useState<boolean>(() => {
     const stored = localStorage.getItem(UNDER_CONSTRUCTION_KEY);
-    return stored ? JSON.parse(stored) : true; // Default to true (under construction)
+    return stored ? JSON.parse(stored) : false; // Default to false (website active)
   });
 
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {

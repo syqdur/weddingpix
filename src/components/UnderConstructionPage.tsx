@@ -44,7 +44,7 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (pin === '2407') {
-      // Trigger admin mode through localStorage
+      // Set admin mode and reload page
       localStorage.setItem('wedding_admin_mode', 'true');
       window.location.reload();
     } else {

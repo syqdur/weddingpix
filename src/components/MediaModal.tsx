@@ -71,6 +71,10 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   useEffect(() => {
     if (!isOpen || !currentItem) {
       setIsPlaying(false);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
     }
   }, [isOpen, currentItem]);
 
@@ -107,7 +111,11 @@ export const MediaModal: React.FC<MediaModalProps> = ({
       if (isPlaying) {
         audio.pause();
       } else {
-        audio.play();
+        // Reset audio to beginning and play
+        audio.currentTime = 0;
+        audio.play().catch(error => {
+          console.error('Error playing audio:', error);
+        });
       }
     }
   };
@@ -187,6 +195,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                 onPlay={handleAudioPlay}
                 onPause={handleAudioPause}
                 onEnded={handleAudioEnded}
+                preload="metadata"
               />
             </div>
           ) : (

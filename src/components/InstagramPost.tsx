@@ -79,7 +79,11 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
       if (isPlaying) {
         audio.pause();
       } else {
-        audio.play();
+        // Reset audio to beginning and play
+        audio.currentTime = 0;
+        audio.play().catch(error => {
+          console.error('Error playing audio:', error);
+        });
       }
     }
   };
@@ -186,6 +190,7 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
               onPlay={handleAudioPlay}
               onPause={handleAudioPause}
               onEnded={handleAudioEnded}
+              preload="metadata"
             />
           </div>
         ) : (
