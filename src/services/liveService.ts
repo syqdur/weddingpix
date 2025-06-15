@@ -281,7 +281,10 @@ export const addStory = async (
   }
 };
 
+// 🔧 FIX: Subscribe to active stories only (not expired)
 export const subscribeStories = (callback: (stories: Story[]) => void): (() => void) => {
+  console.log(`📱 === SUBSCRIBING TO ACTIVE STORIES ===`);
+  
   const now = new Date();
   const q = query(
     collection(db, 'stories'),
@@ -297,15 +300,25 @@ export const subscribeStories = (callback: (stories: Story[]) => void): (() => v
     } as Story));
     
     console.log(`📱 Active stories loaded: ${stories.length}`);
+    
+    // Debug: Log each story
+    stories.forEach((story, index) => {
+      const timeLeft = new Date(story.expiresAt).getTime() - Date.now();
+      const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
+      console.log(`  ${index + 1}. ${story.userName} - ${story.mediaType} - expires in ${hoursLeft}h`);
+    });
+    
     callback(stories);
   }, (error) => {
-    console.error('Error listening to stories:', error);
+    console.error('❌ Error listening to stories:', error);
     callback([]);
   });
 };
 
 // Subscribe to ALL stories for admin (including expired ones)
 export const subscribeAllStories = (callback: (stories: Story[]) => void): (() => void) => {
+  console.log(`👑 === SUBSCRIBING TO ALL STORIES (ADMIN) ===`);
+  
   const q = query(
     collection(db, 'stories'),
     orderBy('createdAt', 'desc')
@@ -318,9 +331,18 @@ export const subscribeAllStories = (callback: (stories: Story[]) => void): (() =
     } as Story));
     
     console.log(`👑 All stories loaded (admin): ${stories.length}`);
+    
+    // Debug: Log each story with expiry status
+    stories.forEach((story, index) => {
+      const isExpired = new Date(story.expiresAt) < new Date();
+      const timeLeft = new Date(story.expiresAt).getTime() - Date.now();
+      const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
+      console.log(`  ${index + 1}. ${story.userName} - ${story.mediaType} - ${isExpired ? 'EXPIRED' : `${hoursLeft}h left`}`);
+    });
+    
     callback(stories);
   }, (error) => {
-    console.error('Error listening to all stories:', error);
+    console.error('❌ Error listening to all stories:', error);
     callback([]);
   });
 };
@@ -409,7 +431,7 @@ export const cleanupExpiredStories = async (): Promise<void> => {
     });
     
     await Promise.all(deletePromises);
-    console.log(`Cleaned up ${snapshot.docs.length} expired stories`);
+    console.log(`🧹 Cleaned up ${snapshot.docs.length} expired stories`);
   } catch (error) {
     console.error('Error cleaning up expired stories:', error);
   }

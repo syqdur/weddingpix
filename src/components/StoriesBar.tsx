@@ -17,6 +17,10 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
   onViewStory,
   isDarkMode
 }) => {
+  console.log(`📱 === STORIES BAR RENDER ===`);
+  console.log(`📊 Total stories: ${stories.length}`);
+  console.log(`👤 Current user: ${currentUser}`);
+  
   // Group stories by user
   const groupedStories = stories.reduce((acc, story) => {
     if (!acc[story.userName]) {
@@ -25,6 +29,8 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
     acc[story.userName].push(story);
     return acc;
   }, {} as Record<string, Story[]>);
+
+  console.log(`👥 Grouped stories:`, Object.keys(groupedStories).map(user => `${user}: ${groupedStories[user].length}`));
 
   // Get unique users with their latest story
   const userStories = Object.entries(groupedStories).map(([userName, userStoriesArray]) => ({
@@ -39,6 +45,8 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
     return new Date(b.latestStory.createdAt).getTime() - new Date(a.latestStory.createdAt).getTime();
   });
 
+  console.log(`📋 User stories sorted:`, userStories.map(us => `${us.userName} (${us.stories.length} stories, unviewed: ${us.hasUnviewed})`));
+
   const getAvatarUrl = (username: string) => {
     const weddingAvatars = [
       'https://images.pexels.com/photos/1444442/pexels-photo-1444442.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
@@ -49,7 +57,7 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
       'https://images.pexels.com/photos/1070850/pexels-photo-1070850.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
       'https://images.pexels.com/photos/1444424/pexels-photo-1444424.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
       'https://images.pexels.com/photos/1024967/pexels-photo-1024967.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-      'https://images.pexels.com/photos/1729799/pexels-photo-1729799.jpeg?auto=compress&cs=tinysrgb&w=100&h-100&fit=crop',
+      'https://images.pexels.com/photos/1729799/pexels-photo-1729799.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
       'https://images.pexels.com/photos/1444443/pexels-photo-1444443.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
     ];
     
@@ -62,8 +70,12 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
   };
 
   const handleStoryClick = (userName: string) => {
+    console.log(`🎯 Story clicked for user: ${userName}`);
+    
     // Find the first story index for this user in the original stories array
     const firstStoryIndex = stories.findIndex(story => story.userName === userName);
+    console.log(`📍 First story index for ${userName}: ${firstStoryIndex}`);
+    
     if (firstStoryIndex !== -1) {
       onViewStory(firstStoryIndex);
     }
@@ -143,8 +155,8 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
           <div className="flex items-center justify-center flex-1 py-4">
             <div className="text-center">
               <div className={`text-2xl mb-2`}>⚡</div>
-              <p className={`text-sm transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              <p className={`text-sm font-medium transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
               }`}>
                 Noch keine Stories
               </p>
