@@ -72,15 +72,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           className={`fixed bottom-4 left-20 p-3 rounded-full shadow-lg transition-colors duration-300 ${
             isDarkMode
               ? isUnderConstruction
-                ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-orange-600 hover:bg-orange-700 text-white'
               : isUnderConstruction
-                ? 'bg-orange-500 hover:bg-orange-600 text-white'
-                : 'bg-blue-500 hover:bg-blue-600 text-white'
+                ? 'bg-green-500 hover:bg-green-600 text-white'
+                : 'bg-orange-500 hover:bg-orange-600 text-white'
           }`}
           title={isUnderConstruction ? "Website für Gäste aktivieren" : "Under Construction für Gäste aktivieren"}
         >
-          {isUnderConstruction ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
+          {isUnderConstruction ? <Eye className="w-6 h-6" /> : <EyeOff className="w-6 h-6" />}
         </button>
       )}
 
