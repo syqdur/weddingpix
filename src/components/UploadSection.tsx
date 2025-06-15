@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Plus, Camera, MessageSquare, Image, Video } from 'lucide-react';
+import { VideoRecorder } from './VideoRecorder';
 
 interface UploadSectionProps {
   onUpload: (files: FileList) => Promise<void>;
+  onVideoUpload: (videoBlob: Blob) => Promise<void>;
   onNoteSubmit: (note: string) => Promise<void>;
   isUploading: boolean;
   progress: number;
@@ -11,6 +13,7 @@ interface UploadSectionProps {
 
 export const UploadSection: React.FC<UploadSectionProps> = ({
   onUpload,
+  onVideoUpload,
   onNoteSubmit,
   isUploading,
   progress,
@@ -19,6 +22,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
   const [files, setFiles] = useState<FileList | null>(null);
   const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
   const [noteText, setNoteText] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,6 +40,11 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
       setNoteText('');
       setShowNoteInput(false);
     }
+  };
+
+  const handleVideoRecorded = async (videoBlob: Blob) => {
+    setShowVideoRecorder(false);
+    await onVideoUpload(videoBlob);
   };
 
   return (
@@ -124,10 +133,41 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
                   <p className={`text-sm transition-colors duration-300 ${
                     isDarkMode ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    Teile deine schönsten Momente
+                    Aus der Galerie auswählen
                   </p>
                 </div>
               </label>
+
+              {/* Video Recording */}
+              <button
+                onClick={() => {
+                  setShowUploadOptions(false);
+                  setShowVideoRecorder(true);
+                }}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all duration-300 ${
+                  isDarkMode 
+                    ? 'bg-gray-700 hover:bg-gray-600 border border-gray-600' 
+                    : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                <div className={`p-3 rounded-full transition-colors duration-300 ${
+                  isDarkMode ? 'bg-red-600' : 'bg-red-500'
+                }`}>
+                  <Video className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1 text-left">
+                  <h4 className={`font-semibold transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    🎥 Video aufnehmen
+                  </h4>
+                  <p className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Direkt mit der Kamera
+                  </p>
+                </div>
+              </button>
 
               {/* Note */}
               <button
@@ -231,6 +271,15 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Video Recorder */}
+      {showVideoRecorder && (
+        <VideoRecorder
+          onVideoRecorded={handleVideoRecorded}
+          onClose={() => setShowVideoRecorder(false)}
+          isDarkMode={isDarkMode}
+        />
       )}
     </div>
   );

@@ -48,6 +48,31 @@ export const uploadFiles = async (
   }
 };
 
+export const uploadVideoBlob = async (
+  videoBlob: Blob,
+  userName: string,
+  deviceId: string,
+  onProgress: (progress: number) => void
+): Promise<void> => {
+  const fileName = `${Date.now()}-recorded-video.webm`;
+  const storageRef = ref(storage, `uploads/${fileName}`);
+  
+  onProgress(50); // Show progress during upload
+  
+  await uploadBytes(storageRef, videoBlob);
+  
+  // Add metadata to Firestore
+  await addDoc(collection(db, 'media'), {
+    name: fileName,
+    uploadedBy: userName,
+    deviceId: deviceId,
+    uploadedAt: new Date().toISOString(),
+    type: 'video'
+  });
+  
+  onProgress(100);
+};
+
 export const addNote = async (
   noteText: string,
   userName: string,

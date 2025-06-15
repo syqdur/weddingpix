@@ -12,6 +12,7 @@ import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
 import {
   uploadFiles,
+  uploadVideoBlob,
   loadGallery,
   deleteMediaItem,
   loadComments,
@@ -70,6 +71,27 @@ function App() {
     } catch (error) {
       setStatus('❌ Fehler beim Hochladen. Bitte versuche es erneut.');
       console.error('Upload error:', error);
+      setTimeout(() => setStatus(''), 5000);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleVideoUpload = async (videoBlob: Blob) => {
+    if (!userName) return;
+
+    setIsUploading(true);
+    setUploadProgress(0);
+    setStatus('⏳ Video wird hochgeladen...');
+
+    try {
+      await uploadVideoBlob(videoBlob, userName, deviceId, setUploadProgress);
+      setStatus('✅ Video erfolgreich hochgeladen!');
+      setTimeout(() => setStatus(''), 3000);
+    } catch (error) {
+      setStatus('❌ Fehler beim Hochladen des Videos. Bitte versuche es erneut.');
+      console.error('Video upload error:', error);
       setTimeout(() => setStatus(''), 5000);
     } finally {
       setIsUploading(false);
@@ -205,6 +227,7 @@ function App() {
         
         <UploadSection
           onUpload={handleUpload}
+          onVideoUpload={handleVideoUpload}
           onNoteSubmit={handleNoteSubmit}
           isUploading={isUploading}
           progress={uploadProgress}
@@ -255,6 +278,7 @@ function App() {
         isDarkMode={isDarkMode} 
         isAdmin={isAdmin}
         onToggleAdmin={setIsAdmin}
+        mediaItems={mediaItems}
       />
     </div>
   );

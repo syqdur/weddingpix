@@ -1,19 +1,24 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings } from 'lucide-react';
+import { Lock, Unlock, Settings, Download } from 'lucide-react';
+import { MediaItem } from '../types';
+import { downloadAllMedia } from '../services/downloadService';
 
 interface AdminPanelProps {
   isDarkMode: boolean;
   isAdmin: boolean;
   onToggleAdmin: (isAdmin: boolean) => void;
+  mediaItems?: MediaItem[];
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ 
   isDarkMode, 
   isAdmin, 
-  onToggleAdmin 
+  onToggleAdmin,
+  mediaItems = []
 }) => {
   const [showPinInput, setShowPinInput] = useState(false);
   const [pin, setPin] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const correctPIN = "2407";
 
@@ -49,6 +54,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
     
     window.location.reload();
+  };
+
+  const handleDownloadAll = async () => {
+    if (mediaItems.length === 0) {
+      alert('Keine Medien zum Herunterladen vorhanden.');
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      await downloadAllMedia(mediaItems);
+      alert(`${mediaItems.filter(item => item.type !== 'note').length} Dateien erfolgreich heruntergeladen!`);
+    } catch (error) {
+      console.error('Download error:', error);
+      alert('Fehler beim Herunterladen der Dateien.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const isUnderConstructionActive = () => {
@@ -91,6 +114,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             title={isUnderConstructionActive() ? "Under Construction deaktivieren" : "Under Construction aktivieren"}
           >
             <Settings className="w-6 h-6" />
+          </button>
+          
+          <button
+            onClick={handleDownloadAll}
+            disabled={isDownloading || mediaItems.length === 0}
+            className={`p-3 rounded-full shadow-lg transition-colors duration-300 ${
+              isDownloading || mediaItems.length === 0
+                ? isDarkMode
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : isDarkMode
+                  ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                  : 'bg-purple-500 hover:bg-purple-600 text-white'
+            }`}
+            title={`Alle Medien herunterladen (${mediaItems.filter(item => item.type !== 'note').length} Dateien)`}
+          >
+            <Download className={`w-6 h-6 ${isDownloading ? 'animate-bounce' : ''}`} />
           </button>
         </div>
       )}
