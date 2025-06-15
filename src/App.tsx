@@ -4,6 +4,7 @@ import { UserNamePrompt } from './components/UserNamePrompt';
 import { UploadSection } from './components/UploadSection';
 import { InstagramGallery } from './components/InstagramGallery';
 import { MediaModal } from './components/MediaModal';
+import { AdminPanel } from './components/AdminPanel';
 import { ProfileHeader } from './components/ProfileHeader';
 import { UnderConstructionPage } from './components/UnderConstructionPage';
 import { useUser } from './hooks/useUser';
@@ -248,6 +249,8 @@ function App() {
         isAdmin={false}
         isDarkMode={isDarkMode}
       />
+
+      <AdminPanel isDarkMode={isDarkMode} />
     </div>
   );
 }
