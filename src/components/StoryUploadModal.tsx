@@ -29,15 +29,20 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
       return;
     }
 
-    // Validate file size (max 100MB for stories - more generous limit)
-    const maxSize = 100 * 1024 * 1024; // 100MB
+    // Validate file size (max 100MB for stories)
+    const maxSize = 100 * 1024 * 1024; // 100MB in bytes
     if (file.size > maxSize) {
-      const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1); // Convert bytes to MB
       alert(`Datei ist zu groß (${fileSizeMB}MB). Maximum für Stories: 100MB`);
       return;
     }
 
-    console.log(`📤 Story Upload: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
+    // Log file info for debugging
+    const fileSizeKB = (file.size / 1024).toFixed(1);
+    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+    console.log(`📤 Story Upload: ${file.name}`);
+    console.log(`   📊 Größe: ${file.size} bytes (${fileSizeKB} KB / ${fileSizeMB} MB)`);
+    console.log(`   📁 Typ: ${file.type}`);
 
     setIsUploading(true);
     try {
@@ -58,7 +63,13 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
     try {
       // Convert blob to file for upload
       const file = new File([videoBlob], `story-${Date.now()}.webm`, { type: 'video/webm' });
-      console.log(`📤 Story Video Upload: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
+      
+      // Log video info for debugging
+      const fileSizeKB = (file.size / 1024).toFixed(1);
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      console.log(`📤 Story Video Upload: ${file.name}`);
+      console.log(`   📊 Größe: ${file.size} bytes (${fileSizeKB} KB / ${fileSizeMB} MB)`);
+      
       await onUpload(file);
       onClose();
     } catch (error) {
