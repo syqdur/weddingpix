@@ -281,36 +281,55 @@ export const addStory = async (
   }
 };
 
-// 🔧 FIX: Subscribe to active stories only (not expired)
+// 🔧 MAJOR FIX: Simplified stories subscription without complex queries
 export const subscribeStories = (callback: (stories: Story[]) => void): (() => void) => {
-  console.log(`📱 === SUBSCRIBING TO ACTIVE STORIES ===`);
+  console.log(`📱 === SUBSCRIBING TO STORIES (SIMPLIFIED) ===`);
   
-  const now = new Date();
+  // 🔧 FIX: Use simple query without complex where clauses that might fail
   const q = query(
     collection(db, 'stories'),
-    where('expiresAt', '>', now.toISOString()),
-    orderBy('expiresAt'),
     orderBy('createdAt', 'desc')
   );
   
   return onSnapshot(q, (snapshot) => {
-    const stories: Story[] = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Story));
+    console.log(`📱 Raw stories from Firestore: ${snapshot.docs.length}`);
     
-    console.log(`📱 Active stories loaded: ${stories.length}`);
+    const now = new Date();
+    const allStories: Story[] = [];
+    const activeStories: Story[] = [];
     
-    // Debug: Log each story
-    stories.forEach((story, index) => {
-      const timeLeft = new Date(story.expiresAt).getTime() - Date.now();
-      const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
-      console.log(`  ${index + 1}. ${story.userName} - ${story.mediaType} - expires in ${hoursLeft}h`);
+    snapshot.docs.forEach((doc, index) => {
+      const data = doc.data();
+      const story: Story = {
+        id: doc.id,
+        ...data
+      } as Story;
+      
+      allStories.push(story);
+      
+      // Check if story is still active (not expired)
+      const expiresAt = new Date(story.expiresAt);
+      const isActive = expiresAt > now;
+      
+      console.log(`  ${index + 1}. ${story.userName} - ${story.mediaType} - ${isActive ? 'ACTIVE' : 'EXPIRED'} (expires: ${expiresAt.toLocaleString()})`);
+      
+      if (isActive) {
+        activeStories.push(story);
+      }
     });
     
-    callback(stories);
+    console.log(`📱 Total stories: ${allStories.length}, Active: ${activeStories.length}`);
+    
+    // Return only active stories for regular users
+    callback(activeStories);
+    
   }, (error) => {
     console.error('❌ Error listening to stories:', error);
+    console.error('Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
     callback([]);
   });
 };
@@ -333,8 +352,9 @@ export const subscribeAllStories = (callback: (stories: Story[]) => void): (() =
     console.log(`👑 All stories loaded (admin): ${stories.length}`);
     
     // Debug: Log each story with expiry status
+    const now = new Date();
     stories.forEach((story, index) => {
-      const isExpired = new Date(story.expiresAt) < new Date();
+      const isExpired = new Date(story.expiresAt) < now;
       const timeLeft = new Date(story.expiresAt).getTime() - Date.now();
       const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
       console.log(`  ${index + 1}. ${story.userName} - ${story.mediaType} - ${isExpired ? 'EXPIRED' : `${hoursLeft}h left`}`);
@@ -405,33 +425,43 @@ export const deleteStory = async (storyId: string): Promise<void> => {
 // Cleanup expired stories (should be called periodically)
 export const cleanupExpiredStories = async (): Promise<void> => {
   try {
-    const now = new Date();
-    const q = query(
-      collection(db, 'stories'),
-      where('expiresAt', '<=', now.toISOString())
-    );
+    console.log(`🧹 === CLEANING UP EXPIRED STORIES ===`);
     
-    const snapshot = await getDocs(q);
-    const deletePromises = snapshot.docs.map(async (doc) => {
+    // Get all stories first, then filter expired ones
+    const allStoriesSnapshot = await getDocs(collection(db, 'stories'));
+    const now = new Date();
+    const expiredStories: any[] = [];
+    
+    allStoriesSnapshot.docs.forEach(doc => {
       const storyData = doc.data();
+      const expiresAt = new Date(storyData.expiresAt);
       
+      if (expiresAt <= now) {
+        expiredStories.push({ id: doc.id, data: storyData });
+      }
+    });
+    
+    console.log(`🧹 Found ${expiredStories.length} expired stories to clean up`);
+    
+    const deletePromises = expiredStories.map(async (story) => {
       // Delete from storage if fileName exists
-      if (storyData.fileName) {
+      if (story.data.fileName) {
         try {
           // 🔧 FIX: Use 'uploads/' path for cleanup too
-          const storageRef = ref(storage, `uploads/${storyData.fileName}`);
+          const storageRef = ref(storage, `uploads/${story.data.fileName}`);
           await deleteObject(storageRef);
+          console.log(`✅ Deleted expired story from storage: ${story.data.fileName}`);
         } catch (storageError) {
-          console.warn(`⚠️ Could not delete expired story from storage: ${storyData.fileName}`, storageError);
+          console.warn(`⚠️ Could not delete expired story from storage: ${story.data.fileName}`, storageError);
         }
       }
       
       // Delete from Firestore
-      return deleteDoc(doc.ref);
+      return deleteDoc(doc(db, 'stories', story.id));
     });
     
     await Promise.all(deletePromises);
-    console.log(`🧹 Cleaned up ${snapshot.docs.length} expired stories`);
+    console.log(`🧹 Cleaned up ${expiredStories.length} expired stories`);
   } catch (error) {
     console.error('Error cleaning up expired stories:', error);
   }

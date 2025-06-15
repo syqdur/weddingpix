@@ -21,6 +21,14 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
   console.log(`📊 Total stories: ${stories.length}`);
   console.log(`👤 Current user: ${currentUser}`);
   
+  // 🔧 FIX: Add more detailed debugging
+  if (stories.length > 0) {
+    console.log(`📋 Stories details:`);
+    stories.forEach((story, index) => {
+      console.log(`  ${index + 1}. ID: ${story.id}, User: ${story.userName}, Type: ${story.mediaType}, Created: ${story.createdAt}`);
+    });
+  }
+  
   // Group stories by user
   const groupedStories = stories.reduce((acc, story) => {
     if (!acc[story.userName]) {
@@ -78,6 +86,8 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
     
     if (firstStoryIndex !== -1) {
       onViewStory(firstStoryIndex);
+    } else {
+      console.error(`❌ Could not find story for user: ${userName}`);
     }
   };
 
@@ -150,12 +160,12 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
           </div>
         ))}
 
-        {/* Empty state message when no stories exist */}
+        {/* 🔧 FIX: Better empty state message when no stories exist */}
         {userStories.length === 0 && (
           <div className="flex items-center justify-center flex-1 py-4">
-            <div className="text-center">
-              <div className={`text-2xl mb-2`}>⚡</div>
-              <p className={`text-sm font-medium transition-colors duration-300 ${
+            <div className="text-center max-w-xs">
+              <div className={`text-3xl mb-3`}>⚡</div>
+              <p className={`text-sm font-medium mb-1 transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-300' : 'text-gray-700'
               }`}>
                 Noch keine Stories
@@ -164,6 +174,11 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
                 isDarkMode ? 'text-gray-500' : 'text-gray-500'
               }`}>
                 Sei der Erste und teile einen spontanen Moment!
+              </p>
+              <p className={`text-xs mt-2 transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-600' : 'text-gray-400'
+              }`}>
+                Stories verschwinden nach 24 Stunden ⏰
               </p>
             </div>
           </div>
