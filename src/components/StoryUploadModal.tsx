@@ -23,26 +23,33 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
-      alert('Bitte wähle ein Bild oder Video aus.');
-      return;
-    }
-
-    // Validate file size (max 100MB for stories)
-    const maxSize = 100 * 1024 * 1024; // 100MB in bytes
-    if (file.size > maxSize) {
-      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1); // Convert bytes to MB
-      alert(`Datei ist zu groß (${fileSizeMB}MB). Maximum für Stories: 100MB`);
-      return;
-    }
-
     // Log file info for debugging
     const fileSizeKB = (file.size / 1024).toFixed(1);
     const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
     console.log(`📤 Story Upload: ${file.name}`);
     console.log(`   📊 Größe: ${file.size} bytes (${fileSizeKB} KB / ${fileSizeMB} MB)`);
     console.log(`   📁 Typ: ${file.type}`);
+
+    // Validate file type
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      alert('Bitte wähle ein Bild oder Video aus.');
+      return;
+    }
+
+    // Validate file size (max 200MB for stories - increased limit)
+    const maxSize = 200 * 1024 * 1024; // 200MB in bytes
+    if (file.size > maxSize) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      alert(`📁 Datei ist zu groß (${fileSizeMB}MB)\n\n⚠️ Maximum für Stories: 200MB\n\n💡 Tipp: Komprimiere das Bild/Video oder wähle eine kleinere Datei.`);
+      return;
+    }
+
+    // Show warning for large files
+    if (file.size > 50 * 1024 * 1024) { // 50MB+
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+      const proceed = window.confirm(`📁 Große Datei erkannt (${fileSizeMB}MB)\n\n⏳ Upload kann länger dauern.\n\n✅ Trotzdem hochladen?`);
+      if (!proceed) return;
+    }
 
     setIsUploading(true);
     try {
@@ -117,11 +124,22 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
             }`}>
               Perfekt für spontane Momente während der Hochzeit!
             </p>
-            <p className={`text-xs mt-2 transition-colors duration-300 ${
+            <div className={`text-xs mt-3 space-y-1 transition-colors duration-300 ${
               isDarkMode ? 'text-blue-300' : 'text-blue-600'
             }`}>
-              📁 Max. Dateigröße: 100MB
-            </p>
+              <div className="flex items-center gap-2">
+                <span>📁</span>
+                <span>Max. Dateigröße: 200MB</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span>🎥</span>
+                <span>Live-Aufnahme: max. 10 Sekunden</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span>📱</span>
+                <span>Unterstützt: JPG, PNG, MP4, WebM</span>
+              </div>
+            </div>
           </div>
 
           <input
@@ -161,7 +179,7 @@ export const StoryUploadModal: React.FC<StoryUploadModalProps> = ({
                 <p className={`text-sm transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Aus der Galerie auswählen (max. 100MB)
+                  Aus der Galerie auswählen (max. 200MB)
                 </p>
               </div>
             </button>
