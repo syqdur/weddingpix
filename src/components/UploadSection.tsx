@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Camera, MessageSquare } from 'lucide-react';
+import { Plus, Camera, MessageSquare, Image, Video } from 'lucide-react';
 
 interface UploadSectionProps {
   onUpload: (files: FileList) => Promise<void>;
@@ -17,6 +17,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
   isDarkMode
 }) => {
   const [files, setFiles] = useState<FileList | null>(null);
+  const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [noteText, setNoteText] = useState('');
 
@@ -24,6 +25,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
     setFiles(e.target.files);
     if (e.target.files && e.target.files.length > 0) {
       onUpload(e.target.files);
+      setShowUploadOptions(false);
     }
   };
 
@@ -44,16 +46,14 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
         <div className={`w-16 h-16 border-2 border-dashed rounded-lg flex items-center justify-center relative overflow-hidden transition-colors duration-300 ${
           isDarkMode ? 'border-gray-600' : 'border-gray-300'
         }`}>
-          <input
-            type="file"
-            multiple
-            accept="image/*,video/*"
-            onChange={handleFileChange}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          />
-          <Plus className={`w-6 h-6 transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-500' : 'text-gray-400'
-          }`} />
+          <button
+            onClick={() => setShowUploadOptions(true)}
+            className="absolute inset-0 w-full h-full flex items-center justify-center cursor-pointer"
+          >
+            <Plus className={`w-6 h-6 transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-500' : 'text-gray-400'
+            }`} />
+          </button>
         </div>
         <div className="flex-1">
           <h3 className={`font-semibold text-sm mb-1 transition-colors duration-300 ${
@@ -81,21 +81,100 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
           <Camera className={`w-5 h-5 transition-colors duration-300 ${
             isDarkMode ? 'text-gray-500' : 'text-gray-400'
           }`} />
-          <button
-            onClick={() => setShowNoteInput(true)}
-            disabled={isUploading}
-            className={`p-2 rounded-full transition-all duration-300 ${
-              isDarkMode
-                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
-            }`}
-            title="Notiz hinterlassen"
-          >
-            <MessageSquare className="w-4 h-4" />
-          </button>
         </div>
       </div>
       
+      {/* Upload Options Modal */}
+      {showUploadOptions && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className={`rounded-2xl p-6 max-w-sm w-full transition-colors duration-300 ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <h3 className={`text-lg font-semibold mb-6 text-center transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Was möchtest du teilen?
+            </h3>
+            
+            <div className="space-y-3">
+              {/* Photo/Video Upload */}
+              <label className={`flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all duration-300 ${
+                isDarkMode 
+                  ? 'bg-gray-700 hover:bg-gray-600 border border-gray-600' 
+                  : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
+              }`}>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,video/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <div className={`p-3 rounded-full transition-colors duration-300 ${
+                  isDarkMode ? 'bg-blue-600' : 'bg-blue-500'
+                }`}>
+                  <Image className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h4 className={`font-semibold transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    📸 Foto oder Video
+                  </h4>
+                  <p className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Teile deine schönsten Momente
+                  </p>
+                </div>
+              </label>
+
+              {/* Note */}
+              <button
+                onClick={() => {
+                  setShowUploadOptions(false);
+                  setShowNoteInput(true);
+                }}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all duration-300 ${
+                  isDarkMode 
+                    ? 'bg-gray-700 hover:bg-gray-600 border border-gray-600' 
+                    : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                <div className={`p-3 rounded-full transition-colors duration-300 ${
+                  isDarkMode ? 'bg-pink-600' : 'bg-pink-500'
+                }`}>
+                  <MessageSquare className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1 text-left">
+                  <h4 className={`font-semibold transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    💌 Notiz
+                  </h4>
+                  <p className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Hinterlasse eine schöne Nachricht
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowUploadOptions(false)}
+              className={`w-full mt-4 py-3 px-4 rounded-xl transition-colors duration-300 ${
+                isDarkMode 
+                  ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
+                  : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+              }`}
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Note Input Modal */}
       {showNoteInput && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

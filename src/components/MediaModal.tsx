@@ -91,6 +91,28 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     return date.toLocaleDateString('de-DE');
   };
 
+  // Generate beautiful avatar based on username
+  const getAvatarUrl = (username: string) => {
+    const avatars = [
+      'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1130626/pexels-photo-1130626.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1212984/pexels-photo-1212984.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1484794/pexels-photo-1484794.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
+    ];
+    
+    // Use username to consistently select an avatar
+    const hash = username.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0);
+    
+    return avatars[Math.abs(hash) % avatars.length];
+  };
+
   return (
     <div className="fixed inset-0 bg-black z-50 flex">
       {/* Mobile Instagram-style modal */}
@@ -204,8 +226,12 @@ export const MediaModal: React.FC<MediaModalProps> = ({
           <div className="px-4 py-2">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-full bg-gradient-to-r from-pink-500 to-orange-500 p-0.5">
-                <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
-                  <span className="text-xs">👤</span>
+                <div className="w-full h-full rounded-full overflow-hidden">
+                  <img 
+                    src={getAvatarUrl(currentItem.uploadedBy)}
+                    alt={currentItem.uploadedBy}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
               <div>
@@ -234,8 +260,12 @@ export const MediaModal: React.FC<MediaModalProps> = ({
           <div className="max-h-40 overflow-y-auto px-4">
             {currentComments.map((comment) => (
               <div key={comment.id} className="flex items-start gap-3 py-2 group">
-                <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs">👤</span>
+                <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
+                  <img 
+                    src={getAvatarUrl(comment.userName)}
+                    alt={comment.userName}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="flex-1">
                   <span className={`font-semibold text-sm mr-2 transition-colors duration-300 ${
@@ -271,8 +301,12 @@ export const MediaModal: React.FC<MediaModalProps> = ({
             isDarkMode ? 'border-gray-700' : 'border-gray-200'
           }`}>
             <div className="flex items-center gap-3">
-              <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center">
-                <span className="text-xs">👤</span>
+              <div className="w-6 h-6 rounded-full overflow-hidden">
+                <img 
+                  src={getAvatarUrl(userName)}
+                  alt={userName}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <input
                 type="text"
