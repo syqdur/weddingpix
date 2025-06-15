@@ -12,6 +12,7 @@ import { StoriesBar } from './components/StoriesBar';
 import { StoriesViewer } from './components/StoriesViewer';
 import { StoryUploadModal } from './components/StoryUploadModal';
 import { MusicRequestsSection } from './components/MusicRequestsSection';
+import { TabNavigation } from './components/TabNavigation';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -61,6 +62,7 @@ function App() {
   const [showStoriesViewer, setShowStoriesViewer] = useState(false);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
+  const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
 
   // Subscribe to site status changes
   useEffect(() => {
@@ -411,55 +413,68 @@ function App() {
       }`}>
         <ProfileHeader isDarkMode={isDarkMode} />
         
-        {/* Stories Bar */}
-        <StoriesBar
-          stories={stories}
-          currentUser={userName || ''}
-          onAddStory={() => setShowStoryUpload(true)}
-          onViewStory={handleViewStory}
-          isDarkMode={isDarkMode}
-        />
-        
-        <UploadSection
-          onUpload={handleUpload}
-          onVideoUpload={handleVideoUpload}
-          onNoteSubmit={handleNoteSubmit}
-          onAddStory={() => setShowStoryUpload(true)}
-          isUploading={isUploading}
-          progress={uploadProgress}
-          isDarkMode={isDarkMode}
-        />
-
-        {/* Music Requests Section */}
-        <MusicRequestsSection
-          userName={userName || ''}
-          deviceId={deviceId}
-          isAdmin={isAdmin}
-          isDarkMode={isDarkMode}
-        />
-
-        {status && (
-          <div className="px-4 py-2">
-            <p className={`text-sm text-center transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-300' : 'text-gray-700'
-            }`} dangerouslySetInnerHTML={{ __html: status }} />
-          </div>
+        {/* Stories Bar - Only show on gallery tab */}
+        {activeTab === 'gallery' && (
+          <StoriesBar
+            stories={stories}
+            currentUser={userName || ''}
+            onAddStory={() => setShowStoryUpload(true)}
+            onViewStory={handleViewStory}
+            isDarkMode={isDarkMode}
+          />
         )}
-
-        <InstagramGallery
-          items={mediaItems}
-          onItemClick={openModal}
-          onDelete={handleDelete}
-          onEditNote={handleEditNote}
-          isAdmin={isAdmin}
-          comments={comments}
-          likes={likes}
-          onAddComment={handleAddComment}
-          onDeleteComment={handleDeleteComment}
-          onToggleLike={handleToggleLike}
-          userName={userName || ''}
+        
+        {/* Tab Navigation */}
+        <TabNavigation 
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
           isDarkMode={isDarkMode}
         />
+
+        {/* Tab Content */}
+        {activeTab === 'gallery' ? (
+          <>
+            <UploadSection
+              onUpload={handleUpload}
+              onVideoUpload={handleVideoUpload}
+              onNoteSubmit={handleNoteSubmit}
+              onAddStory={() => setShowStoryUpload(true)}
+              isUploading={isUploading}
+              progress={uploadProgress}
+              isDarkMode={isDarkMode}
+            />
+
+            {status && (
+              <div className="px-4 py-2">
+                <p className={`text-sm text-center transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                }`} dangerouslySetInnerHTML={{ __html: status }} />
+              </div>
+            )}
+
+            <InstagramGallery
+              items={mediaItems}
+              onItemClick={openModal}
+              onDelete={handleDelete}
+              onEditNote={handleEditNote}
+              isAdmin={isAdmin}
+              comments={comments}
+              likes={likes}
+              onAddComment={handleAddComment}
+              onDeleteComment={handleDeleteComment}
+              onToggleLike={handleToggleLike}
+              userName={userName || ''}
+              isDarkMode={isDarkMode}
+            />
+          </>
+        ) : (
+          <MusicRequestsSection
+            userName={userName || ''}
+            deviceId={deviceId}
+            isAdmin={isAdmin}
+            isDarkMode={isDarkMode}
+          />
+        )}
       </div>
 
       <MediaModal
