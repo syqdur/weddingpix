@@ -89,32 +89,29 @@ export const addNote = async (
   });
 };
 
-// Verbesserte Download-URL Funktion mit Retry-Logik
-const getDownloadURLWithRetry = async (storageRef: any, maxRetries = 3): Promise<string> => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+// Vereinfachte und robuste Download-URL Funktion
+const getDownloadURLSafe = async (fileName: string): Promise<string> => {
+  try {
+    const storageRef = ref(storage, `uploads/${fileName}`);
+    const url = await getDownloadURL(storageRef);
+    
+    console.log(`✅ URL generated for ${fileName}`);
+    return url;
+    
+  } catch (error) {
+    console.error(`❌ Failed to get URL for ${fileName}:`, error);
+    
+    // Fallback: Versuche alternative Pfade
     try {
-      const url = await getDownloadURL(storageRef);
-      
-      // Teste ob die URL funktioniert
-      const testResponse = await fetch(url, { method: 'HEAD' });
-      if (testResponse.ok) {
-        return url;
-      }
-      throw new Error(`URL test failed: ${testResponse.status}`);
-      
-    } catch (error) {
-      console.warn(`⚠️ Download URL attempt ${attempt}/${maxRetries} failed:`, error);
-      
-      if (attempt === maxRetries) {
-        throw error;
-      }
-      
-      // Warte zwischen Versuchen
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      const altStorageRef = ref(storage, fileName);
+      const altUrl = await getDownloadURL(altStorageRef);
+      console.log(`✅ Alternative URL found for ${fileName}`);
+      return altUrl;
+    } catch (altError) {
+      console.error(`❌ Alternative path also failed for ${fileName}:`, altError);
+      throw new Error(`Could not load ${fileName}`);
     }
   }
-  
-  throw new Error('All retry attempts failed');
 };
 
 export const loadGallery = (callback: (items: MediaItem[]) => void): () => void => {
@@ -124,70 +121,62 @@ export const loadGallery = (callback: (items: MediaItem[]) => void): () => void 
     console.log(`📊 Loading ${snapshot.docs.length} items from Firestore...`);
     const items: MediaItem[] = [];
     
-    // Verarbeite Items einzeln für bessere Fehlerbehandlung
-    for (const docSnapshot of snapshot.docs) {
+    // Verarbeite alle Items parallel für bessere Performance
+    const itemPromises = snapshot.docs.map(async (docSnapshot) => {
       const data = docSnapshot.data();
       
       try {
         if (data.type === 'note') {
           // Handle note items
-          items.push({
+          return {
             id: docSnapshot.id,
             name: data.name,
             url: '', // Notes don't have URLs
             uploadedBy: data.uploadedBy,
             uploadedAt: data.uploadedAt,
             deviceId: data.deviceId,
-            type: 'note',
+            type: 'note' as const,
             noteText: data.noteText
-          });
-          console.log(`✅ Note loaded: ${data.uploadedBy}`);
+          };
           
         } else {
           // Handle media items (images/videos)
           try {
-            const storageRef = ref(storage, `uploads/${data.name}`);
-            const url = await getDownloadURLWithRetry(storageRef);
+            const url = await getDownloadURLSafe(data.name);
             
-            items.push({
+            return {
               id: docSnapshot.id,
               name: data.name,
               url,
               uploadedBy: data.uploadedBy,
               uploadedAt: data.uploadedAt,
               deviceId: data.deviceId,
-              type: data.type
-            });
-            
-            console.log(`✅ Media loaded: ${data.name} (${data.type})`);
+              type: data.type as 'image' | 'video'
+            };
             
           } catch (urlError) {
-            console.error(`❌ Failed to get URL for ${data.name}:`, urlError);
-            
-            // Füge Item mit Fehler-Platzhalter hinzu
-            items.push({
-              id: docSnapshot.id,
-              name: data.name,
-              url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkJpbGQgbmljaHQgdmVyZsO8Z2JhcjwvdGV4dD48L3N2Zz4=',
-              uploadedBy: data.uploadedBy,
-              uploadedAt: data.uploadedAt,
-              deviceId: data.deviceId,
-              type: data.type
-            });
+            console.error(`❌ Could not load ${data.name}, skipping...`);
+            return null; // Skip this item
           }
         }
         
       } catch (itemError) {
         console.error(`❌ Error processing item ${docSnapshot.id}:`, itemError);
+        return null; // Skip this item
       }
-    }
+    });
     
-    console.log(`📊 Gallery loaded: ${items.length} items total`);
-    console.log(`   📸 Images: ${items.filter(i => i.type === 'image').length}`);
-    console.log(`   🎥 Videos: ${items.filter(i => i.type === 'video').length}`);
-    console.log(`   💌 Notes: ${items.filter(i => i.type === 'note').length}`);
+    // Warte auf alle Promises und filtere null-Werte
+    const resolvedItems = await Promise.all(itemPromises);
+    const validItems = resolvedItems.filter((item): item is MediaItem => item !== null);
     
-    callback(items);
+    console.log(`📊 Gallery loaded successfully:`);
+    console.log(`   📸 Images: ${validItems.filter(i => i.type === 'image').length}`);
+    console.log(`   🎥 Videos: ${validItems.filter(i => i.type === 'video').length}`);
+    console.log(`   💌 Notes: ${validItems.filter(i => i.type === 'note').length}`);
+    console.log(`   ❌ Failed: ${snapshot.docs.length - validItems.length}`);
+    
+    callback(validItems);
     
   }, (error) => {
     console.error('❌ Gallery listener error:', error);
