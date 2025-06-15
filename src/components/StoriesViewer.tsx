@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Pause, Play, Trash2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Pause, Play, Trash2, Eye } from 'lucide-react';
 import { Story } from '../services/liveService';
 
 interface StoriesViewerProps {
@@ -214,6 +214,7 @@ export const StoriesViewer: React.FC<StoriesViewerProps> = ({
           </div>
           <div>
             <span className="text-white font-semibold text-sm">
+              {/* 🎯 NEW: Clear user display */}
               {currentStory.userName}
               {currentStory.userName === currentUser && (
                 <span className="ml-2 text-xs px-2 py-0.5 bg-blue-600 text-white rounded-full">
@@ -314,9 +315,12 @@ export const StoriesViewer: React.FC<StoriesViewerProps> = ({
             <span>
               {currentIndex + 1} von {stories.length}
             </span>
-            <span>
-              {currentStory.views.length} Aufrufe
-            </span>
+            <div className="flex items-center gap-2">
+              <Eye className="w-4 h-4" />
+              <span>
+                {currentStory.views.length} Aufrufe
+              </span>
+            </div>
           </div>
           
           {/* 🎯 NEW: Keyboard shortcuts hint */}

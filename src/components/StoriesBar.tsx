@@ -45,11 +45,14 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
     userName,
     stories: userStoriesArray,
     latestStory: userStoriesArray[userStoriesArray.length - 1],
+    // 🎯 NEW: Check if user has viewed ALL stories from this user
     hasUnviewed: userStoriesArray.some(story => !story.views.includes(currentUser))
   }));
 
-  // Sort by latest story time
+  // Sort: current user first, then by latest story time
   userStories.sort((a, b) => {
+    if (a.userName === currentUser) return -1;
+    if (b.userName === currentUser) return 1;
     return new Date(b.latestStory.createdAt).getTime() - new Date(a.latestStory.createdAt).getTime();
   });
 
@@ -65,7 +68,7 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
       'https://images.pexels.com/photos/1070850/pexels-photo-1070850.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
       'https://images.pexels.com/photos/1444424/pexels-photo-1444424.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
       'https://images.pexels.com/photos/1024967/pexels-photo-1024967.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-      'https://images.pexels.com/photos/1729799/pexels-photo-1729799.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1729799/pexels-photo-1729799.jpeg?auto=compress&cs=tinysrgb&w=100&h-100&fit=crop',
       'https://images.pexels.com/photos/1444443/pexels-photo-1444443.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
     ];
     
@@ -125,7 +128,7 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
               onClick={() => handleStoryClick(userStory.userName)}
               className="relative"
             >
-              {/* Story Ring */}
+              {/* 🎯 NEW: Story Ring - Only glows if there are unviewed stories */}
               <div className={`w-16 h-16 rounded-full p-0.5 transition-all duration-300 ${
                 userStory.hasUnviewed
                   ? 'bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500'
@@ -166,6 +169,8 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
                 </div>
               )}
             </button>
+            
+            {/* 🎯 NEW: Show username clearly */}
             <span className={`text-xs text-center max-w-[64px] truncate transition-colors duration-300 ${
               isDarkMode ? 'text-gray-300' : 'text-gray-700'
             }`}>
