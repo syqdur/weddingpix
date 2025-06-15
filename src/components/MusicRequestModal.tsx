@@ -98,7 +98,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     setShowSuggestions(false);
   };
 
-  // 🎯 NEW: Direct song add when clicking on a track
+  // 🎯 FIXED: Direct song add when clicking on a track - NO TAB SWITCH
   const handleTrackClick = async (track: SpotifyTrack) => {
     setIsSubmitting(true);
     setSuccessMessage(null);
@@ -110,10 +110,10 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       
       setSuccessMessage(`🎵 "${track.name}" wurde zu deinen Musikwünschen hinzugefügt!`);
       
-      // Auto-close after 2 seconds
+      // 🔧 FIX: Close modal immediately without tab switch
       setTimeout(() => {
         onClose();
-      }, 2000);
+      }, 1500);
       
     } catch (error) {
       console.error('Error adding music request:', error);
@@ -141,10 +141,10 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       setShowSuggestions(true);
       setUrlError(null);
       
-      // Auto-close after 2 seconds
+      // 🔧 FIX: Close modal immediately without tab switch
       setTimeout(() => {
         onClose();
-      }, 2000);
+      }, 1500);
       
     } catch (error) {
       console.error('Error submitting music request from URL:', error);
@@ -357,7 +357,8 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
+                        {/* 🔧 FIXED: Made album cover smaller */}
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
                           <img 
                             src={track.album.images[0]?.url || '/placeholder-album.png'}
                             alt={track.album.name}

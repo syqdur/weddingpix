@@ -203,8 +203,8 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
               : 'bg-white border-gray-200 shadow-sm'
           } ${isDeleting ? 'opacity-50' : ''}`}>
             <div className="flex items-start gap-4">
-              {/* Album Art */}
-              <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
+              {/* Album Art - 🔧 FIXED: Made smaller */}
+              <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
                 {request.albumArt ? (
                   <img 
                     src={request.albumArt}
@@ -213,7 +213,7 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <Music className="w-6 h-6 text-gray-500" />
+                    <Music className="w-4 h-4 text-gray-500" />
                   </div>
                 )}
               </div>
