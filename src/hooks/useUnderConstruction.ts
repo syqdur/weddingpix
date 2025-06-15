@@ -26,10 +26,17 @@ export const useUnderConstruction = () => {
     setIsUnderConstruction(prev => !prev);
   };
 
+  // Function to handle admin logout
+  const logoutAdmin = () => {
+    setIsAdmin(false);
+    localStorage.removeItem(ADMIN_MODE_KEY);
+  };
+
   return {
     isUnderConstruction,
     isAdmin,
     toggleUnderConstruction,
-    setIsAdmin
+    setIsAdmin,
+    logoutAdmin
   };
 };

@@ -38,6 +38,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
 }) => {
   const [commentText, setCommentText] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [audioInitialized, setAudioInitialized] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const currentItem = items[currentIndex];
@@ -71,6 +72,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   useEffect(() => {
     if (!isOpen || !currentItem) {
       setIsPlaying(false);
+      setAudioInitialized(false);
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
@@ -105,24 +107,56 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     return date.toLocaleDateString('de-DE');
   };
 
-  const toggleAudioPlayback = () => {
+  const initializeAudio = async () => {
     const audio = audioRef.current;
-    if (audio) {
+    if (audio && !audioInitialized) {
+      try {
+        // Load the audio
+        audio.load();
+        setAudioInitialized(true);
+        return true;
+      } catch (error) {
+        console.error('Error initializing audio:', error);
+        return false;
+      }
+    }
+    return audioInitialized;
+  };
+
+  const toggleAudioPlayback = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    try {
+      // Initialize audio if not already done
+      const initialized = await initializeAudio();
+      if (!initialized) return;
+
       if (isPlaying) {
         audio.pause();
       } else {
-        // Reset audio to beginning and play
+        // Reset to beginning and play
         audio.currentTime = 0;
-        audio.play().catch(error => {
-          console.error('Error playing audio:', error);
-        });
+        const playPromise = audio.play();
+        
+        if (playPromise !== undefined) {
+          await playPromise;
+        }
       }
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      // Show user-friendly error
+      alert('Audio konnte nicht abgespielt werden. Bitte versuchen Sie es erneut.');
     }
   };
 
   const handleAudioPlay = () => setIsPlaying(true);
   const handleAudioPause = () => setIsPlaying(false);
   const handleAudioEnded = () => setIsPlaying(false);
+  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
+    console.error('Audio error:', e);
+    setIsPlaying(false);
+  };
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex">
@@ -154,6 +188,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
               src={currentItem.url}
               controls
               className="max-w-full max-h-full"
+              preload="metadata"
             />
           ) : currentItem.type === 'audio' ? (
             <div className="w-full h-full flex flex-col items-center justify-center relative">
@@ -195,7 +230,9 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                 onPlay={handleAudioPlay}
                 onPause={handleAudioPause}
                 onEnded={handleAudioEnded}
+                onError={handleAudioError}
                 preload="metadata"
+                crossOrigin="anonymous"
               />
             </div>
           ) : (

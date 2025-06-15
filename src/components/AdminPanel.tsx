@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Eye, EyeOff } from 'lucide-react';
+import { Lock, Unlock, Eye, EyeOff, LogOut } from 'lucide-react';
 
 interface AdminPanelProps {
   isAdmin: boolean;
@@ -23,7 +23,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleAdminToggle = () => {
     if (isAdmin) {
+      // Admin logout
       onToggleAdmin(false);
+      // Also remove from localStorage to ensure clean logout
+      localStorage.removeItem('wedding_admin_mode');
     } else {
       setShowPinInput(true);
     }
@@ -33,6 +36,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     e.preventDefault();
     if (pin === correctPIN) {
       onToggleAdmin(true);
+      // Also set in localStorage for persistence
+      localStorage.setItem('wedding_admin_mode', 'true');
       setShowPinInput(false);
       setPin('');
     } else {
@@ -73,10 +78,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 ? 'bg-orange-500 hover:bg-orange-600 text-white'
                 : 'bg-blue-500 hover:bg-blue-600 text-white'
           }`}
-          title={isUnderConstruction ? "Website aktivieren" : "Under Construction aktivieren"}
+          title={isUnderConstruction ? "Website für Gäste aktivieren" : "Under Construction für Gäste aktivieren"}
         >
           {isUnderConstruction ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
         </button>
+      )}
+
+      {/* Admin Status Indicator */}
+      {isAdmin && (
+        <div className={`fixed top-4 right-4 px-3 py-1 rounded-full text-xs font-medium transition-colors duration-300 ${
+          isDarkMode 
+            ? 'bg-green-600/20 text-green-400 border border-green-600/30' 
+            : 'bg-green-100 text-green-800 border border-green-200'
+        }`}>
+          Admin-Modus aktiv
+        </div>
+      )}
+
+      {/* Under Construction Status Indicator */}
+      {isAdmin && isUnderConstruction && (
+        <div className={`fixed top-4 left-4 px-3 py-1 rounded-full text-xs font-medium transition-colors duration-300 ${
+          isDarkMode 
+            ? 'bg-orange-600/20 text-orange-400 border border-orange-600/30' 
+            : 'bg-orange-100 text-orange-800 border border-orange-200'
+        }`}>
+          Under Construction aktiv
+        </div>
       )}
 
       {/* PIN Input Modal */}

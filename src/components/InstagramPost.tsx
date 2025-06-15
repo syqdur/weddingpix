@@ -35,6 +35,7 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
   const [commentText, setCommentText] = useState('');
   const [showAllComments, setShowAllComments] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [audioInitialized, setAudioInitialized] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const isLiked = likes.some(like => like.userName === userName);
@@ -73,24 +74,56 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
 
   const displayComments = showAllComments ? comments : comments.slice(0, 2);
 
-  const toggleAudioPlayback = () => {
+  const initializeAudio = async () => {
     const audio = audioRef.current;
-    if (audio) {
+    if (audio && !audioInitialized) {
+      try {
+        // Load the audio
+        audio.load();
+        setAudioInitialized(true);
+        return true;
+      } catch (error) {
+        console.error('Error initializing audio:', error);
+        return false;
+      }
+    }
+    return audioInitialized;
+  };
+
+  const toggleAudioPlayback = async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    try {
+      // Initialize audio if not already done
+      const initialized = await initializeAudio();
+      if (!initialized) return;
+
       if (isPlaying) {
         audio.pause();
       } else {
-        // Reset audio to beginning and play
+        // Reset to beginning and play
         audio.currentTime = 0;
-        audio.play().catch(error => {
-          console.error('Error playing audio:', error);
-        });
+        const playPromise = audio.play();
+        
+        if (playPromise !== undefined) {
+          await playPromise;
+        }
       }
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      // Show user-friendly error
+      alert('Audio konnte nicht abgespielt werden. Bitte versuchen Sie es erneut.');
     }
   };
 
   const handleAudioPlay = () => setIsPlaying(true);
   const handleAudioPause = () => setIsPlaying(false);
   const handleAudioEnded = () => setIsPlaying(false);
+  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
+    console.error('Audio error:', e);
+    setIsPlaying(false);
+  };
 
   return (
     <div className={`border-b transition-colors duration-300 ${
@@ -139,6 +172,7 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
             src={item.url}
             className="w-full aspect-square object-cover"
             controls
+            preload="metadata"
           />
         ) : item.type === 'audio' ? (
           <div className={`w-full aspect-square flex flex-col items-center justify-center relative transition-colors duration-300 ${
@@ -190,7 +224,9 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
               onPlay={handleAudioPlay}
               onPause={handleAudioPause}
               onEnded={handleAudioEnded}
+              onError={handleAudioError}
               preload="metadata"
+              crossOrigin="anonymous"
             />
           </div>
         ) : (
