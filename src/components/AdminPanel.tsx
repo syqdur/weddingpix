@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
-import { Lock, Unlock } from 'lucide-react';
+import { Lock, Unlock, Settings, Eye, EyeOff } from 'lucide-react';
 
 interface AdminPanelProps {
   isAdmin: boolean;
   onToggleAdmin: (isAdmin: boolean) => void;
+  isUnderConstruction: boolean;
+  onToggleUnderConstruction: () => void;
   isDarkMode: boolean;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
   isAdmin,
   onToggleAdmin,
+  isUnderConstruction,
+  onToggleUnderConstruction,
   isDarkMode
 }) => {
   const [showPinInput, setShowPinInput] = useState(false);
@@ -39,6 +43,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <>
+      {/* Admin Toggle Button */}
       <button
         onClick={handleAdminToggle}
         className={`fixed bottom-4 left-4 p-3 rounded-full shadow-lg transition-colors duration-300 ${
@@ -55,6 +60,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         {isAdmin ? <Unlock className="w-6 h-6" /> : <Lock className="w-6 h-6" />}
       </button>
 
+      {/* Under Construction Toggle (only visible to admin) */}
+      {isAdmin && (
+        <button
+          onClick={onToggleUnderConstruction}
+          className={`fixed bottom-4 left-20 p-3 rounded-full shadow-lg transition-colors duration-300 ${
+            isDarkMode
+              ? isUnderConstruction
+                ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+              : isUnderConstruction
+                ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                : 'bg-blue-500 hover:bg-blue-600 text-white'
+          }`}
+          title={isUnderConstruction ? "Website aktivieren" : "Under Construction aktivieren"}
+        >
+          {isUnderConstruction ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
+        </button>
+      )}
+
+      {/* PIN Input Modal */}
       {showPinInput && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className={`rounded-2xl p-6 max-w-sm w-full transition-colors duration-300 ${

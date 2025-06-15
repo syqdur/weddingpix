@@ -6,8 +6,10 @@ import { InstagramGallery } from './components/InstagramGallery';
 import { MediaModal } from './components/MediaModal';
 import { AdminPanel } from './components/AdminPanel';
 import { ProfileHeader } from './components/ProfileHeader';
+import { UnderConstructionPage } from './components/UnderConstructionPage';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
+import { useUnderConstruction } from './hooks/useUnderConstruction';
 import { MediaItem, Comment, Like } from './types';
 import {
   uploadFiles,
@@ -24,18 +26,18 @@ import {
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const { isUnderConstruction, isAdmin, toggleUnderConstruction, setIsAdmin } = useUnderConstruction();
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [likes, setLikes] = useState<Like[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [status, setStatus] = useState('');
 
   useEffect(() => {
-    if (!userName) return;
+    if (!userName || isUnderConstruction) return;
 
     const unsubscribeGallery = loadGallery(setMediaItems);
     const unsubscribeComments = loadComments(setComments);
@@ -46,7 +48,7 @@ function App() {
       unsubscribeComments();
       unsubscribeLikes();
     };
-  }, [userName]);
+  }, [userName, isUnderConstruction]);
 
   const handleUpload = async (files: FileList) => {
     if (!userName) return;
@@ -141,6 +143,11 @@ function App() {
       prev === 0 ? mediaItems.length - 1 : prev - 1
     );
   };
+
+  // Show under construction page if enabled and user is not admin
+  if (isUnderConstruction && !isAdmin) {
+    return <UnderConstructionPage isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />;
+  }
 
   if (showNamePrompt) {
     return <UserNamePrompt onSubmit={setUserName} isDarkMode={isDarkMode} />;
@@ -241,6 +248,8 @@ function App() {
       <AdminPanel
         isAdmin={isAdmin}
         onToggleAdmin={setIsAdmin}
+        isUnderConstruction={isUnderConstruction}
+        onToggleUnderConstruction={toggleUnderConstruction}
         isDarkMode={isDarkMode}
       />
     </div>
