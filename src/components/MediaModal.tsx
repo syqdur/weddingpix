@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, Heart, MessageCircle, Trash2, Play, Pause } from 'lucide-react';
 import { MediaItem, Comment, Like } from '../types';
+import { AudioWaveform } from './AudioWaveform';
 
 interface MediaModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
 }) => {
   const [commentText, setCommentText] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const currentItem = items[currentIndex];
   const currentComments = comments.filter(c => c.mediaId === currentItem?.id);
@@ -64,6 +66,13 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isOpen, onClose, onNext, onPrev]);
+
+  // Reset audio state when modal closes or item changes
+  useEffect(() => {
+    if (!isOpen || !currentItem) {
+      setIsPlaying(false);
+    }
+  }, [isOpen, currentItem]);
 
   if (!isOpen || !currentItem) return null;
 
@@ -93,16 +102,19 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   };
 
   const toggleAudioPlayback = () => {
-    const audio = document.getElementById(`modal-audio-${currentItem.id}`) as HTMLAudioElement;
+    const audio = audioRef.current;
     if (audio) {
       if (isPlaying) {
         audio.pause();
       } else {
         audio.play();
       }
-      setIsPlaying(!isPlaying);
     }
   };
+
+  const handleAudioPlay = () => setIsPlaying(true);
+  const handleAudioPause = () => setIsPlaying(false);
+  const handleAudioEnded = () => setIsPlaying(false);
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex">
@@ -144,7 +156,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                   className="w-full h-full object-cover opacity-30"
                 />
               </div>
-              <div className="relative z-10 flex flex-col items-center gap-4">
+              <div className="relative z-10 flex flex-col items-center gap-6 w-full px-8">
                 <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg">
                   <button
                     onClick={toggleAudioPlayback}
@@ -153,17 +165,28 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                     {isPlaying ? <Pause className="w-10 h-10" /> : <Play className="w-10 h-10 ml-1" />}
                   </button>
                 </div>
+                
+                {/* Waveform Visualization */}
+                <div className="w-full max-w-sm">
+                  <AudioWaveform
+                    isPlaying={isPlaying}
+                    audioElement={audioRef.current}
+                    color="#ec4899"
+                    className="rounded-lg"
+                  />
+                </div>
+                
                 <div className="text-center text-white">
                   <div className="font-semibold text-lg">🎵 Audio Nachricht</div>
                   <div className="text-sm opacity-75">Tippe zum Abspielen</div>
                 </div>
               </div>
               <audio
-                id={`modal-audio-${currentItem.id}`}
+                ref={audioRef}
                 src={currentItem.url}
-                onEnded={() => setIsPlaying(false)}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
+                onPlay={handleAudioPlay}
+                onPause={handleAudioPause}
+                onEnded={handleAudioEnded}
               />
             </div>
           ) : (

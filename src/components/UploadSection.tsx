@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Plus, Camera, Mic, Square } from 'lucide-react';
+import { AudioWaveform } from './AudioWaveform';
 
 interface UploadSectionProps {
   onUpload: (files: FileList) => Promise<void>;
@@ -18,6 +19,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
 }) => {
   const [files, setFiles] = useState<FileList | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [showWaveform, setShowWaveform] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -45,10 +47,12 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
         onAudioUpload(audioBlob);
         stream.getTracks().forEach(track => track.stop());
+        setShowWaveform(false);
       };
 
       mediaRecorder.start();
       setIsRecording(true);
+      setShowWaveform(true);
     } catch (error) {
       console.error('Error starting recording:', error);
       alert('Fehler beim Starten der Aufnahme. Bitte erlaube den Zugriff auf das Mikrofon.');
@@ -122,6 +126,29 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
           </button>
         </div>
       </div>
+      
+      {/* Audio Waveform Visualization */}
+      {showWaveform && (
+        <div className={`mt-4 p-4 rounded-lg transition-colors duration-300 ${
+          isDarkMode ? 'bg-gray-700/50' : 'bg-gray-100'
+        }`}>
+          <div className="flex items-center gap-3 mb-2">
+            <div className={`w-3 h-3 rounded-full animate-pulse ${
+              isRecording ? 'bg-red-500' : 'bg-gray-400'
+            }`} />
+            <span className={`text-sm font-medium transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              {isRecording ? 'Aufnahme läuft...' : 'Aufnahme beendet'}
+            </span>
+          </div>
+          <AudioWaveform
+            isRecording={isRecording}
+            color={isDarkMode ? '#ec4899' : '#ec4899'}
+            className="rounded"
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Heart, MessageCircle, MoreHorizontal, Trash2, Play, Pause } from 'lucide-react';
 import { MediaItem, Comment, Like } from '../types';
+import { AudioWaveform } from './AudioWaveform';
 
 interface InstagramPostProps {
   item: MediaItem;
@@ -34,6 +35,7 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
   const [commentText, setCommentText] = useState('');
   const [showAllComments, setShowAllComments] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const isLiked = likes.some(like => like.userName === userName);
   const likeCount = likes.length;
@@ -72,16 +74,19 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
   const displayComments = showAllComments ? comments : comments.slice(0, 2);
 
   const toggleAudioPlayback = () => {
-    const audio = document.getElementById(`audio-${item.id}`) as HTMLAudioElement;
+    const audio = audioRef.current;
     if (audio) {
       if (isPlaying) {
         audio.pause();
       } else {
         audio.play();
       }
-      setIsPlaying(!isPlaying);
     }
   };
+
+  const handleAudioPlay = () => setIsPlaying(true);
+  const handleAudioPause = () => setIsPlaying(false);
+  const handleAudioEnded = () => setIsPlaying(false);
 
   return (
     <div className={`border-b transition-colors duration-300 ${
@@ -135,7 +140,7 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
           <div className={`w-full aspect-square flex flex-col items-center justify-center relative transition-colors duration-300 ${
             isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
           }`}>
-            {/* Audio thumbnail */}
+            {/* Audio thumbnail background */}
             <div className="absolute inset-0 flex items-center justify-center">
               <img
                 src="https://images.pexels.com/photos/164938/pexels-photo-164938.jpeg?auto=compress&cs=tinysrgb&w=400"
@@ -143,7 +148,9 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
                 className="w-full h-full object-cover opacity-30"
               />
             </div>
-            <div className="relative z-10 flex flex-col items-center gap-4">
+            
+            {/* Audio controls and waveform */}
+            <div className="relative z-10 flex flex-col items-center gap-6 w-full px-8">
               <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-colors duration-300 ${
                 isDarkMode ? 'bg-gray-600' : 'bg-white'
               } shadow-lg`}>
@@ -154,6 +161,17 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
                   {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
                 </button>
               </div>
+              
+              {/* Waveform Visualization */}
+              <div className="w-full max-w-xs">
+                <AudioWaveform
+                  isPlaying={isPlaying}
+                  audioElement={audioRef.current}
+                  color={isDarkMode ? '#ec4899' : '#ec4899'}
+                  className="rounded-lg"
+                />
+              </div>
+              
               <div className={`text-center transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-800'
               }`}>
@@ -161,12 +179,13 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
                 <div className="text-sm opacity-75">Tippe zum Abspielen</div>
               </div>
             </div>
+            
             <audio
-              id={`audio-${item.id}`}
+              ref={audioRef}
               src={item.url}
-              onEnded={() => setIsPlaying(false)}
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
+              onPlay={handleAudioPlay}
+              onPause={handleAudioPause}
+              onEnded={handleAudioEnded}
             />
           </div>
         ) : (
