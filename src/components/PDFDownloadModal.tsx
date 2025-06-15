@@ -50,7 +50,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
       await generatePDFPhotobook(mediaItems, options);
       
       // Show success message
-      alert(`✅ PDF-Fotobuch erfolgreich erstellt!\n\n📊 Inhalt:\n- Titelseite mit Hochzeitsdaten\n- Statistik-Übersicht\n- ${stats.images} Hochzeitsbilder\n${options.includeNotes ? `- ${stats.notes} Gästenachrichten\n` : ''}- Dankesseite\n\n💡 Das PDF wurde in deinen Downloads gespeichert.`);
+      alert(`✨ Wunderschönes PDF-Fotobuch erfolgreich erstellt!\n\n📖 Inhalt:\n- Elegante Titelseite mit Hochzeitsdaten\n- Detaillierte Statistik-Übersicht\n- ${stats.images} Hochzeitsbilder in schöner Präsentation\n${options.includeNotes ? `- ${stats.notes} Gästenachrichten liebevoll formatiert\n` : ''}- Dankesseite für alle Gäste\n\n💎 Das PDF wurde mit elegantem Design und professioneller Typografie erstellt.`);
       
       onClose();
     } catch (error) {
@@ -90,12 +90,12 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
               <h3 className={`text-xl font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                📖 PDF-Fotobuch erstellen
+                Elegantes PDF-Fotobuch erstellen
               </h3>
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Professionelles Hochzeitsfotobuch als PDF
+                Professionelles Hochzeitsfotobuch mit wunderschönem Design
               </p>
             </div>
           </div>
@@ -116,7 +116,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
           <h4 className={`font-semibold mb-3 transition-colors duration-300 ${
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
-            📊 Fotobuch-Inhalt:
+            Fotobuch-Inhalt:
           </h4>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -129,7 +129,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
               <div className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                📸 Bilder
+                Bilder
               </div>
             </div>
             
@@ -142,7 +142,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
               <div className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                💌 Notizen
+                Nachrichten
               </div>
             </div>
             
@@ -155,7 +155,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
               <div className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                📁 MB
+                MB
               </div>
             </div>
             
@@ -168,7 +168,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
               <div className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                ⏱️ Min
+                Min
               </div>
             </div>
           </div>
@@ -182,7 +182,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
             isDarkMode ? 'text-blue-300' : 'text-blue-800'
           }`}>
             <FileText className="w-4 h-4" />
-            📖 PDF-Struktur:
+            Elegante PDF-Struktur:
           </h4>
           
           <div className={`space-y-2 text-sm transition-colors duration-300 ${
@@ -190,26 +190,48 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
           }`}>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>1. Wunderschöne Titelseite mit Hochzeitsdaten</span>
+              <span>1. Wunderschöne Titelseite mit eleganter Typografie</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>2. Detaillierte Statistik-Übersicht</span>
+              <span>2. Detaillierte Statistik-Übersicht mit schönem Design</span>
             </div>
             {options.includeNotes && stats.notes > 0 && (
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-500" />
-                <span>3. Alle {stats.notes} Gästenachrichten</span>
+                <span>3. Alle {stats.notes} Gästenachrichten liebevoll formatiert</span>
               </div>
             )}
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>{options.includeNotes && stats.notes > 0 ? '4' : '3'}. {stats.images} Hochzeitsbilder (je eine Seite)</span>
+              <span>{options.includeNotes && stats.notes > 0 ? '4' : '3'}. {stats.images} Hochzeitsbilder (elegant gerahmt, je eine Seite)</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>{options.includeNotes && stats.notes > 0 ? '5' : '4'}. Dankesseite für alle Gäste</span>
+              <span>{options.includeNotes && stats.notes > 0 ? '5' : '4'}. Dankesseite mit herzlichen Worten</span>
             </div>
+          </div>
+        </div>
+
+        {/* Design Features */}
+        <div className={`p-4 rounded-xl mb-6 transition-colors duration-300 ${
+          isDarkMode ? 'bg-purple-900/20 border border-purple-700/30' : 'bg-purple-50 border border-purple-200'
+        }`}>
+          <h4 className={`font-semibold mb-3 transition-colors duration-300 ${
+            isDarkMode ? 'text-purple-300' : 'text-purple-800'
+          }`}>
+            Elegantes Design:
+          </h4>
+          
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 text-sm transition-colors duration-300 ${
+            isDarkMode ? 'text-purple-200' : 'text-purple-700'
+          }`}>
+            <div>• Professionelle Times-Schriftart</div>
+            <div>• Warme, elegante Farbpalette</div>
+            <div>• Dekorative Rahmen und Verzierungen</div>
+            <div>• Hochwertige Bildpräsentation</div>
+            <div>• Romantische Typografie</div>
+            <div>• Druckfertige Qualität</div>
           </div>
         </div>
 
@@ -219,7 +241,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
             <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
               isDarkMode ? 'text-gray-300' : 'text-gray-700'
             }`}>
-              📝 Fotobuch-Titel:
+              Fotobuch-Titel:
             </label>
             <input
               type="text"
@@ -237,7 +259,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
             <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
               isDarkMode ? 'text-gray-300' : 'text-gray-700'
             }`}>
-              📄 Untertitel:
+              Untertitel:
             </label>
             <textarea
               value={options.subtitle}
@@ -262,7 +284,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
             <label htmlFor="includeNotes" className={`text-sm transition-colors duration-300 ${
               isDarkMode ? 'text-gray-300' : 'text-gray-700'
             }`}>
-              💌 Gästenachrichten einschließen ({stats.notes} verfügbar)
+              Gästenachrichten einschließen ({stats.notes} verfügbar)
             </label>
           </div>
         </div>
@@ -287,7 +309,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                 <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-300' : 'text-gray-700'
                 }`}>
-                  📐 Layout:
+                  Layout:
                 </label>
                 <div className="flex gap-3">
                   <label className="flex items-center gap-2">
@@ -302,7 +324,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                     <span className={`text-sm transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-700'
                     }`}>
-                      📱 Hochformat
+                      Hochformat (empfohlen)
                     </span>
                   </label>
                   <label className="flex items-center gap-2">
@@ -317,7 +339,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                     <span className={`text-sm transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-700'
                     }`}>
-                      🖥️ Querformat
+                      Querformat
                     </span>
                   </label>
                 </div>
@@ -327,7 +349,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                 <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-300' : 'text-gray-700'
                 }`}>
-                  🎨 Bildqualität:
+                  Bildqualität:
                 </label>
                 <div className="flex gap-3">
                   <label className="flex items-center gap-2">
@@ -342,7 +364,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                     <span className={`text-sm transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-700'
                     }`}>
-                      ⚡ Standard (schneller)
+                      Standard (schneller)
                     </span>
                   </label>
                   <label className="flex items-center gap-2">
@@ -357,7 +379,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                     <span className={`text-sm transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-700'
                     }`}>
-                      ✨ Hoch (bessere Qualität)
+                      Hoch (beste Qualität)
                     </span>
                   </label>
                 </div>
@@ -377,7 +399,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                 <h4 className={`font-semibold text-sm transition-colors duration-300 ${
                   isDarkMode ? 'text-yellow-300' : 'text-yellow-800'
                 }`}>
-                  ⚠️ Großes Fotobuch
+                  Großes Fotobuch
                 </h4>
                 <p className={`text-sm mt-1 transition-colors duration-300 ${
                   isDarkMode ? 'text-yellow-200' : 'text-yellow-700'
@@ -419,7 +441,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
             ) : (
               <div className="flex items-center justify-center gap-2">
                 <Download className="w-4 h-4" />
-                📖 Fotobuch erstellen
+                Elegantes Fotobuch erstellen
               </div>
             )}
           </button>
@@ -435,13 +457,13 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
               <span className={`font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-blue-300' : 'text-blue-800'
               }`}>
-                PDF-Fotobuch wird erstellt...
+                Elegantes PDF-Fotobuch wird erstellt...
               </span>
             </div>
             <p className={`text-sm transition-colors duration-300 ${
               isDarkMode ? 'text-blue-200' : 'text-blue-700'
             }`}>
-              Bitte warten Sie, während Ihr persönliches Hochzeitsfotobuch zusammengestellt wird. 
+              Ihr persönliches Hochzeitsfotobuch wird mit wunderschönem Design zusammengestellt. 
               Dies kann einige Minuten dauern.
             </p>
           </div>
