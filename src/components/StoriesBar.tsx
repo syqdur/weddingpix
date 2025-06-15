@@ -49,7 +49,7 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
       'https://images.pexels.com/photos/1070850/pexels-photo-1070850.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
       'https://images.pexels.com/photos/1444424/pexels-photo-1444424.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
       'https://images.pexels.com/photos/1024967/pexels-photo-1024967.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
-      'https://images.pexels.com/photos/1729799/pexels-photo-1729799.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1729799/pexels-photo-1729799.jpeg?auto=compress&cs=tinysrgb&w=100&h-100&fit=crop',
       'https://images.pexels.com/photos/1444443/pexels-photo-1444443.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
     ];
     
@@ -69,16 +69,34 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
     }
   };
 
-  if (userStories.length === 0) {
-    return null; // Don't show stories bar if no stories exist
-  }
-
+  // 🔧 FIX: Always show Stories Bar, even if no stories exist
   return (
     <div className={`p-4 border-b transition-colors duration-300 ${
       isDarkMode ? 'border-gray-700' : 'border-gray-100'
     }`}>
       <div className="flex gap-4 overflow-x-auto pb-2">
-        {/* User Stories */}
+        {/* Add Story Button - Always visible */}
+        <div className="flex flex-col items-center gap-2 flex-shrink-0">
+          <button
+            onClick={onAddStory}
+            className={`w-16 h-16 rounded-full border-2 border-dashed flex items-center justify-center transition-all duration-300 ${
+              isDarkMode 
+                ? 'border-gray-600 hover:border-gray-500 hover:bg-gray-700/30' 
+                : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+            }`}
+          >
+            <Plus className={`w-6 h-6 transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-500' : 'text-gray-400'
+            }`} />
+          </button>
+          <span className={`text-xs text-center transition-colors duration-300 ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            Deine Story
+          </span>
+        </div>
+
+        {/* User Stories - Only show if stories exist */}
         {userStories.map((userStory) => (
           <div key={userStory.userName} className="flex flex-col items-center gap-2 flex-shrink-0">
             <button
@@ -119,6 +137,25 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
             </span>
           </div>
         ))}
+
+        {/* Empty state message when no stories exist */}
+        {userStories.length === 0 && (
+          <div className="flex items-center justify-center flex-1 py-4">
+            <div className="text-center">
+              <div className={`text-2xl mb-2`}>⚡</div>
+              <p className={`text-sm transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Noch keine Stories
+              </p>
+              <p className={`text-xs transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-500' : 'text-gray-500'
+              }`}>
+                Sei der Erste und teile einen spontanen Moment!
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
