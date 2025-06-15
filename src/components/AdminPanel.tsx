@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, FileText } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
+import { PDFDownloadModal } from './PDFDownloadModal';
 
 interface AdminPanelProps {
   isDarkMode: boolean;
@@ -24,6 +25,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
   const [isUpdatingSiteStatus, setIsUpdatingSiteStatus] = useState(false);
+  const [showPDFModal, setShowPDFModal] = useState(false);
 
   const correctPIN = "2407";
 
@@ -122,6 +124,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return parts.join(', ') + ' als ZIP herunterladen';
   };
 
+  const getPDFButtonText = () => {
+    const imageCount = mediaItems.filter(item => item.type === 'image').length;
+    const noteCount = mediaItems.filter(item => item.type === 'note').length;
+    
+    if (imageCount === 0) return 'Keine Bilder für PDF';
+    
+    return `PDF-Fotobuch (${imageCount} Bilder${noteCount > 0 ? `, ${noteCount} Notizen` : ''})`;
+  };
+
   const getSiteStatusInfo = () => {
     if (!siteStatus) return 'Status unbekannt';
     
@@ -178,8 +189,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               )}
             </button>
           )}
+
+          {/* PDF Download Button */}
+          <button
+            onClick={() => setShowPDFModal(true)}
+            disabled={mediaItems.filter(item => item.type === 'image').length === 0}
+            className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
+              mediaItems.filter(item => item.type === 'image').length === 0
+                ? isDarkMode
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : isDarkMode
+                  ? 'bg-red-600 hover:bg-red-700 text-white hover:scale-110'
+                  : 'bg-red-500 hover:bg-red-600 text-white hover:scale-110'
+            }`}
+            title={getPDFButtonText()}
+          >
+            <FileText className="w-6 h-6" />
+          </button>
           
-          {/* Download Button */}
+          {/* ZIP Download Button */}
           <button
             onClick={handleDownloadAll}
             disabled={isDownloading || mediaItems.length === 0}
@@ -211,6 +240,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
+      {/* PDF Download Modal */}
+      <PDFDownloadModal
+        isOpen={showPDFModal}
+        onClose={() => setShowPDFModal(false)}
+        mediaItems={mediaItems}
+        isDarkMode={isDarkMode}
+      />
+
       {/* Admin Login Modal */}
       {showPinInput && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -241,6 +278,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               }`}>
                 <li>• Website für alle freischalten/sperren</li>
                 <li>• Medien und Kommentare löschen</li>
+                <li>• PDF-Fotobuch erstellen</li>
                 <li>• Alle Inhalte herunterladen</li>
               </ul>
             </div>
