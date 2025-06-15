@@ -115,13 +115,13 @@ export const addMusicRequestFromUrl = async (
   }
 };
 
-// Load music requests with real-time updates
+// 🔧 FIX: Simplified query to avoid index requirement
 export const loadMusicRequests = (callback: (requests: MusicRequest[]) => void): (() => void) => {
-  console.log(`🎵 === SUBSCRIBING TO MUSIC REQUESTS ===`);
+  console.log(`🎵 === SUBSCRIBING TO MUSIC REQUESTS (SIMPLIFIED) ===`);
   
+  // Use simple query with only one orderBy to avoid index requirement
   const q = query(
     collection(db, 'music_requests'), 
-    orderBy('votes', 'desc'),
     orderBy('requestedAt', 'desc')
   );
   
@@ -145,7 +145,15 @@ export const loadMusicRequests = (callback: (requests: MusicRequest[]) => void):
       return request;
     });
     
-    console.log(`✅ Loaded ${requests.length} music requests`);
+    // Sort in memory by votes (descending) then by date (descending)
+    requests.sort((a, b) => {
+      if (a.votes !== b.votes) {
+        return b.votes - a.votes; // Higher votes first
+      }
+      return new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime(); // Newer first
+    });
+    
+    console.log(`✅ Loaded and sorted ${requests.length} music requests`);
     callback(requests);
     
   }, (error) => {
@@ -155,6 +163,12 @@ export const loadMusicRequests = (callback: (requests: MusicRequest[]) => void):
       message: error.message,
       stack: error.stack
     });
+    
+    // Provide helpful error message
+    if (error.code === 'failed-precondition' && error.message.includes('index')) {
+      console.error('🔧 Firebase Index Required - but we fixed this with simplified query');
+    }
+    
     callback([]);
   });
 };
@@ -231,25 +245,32 @@ export const deleteMusicRequest = async (requestId: string): Promise<void> => {
   }
 };
 
-// Get popular requests for DJ dashboard
+// Get popular requests for DJ dashboard (simplified query)
 export const getPopularRequests = async (): Promise<MusicRequest[]> => {
   try {
+    // Use simple query and sort in memory
     const q = query(
       collection(db, 'music_requests'),
-      where('status', '==', 'pending'),
-      orderBy('votes', 'desc'),
-      orderBy('popularity', 'desc')
+      where('status', '==', 'pending')
     );
     
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const requests = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     } as MusicRequest));
+    
+    // Sort by votes and popularity in memory
+    requests.sort((a, b) => {
+      if (a.votes !== b.votes) return b.votes - a.votes;
+      return (b.popularity || 0) - (a.popularity || 0);
+    });
+    
+    return requests;
   } catch (error) {
     console.error('❌ Error getting popular requests:', error);
     return [];
   }
 };
 
-console.log('🎵 Music Service initialized with mock Spotify integration');
+console.log('🎵 Music Service initialized with simplified Firebase queries (no index required)');
