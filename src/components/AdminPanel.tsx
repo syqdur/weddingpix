@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, FileText } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
-import { PDFDownloadModal } from './PDFDownloadModal';
 
 interface AdminPanelProps {
   isDarkMode: boolean;
@@ -25,7 +24,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
   const [isUpdatingSiteStatus, setIsUpdatingSiteStatus] = useState(false);
-  const [showPDFModal, setShowPDFModal] = useState(false);
+  const [showExternalServices, setShowExternalServices] = useState(false);
 
   const correctPIN = "2407";
 
@@ -124,15 +123,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     return parts.join(', ') + ' als ZIP herunterladen';
   };
 
-  const getPDFButtonText = () => {
-    const imageCount = mediaItems.filter(item => item.type === 'image').length;
-    const noteCount = mediaItems.filter(item => item.type === 'note').length;
-    
-    if (imageCount === 0) return 'Keine Bilder für PDF';
-    
-    return `PDF-Fotobuch (${imageCount} Bilder${noteCount > 0 ? `, ${noteCount} Notizen` : ''})`;
-  };
-
   const getSiteStatusInfo = () => {
     if (!siteStatus) return 'Status unbekannt';
     
@@ -140,6 +130,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       ? '🔒 Website ist gesperrt (Under Construction)'
       : '🌐 Website ist freigeschaltet';
   };
+
+  const externalServices = [
+    {
+      name: 'Shutterfly',
+      description: 'Professionelle Fotobücher mit Premium-Qualität',
+      url: 'https://www.shutterfly.com/photo-books',
+      features: ['Hochwertige Bindung', 'Verschiedene Formate', 'Schnelle Lieferung'],
+      price: 'ab 15€'
+    },
+    {
+      name: 'Cewe Fotobuch',
+      description: 'Europas führender Fotobuch-Service',
+      url: 'https://www.cewe.de/fotobuch',
+      features: ['Testsieger Qualität', 'Echtfotopapier', 'Express-Service'],
+      price: 'ab 12€'
+    },
+    {
+      name: 'Pixum',
+      description: 'Deutsche Premium-Fotobücher',
+      url: 'https://www.pixum.de/fotobuch',
+      features: ['Made in Germany', 'Umweltfreundlich', 'Lebenslange Garantie'],
+      price: 'ab 18€'
+    },
+    {
+      name: 'Blurb',
+      description: 'Professionelle Buchqualität für besondere Anlässe',
+      url: 'https://www.blurb.de',
+      features: ['Buchhandelsqualität', 'Hardcover Premium', 'Weltweiter Versand'],
+      price: 'ab 25€'
+    }
+  ];
 
   return (
     <>
@@ -190,22 +211,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             </button>
           )}
 
-          {/* PDF Download Button */}
+          {/* External Services Button */}
           <button
-            onClick={() => setShowPDFModal(true)}
-            disabled={mediaItems.filter(item => item.type === 'image').length === 0}
+            onClick={() => setShowExternalServices(true)}
             className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
-              mediaItems.filter(item => item.type === 'image').length === 0
-                ? isDarkMode
-                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : isDarkMode
-                  ? 'bg-red-600 hover:bg-red-700 text-white hover:scale-110'
-                  : 'bg-red-500 hover:bg-red-600 text-white hover:scale-110'
+              isDarkMode
+                ? 'bg-purple-600 hover:bg-purple-700 text-white hover:scale-110'
+                : 'bg-purple-500 hover:bg-purple-600 text-white hover:scale-110'
             }`}
-            title={getPDFButtonText()}
+            title="Professionelle Fotobuch-Services"
           >
-            <FileText className="w-6 h-6" />
+            <ExternalLink className="w-6 h-6" />
           </button>
           
           {/* ZIP Download Button */}
@@ -218,8 +234,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 : isDarkMode
-                  ? 'bg-purple-600 hover:bg-purple-700 text-white hover:scale-110'
-                  : 'bg-purple-500 hover:bg-purple-600 text-white hover:scale-110'
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white hover:scale-110'
+                  : 'bg-indigo-500 hover:bg-indigo-600 text-white hover:scale-110'
             }`}
             title={getDownloadButtonText()}
           >
@@ -240,13 +256,208 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* PDF Download Modal */}
-      <PDFDownloadModal
-        isOpen={showPDFModal}
-        onClose={() => setShowPDFModal(false)}
-        mediaItems={mediaItems}
-        isDarkMode={isDarkMode}
-      />
+      {/* External Services Modal */}
+      {showExternalServices && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className={`rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className={`p-3 rounded-full transition-colors duration-300 ${
+                  isDarkMode ? 'bg-purple-600' : 'bg-purple-500'
+                }`}>
+                  <ExternalLink className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className={`text-xl font-semibold transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    Professionelle Fotobuch-Services
+                  </h3>
+                  <p className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Erstelle ein hochwertiges Hochzeitsfotobuch mit professionellen Services
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowExternalServices(false)}
+                className={`p-2 rounded-full transition-colors duration-300 ${
+                  isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+                }`}
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Instructions */}
+            <div className={`p-4 rounded-xl mb-6 transition-colors duration-300 ${
+              isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
+            }`}>
+              <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-300' : 'text-blue-800'
+              }`}>
+                📖 So erstellst du dein Hochzeitsfotobuch:
+              </h4>
+              <ol className={`text-sm space-y-1 transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-200' : 'text-blue-700'
+              }`}>
+                <li>1. Lade alle Bilder als ZIP herunter (Button unten links)</li>
+                <li>2. Wähle einen der professionellen Services unten aus</li>
+                <li>3. Lade die Bilder hoch und gestalte dein Fotobuch</li>
+                <li>4. Bestelle dein hochwertiges Hochzeitsfotobuch</li>
+              </ol>
+            </div>
+
+            {/* Content Stats */}
+            <div className={`p-4 rounded-xl mb-6 transition-colors duration-300 ${
+              isDarkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-gray-50 border border-gray-200'
+            }`}>
+              <h4 className={`font-semibold mb-3 transition-colors duration-300 ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                📊 Verfügbare Inhalte:
+              </h4>
+              
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'bg-green-600' : 'bg-green-500'
+                  }`}>
+                    <Image className="w-6 h-6 text-white" />
+                  </div>
+                  <div className={`text-2xl font-bold transition-colors duration-300 ${
+                    isDarkMode ? 'text-green-400' : 'text-green-600'
+                  }`}>
+                    {mediaItems.filter(item => item.type === 'image').length}
+                  </div>
+                  <div className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Bilder
+                  </div>
+                </div>
+                
+                <div className="text-center">
+                  <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'bg-blue-600' : 'bg-blue-500'
+                  }`}>
+                    <Video className="w-6 h-6 text-white" />
+                  </div>
+                  <div className={`text-2xl font-bold transition-colors duration-300 ${
+                    isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                  }`}>
+                    {mediaItems.filter(item => item.type === 'video').length}
+                  </div>
+                  <div className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Videos
+                  </div>
+                </div>
+                
+                <div className="text-center">
+                  <div className={`flex items-center justify-center w-12 h-12 rounded-full mx-auto mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'bg-pink-600' : 'bg-pink-500'
+                  }`}>
+                    <MessageSquare className="w-6 h-6 text-white" />
+                  </div>
+                  <div className={`text-2xl font-bold transition-colors duration-300 ${
+                    isDarkMode ? 'text-pink-400' : 'text-pink-600'
+                  }`}>
+                    {mediaItems.filter(item => item.type === 'note').length}
+                  </div>
+                  <div className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Nachrichten
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Services Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {externalServices.map((service, index) => (
+                <div key={index} className={`p-6 rounded-xl border transition-all duration-300 hover:scale-105 ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-gray-600 hover:bg-gray-700' 
+                    : 'bg-white border-gray-200 hover:bg-gray-50 shadow-lg'
+                }`}>
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h4 className={`text-lg font-semibold transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        {service.name}
+                      </h4>
+                      <p className={`text-sm transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        {service.description}
+                      </p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors duration-300 ${
+                      isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
+                    }`}>
+                      {service.price}
+                    </span>
+                  </div>
+                  
+                  <div className="mb-4">
+                    <h5 className={`text-sm font-semibold mb-2 transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      Features:
+                    </h5>
+                    <ul className={`text-sm space-y-1 transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
+                      {service.features.map((feature, featureIndex) => (
+                        <li key={featureIndex} className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                          {feature}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  <a
+                    href={service.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg transition-all duration-300 ${
+                      isDarkMode
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                        : 'bg-purple-500 hover:bg-purple-600 text-white'
+                    }`}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Service besuchen
+                  </a>
+                </div>
+              ))}
+            </div>
+
+            {/* Close Button */}
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setShowExternalServices(false)}
+                className={`py-3 px-6 rounded-xl transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                }`}
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Admin Login Modal */}
       {showPinInput && (
@@ -278,7 +489,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               }`}>
                 <li>• Website für alle freischalten/sperren</li>
                 <li>• Medien und Kommentare löschen</li>
-                <li>• PDF-Fotobuch erstellen</li>
+                <li>• Professionelle Fotobuch-Services</li>
                 <li>• Alle Inhalte herunterladen</li>
               </ul>
             </div>
@@ -351,11 +562,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </ul>
               
               <div className={`p-3 rounded-lg mt-4 transition-colors duration-300 ${
-                isDarkMode ? 'bg-yellow-900/30 border border-yellow-700/50' : 'bg-yellow-50 border border-yellow-200'
+                isDarkMode ? 'bg-blue-900/30 border border-blue-700/50' : 'bg-blue-50 border border-blue-200'
               }`}>
                 <p className="text-xs">
-                  <strong>⚠️ Wichtiger Hinweis:</strong><br/>
-                  Der Download kann mehrere Minuten dauern. Einige Dateien könnten aufgrund von Browser-Sicherheitsrichtlinien nicht heruntergeladen werden können. In diesem Fall erhältst du eine detaillierte Fehlermeldung mit Lösungsvorschlägen.
+                  <strong>💡 Tipp:</strong><br/>
+                  Verwende die heruntergeladenen Bilder für professionelle Fotobuch-Services wie Cewe, Shutterfly oder Pixum für beste Qualität!
                 </p>
               </div>
             </div>
@@ -373,7 +584,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               </button>
               <button
                 onClick={confirmDownload}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-xl transition-colors"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-xl transition-colors"
               >
                 Download starten
               </button>
