@@ -379,33 +379,34 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                     <div className="flex items-center gap-2">
                       {request.status === 'pending' && (
                         <>
+                          {/* 🔧 FIXED: Compact buttons - only icons with colors */}
                           <button
                             onClick={() => handleStatusUpdate(request.id, 'approved')}
                             disabled={isUpdating}
-                            className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs transition-colors ${
+                            className={`p-2 rounded-full transition-colors ${
                               isUpdating
                                 ? 'bg-gray-400 cursor-not-allowed'
                                 : 'bg-green-600 hover:bg-green-700'
                             } text-white`}
+                            title="Genehmigen"
                           >
                             {isUpdating ? (
-                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                             ) : (
-                              <Check className="w-3 h-3" />
+                              <Check className="w-4 h-4" />
                             )}
-                            Genehmigen
                           </button>
                           <button
                             onClick={() => handleStatusUpdate(request.id, 'rejected')}
                             disabled={isUpdating}
-                            className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs transition-colors ${
+                            className={`p-2 rounded-full transition-colors ${
                               isUpdating
                                 ? 'bg-gray-400 cursor-not-allowed'
                                 : 'bg-red-600 hover:bg-red-700'
                             } text-white`}
+                            title="Ablehnen"
                           >
-                            <X className="w-3 h-3" />
-                            Ablehnen
+                            <X className="w-4 h-4" />
                           </button>
                         </>
                       )}
@@ -414,18 +415,18 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                         <button
                           onClick={() => handleStatusUpdate(request.id, 'played')}
                           disabled={isUpdating}
-                          className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs transition-colors ${
+                          className={`p-2 rounded-full transition-colors ${
                             isUpdating
                               ? 'bg-gray-400 cursor-not-allowed'
                               : 'bg-blue-600 hover:bg-blue-700'
                           } text-white`}
+                          title="Als gespielt markieren"
                         >
                           {isUpdating ? (
-                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                           ) : (
-                            <Play className="w-3 h-3" />
+                            <Play className="w-4 h-4" />
                           )}
-                          Als gespielt markieren
                         </button>
                       )}
 
