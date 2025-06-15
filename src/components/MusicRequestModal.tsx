@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Music, Heart, Clock, ExternalLink, Play, Users, MessageSquare, Loader } from 'lucide-react';
+import { X, Search, Music, Heart, Clock, ExternalLink, Play, Users, MessageSquare, Loader, Sparkles } from 'lucide-react';
 import { SpotifyTrack } from '../types';
 import { searchSpotifyTracks, addMusicRequest } from '../services/musicService';
 
@@ -25,6 +25,19 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+
+  // Popular suggestions for empty search
+  const popularSuggestions = [
+    'Perfect Ed Sheeran',
+    'All of Me',
+    'Uptown Funk',
+    'Happy Pharrell',
+    'Thinking Out Loud',
+    'Can\'t Stop the Feeling',
+    'Auf uns',
+    'Sweet Caroline'
+  ];
 
   // Auto-search when user types
   useEffect(() => {
@@ -33,6 +46,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     }
 
     if (searchQuery.trim().length >= 2) {
+      setShowSuggestions(false);
       const timeout = setTimeout(async () => {
         setIsSearching(true);
         try {
@@ -44,11 +58,12 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
         } finally {
           setIsSearching(false);
         }
-      }, 500);
+      }, 300);
 
       setSearchTimeout(timeout);
     } else {
       setSearchResults([]);
+      setShowSuggestions(true);
     }
 
     return () => {
@@ -57,6 +72,11 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       }
     };
   }, [searchQuery]);
+
+  const handleSuggestionClick = (suggestion: string) => {
+    setSearchQuery(suggestion);
+    setShowSuggestions(false);
+  };
 
   const handleSubmitRequest = async () => {
     if (!selectedTrack) return;
@@ -70,6 +90,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       setMessage('');
       setSearchQuery('');
       setSearchResults([]);
+      setShowSuggestions(true);
       
       onClose();
     } catch (error) {
@@ -84,6 +105,12 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const getPopularityColor = (popularity: number) => {
+    if (popularity >= 85) return 'text-green-600 bg-green-100';
+    if (popularity >= 70) return 'text-yellow-600 bg-yellow-100';
+    return 'text-gray-600 bg-gray-100';
   };
 
   if (!isOpen) return null;
@@ -144,7 +171,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Song-Titel oder Künstler eingeben..."
+                    placeholder="z.B. 'Perfect Ed Sheeran' oder 'Uptown Funk'..."
                     className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-colors duration-300 ${
                       isDarkMode 
                         ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -159,57 +186,82 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 </div>
               </div>
 
+              {/* Popular Suggestions */}
+              {showSuggestions && searchQuery.length < 2 && (
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className={`w-4 h-4 transition-colors duration-300 ${
+                      isDarkMode ? 'text-yellow-400' : 'text-yellow-500'
+                    }`} />
+                    <h4 className={`font-semibold transition-colors duration-300 ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      🔥 Beliebte Hochzeitssongs:
+                    </h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {popularSuggestions.map((suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        className={`px-3 py-2 rounded-full text-sm transition-all duration-300 hover:scale-105 ${
+                          isDarkMode 
+                            ? 'bg-gray-700 hover:bg-gray-600 text-gray-300 border border-gray-600' 
+                            : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'
+                        }`}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Search Results */}
               {searchResults.length > 0 && (
                 <div className="space-y-3">
                   <h4 className={`font-semibold transition-colors duration-300 ${
                     isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    🎵 Suchergebnisse:
+                    🎵 Suchergebnisse ({searchResults.length}):
                   </h4>
                   {searchResults.map((track) => (
                     <button
                       key={track.id}
                       onClick={() => setSelectedTrack(track)}
-                      className={`w-full p-4 rounded-xl border transition-all duration-300 hover:scale-105 ${
+                      className={`w-full p-4 rounded-xl border transition-all duration-300 hover:scale-[1.02] ${
                         isDarkMode 
                           ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' 
                           : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                       }`}
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-300">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
                           <img 
                             src={track.album.images[0]?.url || '/placeholder-album.png'}
                             alt={track.album.name}
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <div className="flex-1 text-left">
-                          <h5 className={`font-semibold transition-colors duration-300 ${
+                        <div className="flex-1 text-left min-w-0">
+                          <h5 className={`font-semibold truncate transition-colors duration-300 ${
                             isDarkMode ? 'text-white' : 'text-gray-900'
                           }`}>
                             {track.name}
                           </h5>
-                          <p className={`text-sm transition-colors duration-300 ${
+                          <p className={`text-sm truncate transition-colors duration-300 ${
                             isDarkMode ? 'text-gray-400' : 'text-gray-600'
                           }`}>
                             {track.artists.map(a => a.name).join(', ')}
                           </p>
-                          <p className={`text-xs transition-colors duration-300 ${
+                          <p className={`text-xs truncate transition-colors duration-300 ${
                             isDarkMode ? 'text-gray-500' : 'text-gray-500'
                           }`}>
                             {track.album.name} • {formatDuration(track.duration_ms)}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors duration-300 ${
-                            track.popularity > 80 
-                              ? 'bg-green-100 text-green-800' 
-                              : track.popularity > 60 
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-gray-100 text-gray-800'
-                          }`}>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getPopularityColor(track.popularity)}`}>
                             <Heart className="w-3 h-3" />
                             {track.popularity}%
                           </div>
@@ -238,6 +290,20 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                   }`}>
                     Versuche es mit einem anderen Suchbegriff
                   </p>
+                  <div className="mt-4">
+                    <p className={`text-xs mb-2 transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                    }`}>
+                      💡 Tipps:
+                    </p>
+                    <div className={`text-xs space-y-1 transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
+                      <div>• Verwende Künstler + Songtitel (z.B. "Ed Sheeran Perfect")</div>
+                      <div>• Probiere deutsche oder englische Begriffe</div>
+                      <div>• Nutze die beliebten Vorschläge oben</div>
+                    </div>
+                  </div>
                 </div>
               )}
             </>
@@ -276,7 +342,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                         <Clock className="w-4 h-4" />
                         {formatDuration(selectedTrack.duration_ms)}
                       </div>
-                      <div className="flex items-center gap-1 text-sm">
+                      <div className={`flex items-center gap-1 text-sm px-2 py-1 rounded-full ${getPopularityColor(selectedTrack.popularity)}`}>
                         <Heart className="w-4 h-4" />
                         {selectedTrack.popularity}% Beliebtheit
                       </div>
@@ -359,3 +425,5 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     </div>
   );
 };
+
+export { MusicRequestModal }
