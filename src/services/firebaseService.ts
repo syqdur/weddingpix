@@ -57,7 +57,7 @@ export const uploadVideoBlob = async (
   const fileName = `${Date.now()}-recorded-video.webm`;
   const storageRef = ref(storage, `uploads/${fileName}`);
   
-  onProgress(50); // Show progress during upload
+  onProgress(50);
   
   await uploadBytes(storageRef, videoBlob);
   
@@ -89,56 +89,68 @@ export const addNote = async (
   });
 };
 
+// Verbesserte Download-URL Funktion mit Retry-Logik
+const getDownloadURLWithRetry = async (storageRef: any, maxRetries = 3): Promise<string> => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const url = await getDownloadURL(storageRef);
+      
+      // Teste ob die URL funktioniert
+      const testResponse = await fetch(url, { method: 'HEAD' });
+      if (testResponse.ok) {
+        return url;
+      }
+      throw new Error(`URL test failed: ${testResponse.status}`);
+      
+    } catch (error) {
+      console.warn(`⚠️ Download URL attempt ${attempt}/${maxRetries} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Warte zwischen Versuchen
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+    }
+  }
+  
+  throw new Error('All retry attempts failed');
+};
+
 export const loadGallery = (callback: (items: MediaItem[]) => void): () => void => {
   const q = query(collection(db, 'media'), orderBy('uploadedAt', 'desc'));
   
   return onSnapshot(q, async (snapshot) => {
+    console.log(`📊 Loading ${snapshot.docs.length} items from Firestore...`);
     const items: MediaItem[] = [];
     
-    // Process items sequentially to avoid overwhelming Firebase
-    for (const doc of snapshot.docs) {
-      const data = doc.data();
+    // Verarbeite Items einzeln für bessere Fehlerbehandlung
+    for (const docSnapshot of snapshot.docs) {
+      const data = docSnapshot.data();
       
-      if (data.type === 'note') {
-        // Handle note items
-        items.push({
-          id: doc.id,
-          name: data.name,
-          url: '', // Notes don't have URLs
-          uploadedBy: data.uploadedBy,
-          uploadedAt: data.uploadedAt,
-          deviceId: data.deviceId,
-          type: 'note',
-          noteText: data.noteText
-        });
-      } else {
-        // Handle media items (images/videos)
-        try {
-          const storageRef = ref(storage, `uploads/${data.name}`);
+      try {
+        if (data.type === 'note') {
+          // Handle note items
+          items.push({
+            id: docSnapshot.id,
+            name: data.name,
+            url: '', // Notes don't have URLs
+            uploadedBy: data.uploadedBy,
+            uploadedAt: data.uploadedAt,
+            deviceId: data.deviceId,
+            type: 'note',
+            noteText: data.noteText
+          });
+          console.log(`✅ Note loaded: ${data.uploadedBy}`);
           
-          // Add retry logic for URL generation
-          let url = '';
-          let retries = 3;
-          
-          while (retries > 0 && !url) {
-            try {
-              url = await getDownloadURL(storageRef);
-              console.log(`✅ URL loaded for ${data.name}`);
-              break;
-            } catch (urlError) {
-              console.warn(`⚠️ Retry ${4 - retries} for ${data.name}:`, urlError);
-              retries--;
-              
-              if (retries > 0) {
-                // Wait before retry
-                await new Promise(resolve => setTimeout(resolve, 1000));
-              }
-            }
-          }
-          
-          if (url) {
+        } else {
+          // Handle media items (images/videos)
+          try {
+            const storageRef = ref(storage, `uploads/${data.name}`);
+            const url = await getDownloadURLWithRetry(storageRef);
+            
             items.push({
-              id: doc.id,
+              id: docSnapshot.id,
               name: data.name,
               url,
               uploadedBy: data.uploadedBy,
@@ -146,88 +158,91 @@ export const loadGallery = (callback: (items: MediaItem[]) => void): () => void 
               deviceId: data.deviceId,
               type: data.type
             });
-          } else {
-            console.error(`❌ Failed to load URL for ${data.name} after retries`);
             
-            // Add placeholder item to show the error
+            console.log(`✅ Media loaded: ${data.name} (${data.type})`);
+            
+          } catch (urlError) {
+            console.error(`❌ Failed to get URL for ${data.name}:`, urlError);
+            
+            // Füge Item mit Fehler-Platzhalter hinzu
             items.push({
-              id: doc.id,
+              id: docSnapshot.id,
               name: data.name,
-              url: '/placeholder-error.jpg', // Fallback
+              url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5YTNhZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkJpbGQgbmljaHQgdmVyZsO8Z2JhcjwvdGV4dD48L3N2Zz4=',
               uploadedBy: data.uploadedBy,
               uploadedAt: data.uploadedAt,
               deviceId: data.deviceId,
               type: data.type
             });
           }
-          
-        } catch (error) {
-          console.error(`❌ Error loading item ${data.name}:`, error);
-          
-          // Add error item to show in gallery
-          items.push({
-            id: doc.id,
-            name: data.name,
-            url: '/placeholder-error.jpg', // Fallback
-            uploadedBy: data.uploadedBy,
-            uploadedAt: data.uploadedAt,
-            deviceId: data.deviceId,
-            type: data.type
-          });
         }
+        
+      } catch (itemError) {
+        console.error(`❌ Error processing item ${docSnapshot.id}:`, itemError);
       }
     }
     
-    console.log(`📊 Loaded ${items.length} items (${items.filter(i => i.type === 'image').length} images, ${items.filter(i => i.type === 'video').length} videos, ${items.filter(i => i.type === 'note').length} notes)`);
+    console.log(`📊 Gallery loaded: ${items.length} items total`);
+    console.log(`   📸 Images: ${items.filter(i => i.type === 'image').length}`);
+    console.log(`   🎥 Videos: ${items.filter(i => i.type === 'video').length}`);
+    console.log(`   💌 Notes: ${items.filter(i => i.type === 'note').length}`);
+    
     callback(items);
+    
   }, (error) => {
-    console.error('❌ Error in gallery listener:', error);
-    // Call callback with empty array on error
+    console.error('❌ Gallery listener error:', error);
+    // Fallback: leere Liste zurückgeben
     callback([]);
   });
 };
 
 export const deleteMediaItem = async (item: MediaItem): Promise<void> => {
-  // Delete from storage (only if it's not a note)
-  if (item.type !== 'note') {
-    try {
-      const storageRef = ref(storage, `uploads/${item.name}`);
-      await deleteObject(storageRef);
-      console.log(`✅ Deleted from storage: ${item.name}`);
-    } catch (storageError) {
-      console.warn(`⚠️ Could not delete from storage: ${item.name}`, storageError);
-      // Continue with Firestore deletion even if storage deletion fails
+  try {
+    // Delete from storage (only if it's not a note)
+    if (item.type !== 'note' && item.name) {
+      try {
+        const storageRef = ref(storage, `uploads/${item.name}`);
+        await deleteObject(storageRef);
+        console.log(`✅ Deleted from storage: ${item.name}`);
+      } catch (storageError) {
+        console.warn(`⚠️ Could not delete from storage: ${item.name}`, storageError);
+        // Continue with Firestore deletion even if storage deletion fails
+      }
     }
+    
+    // Delete from Firestore
+    await deleteDoc(doc(db, 'media', item.id));
+    console.log(`✅ Deleted from Firestore: ${item.id}`);
+    
+    // Delete associated comments
+    const commentsQuery = query(
+      collection(db, 'comments'), 
+      where('mediaId', '==', item.id)
+    );
+    const commentsSnapshot = await getDocs(commentsQuery);
+    
+    const deleteCommentPromises = commentsSnapshot.docs.map(commentDoc => 
+      deleteDoc(doc(db, 'comments', commentDoc.id))
+    );
+    
+    // Delete associated likes
+    const likesQuery = query(
+      collection(db, 'likes'), 
+      where('mediaId', '==', item.id)
+    );
+    const likesSnapshot = await getDocs(likesQuery);
+    
+    const deleteLikePromises = likesSnapshot.docs.map(likeDoc => 
+      deleteDoc(doc(db, 'likes', likeDoc.id))
+    );
+    
+    await Promise.all([...deleteCommentPromises, ...deleteLikePromises]);
+    console.log(`✅ Deleted associated data for: ${item.id}`);
+    
+  } catch (error) {
+    console.error(`❌ Error deleting item ${item.id}:`, error);
+    throw error;
   }
-  
-  // Delete from Firestore
-  await deleteDoc(doc(db, 'media', item.id));
-  console.log(`✅ Deleted from Firestore: ${item.id}`);
-  
-  // Delete associated comments
-  const commentsQuery = query(
-    collection(db, 'comments'), 
-    where('mediaId', '==', item.id)
-  );
-  const commentsSnapshot = await getDocs(commentsQuery);
-  
-  const deleteCommentPromises = commentsSnapshot.docs.map(commentDoc => 
-    deleteDoc(doc(db, 'comments', commentDoc.id))
-  );
-  
-  // Delete associated likes
-  const likesQuery = query(
-    collection(db, 'likes'), 
-    where('mediaId', '==', item.id)
-  );
-  const likesSnapshot = await getDocs(likesQuery);
-  
-  const deleteLikePromises = likesSnapshot.docs.map(likeDoc => 
-    deleteDoc(doc(db, 'likes', likeDoc.id))
-  );
-  
-  await Promise.all([...deleteCommentPromises, ...deleteLikePromises]);
-  console.log(`✅ Deleted associated comments and likes for: ${item.id}`);
 };
 
 export const loadComments = (callback: (comments: Comment[]) => void): () => void => {
@@ -239,7 +254,9 @@ export const loadComments = (callback: (comments: Comment[]) => void): () => voi
       ...doc.data()
     } as Comment));
     
+    console.log(`💬 Loaded ${comments.length} comments`);
     callback(comments);
+    
   }, (error) => {
     console.error('❌ Error loading comments:', error);
     callback([]);
@@ -274,7 +291,9 @@ export const loadLikes = (callback: (likes: Like[]) => void): () => void => {
       ...doc.data()
     } as Like));
     
+    console.log(`❤️ Loaded ${likes.length} likes`);
     callback(likes);
+    
   }, (error) => {
     console.error('❌ Error loading likes:', error);
     callback([]);

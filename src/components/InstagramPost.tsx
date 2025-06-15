@@ -167,7 +167,7 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
             }}
           />
         ) : (
-          <div className="relative w-full aspect-square bg-gray-100">
+          <div className="relative w-full aspect-square">
             {imageLoading && (
               <div className={`absolute inset-0 flex items-center justify-center transition-colors duration-300 ${
                 isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
@@ -182,11 +182,27 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
               }`}>
                 <div className="text-4xl mb-2">📷</div>
                 <p className="text-sm text-center px-4">
-                  Bild konnte nicht geladen werden
+                  Bild nicht verfügbar
                 </p>
-                <p className="text-xs text-center px-4 mt-1">
+                <p className="text-xs text-center px-4 mt-1 opacity-75">
                   Von {item.uploadedBy}
                 </p>
+                <button
+                  onClick={() => {
+                    setImageError(false);
+                    setImageLoading(true);
+                    // Force reload
+                    const img = new Image();
+                    img.onload = handleImageLoad;
+                    img.onerror = handleImageError;
+                    img.src = item.url;
+                  }}
+                  className={`mt-2 px-3 py-1 rounded text-xs transition-colors duration-300 ${
+                    isDarkMode ? 'bg-gray-600 hover:bg-gray-500 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                  }`}
+                >
+                  Erneut versuchen
+                </button>
               </div>
             ) : (
               <img

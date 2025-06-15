@@ -214,11 +214,25 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                 <div className="flex flex-col items-center justify-center text-white p-8">
                   <div className="text-6xl mb-4">📷</div>
                   <p className="text-lg text-center mb-2">
-                    Bild konnte nicht geladen werden
+                    Bild nicht verfügbar
                   </p>
-                  <p className="text-sm text-center opacity-75">
+                  <p className="text-sm text-center opacity-75 mb-4">
                     Von {currentItem.uploadedBy}
                   </p>
+                  <button
+                    onClick={() => {
+                      setImageError(false);
+                      setImageLoading(true);
+                      // Force reload
+                      const img = new Image();
+                      img.onload = handleImageLoad;
+                      img.onerror = handleImageError;
+                      img.src = currentItem.url;
+                    }}
+                    className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm transition-colors"
+                  >
+                    Erneut versuchen
+                  </button>
                 </div>
               ) : (
                 <img
