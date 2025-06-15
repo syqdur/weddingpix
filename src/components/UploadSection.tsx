@@ -1,10 +1,9 @@
-import React, { useState, useRef } from 'react';
-import { Plus, Camera, Mic, Square } from 'lucide-react';
-import { AudioWaveform } from './AudioWaveform';
+import React, { useState } from 'react';
+import { Plus, Camera, MessageSquare } from 'lucide-react';
 
 interface UploadSectionProps {
   onUpload: (files: FileList) => Promise<void>;
-  onAudioUpload: (audioBlob: Blob) => Promise<void>;
+  onNoteSubmit: (note: string) => Promise<void>;
   isUploading: boolean;
   progress: number;
   isDarkMode: boolean;
@@ -12,16 +11,14 @@ interface UploadSectionProps {
 
 export const UploadSection: React.FC<UploadSectionProps> = ({
   onUpload,
-  onAudioUpload,
+  onNoteSubmit,
   isUploading,
   progress,
   isDarkMode
 }) => {
   const [files, setFiles] = useState<FileList | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [showWaveform, setShowWaveform] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [noteText, setNoteText] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFiles(e.target.files);
@@ -30,39 +27,12 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
     }
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        onAudioUpload(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-        setShowWaveform(false);
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-      setShowWaveform(true);
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      alert('Fehler beim Starten der Aufnahme. Bitte erlaube den Zugriff auf das Mikrofon.');
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
+  const handleNoteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (noteText.trim()) {
+      await onNoteSubmit(noteText.trim());
+      setNoteText('');
+      setShowNoteInput(false);
     }
   };
 
@@ -112,41 +82,75 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
             isDarkMode ? 'text-gray-500' : 'text-gray-400'
           }`} />
           <button
-            onClick={isRecording ? stopRecording : startRecording}
+            onClick={() => setShowNoteInput(true)}
             disabled={isUploading}
             className={`p-2 rounded-full transition-all duration-300 ${
-              isRecording 
-                ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
-                : isDarkMode
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                  : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
+              isDarkMode
+                ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
             }`}
+            title="Notiz hinterlassen"
           >
-            {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            <MessageSquare className="w-4 h-4" />
           </button>
         </div>
       </div>
       
-      {/* Audio Waveform Visualization */}
-      {showWaveform && (
-        <div className={`mt-4 p-4 rounded-lg transition-colors duration-300 ${
-          isDarkMode ? 'bg-gray-700/50' : 'bg-gray-100'
-        }`}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className={`w-3 h-3 rounded-full animate-pulse ${
-              isRecording ? 'bg-red-500' : 'bg-gray-400'
-            }`} />
-            <span className={`text-sm font-medium transition-colors duration-300 ${
+      {/* Note Input Modal */}
+      {showNoteInput && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className={`rounded-2xl p-6 max-w-md w-full transition-colors duration-300 ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <h3 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              {isRecording ? 'Aufnahme läuft...' : 'Aufnahme beendet'}
-            </span>
+              💌 Notiz hinterlassen
+            </h3>
+            <form onSubmit={handleNoteSubmit} className="space-y-4">
+              <textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="Hinterlasse eine schöne Nachricht für das Brautpaar..."
+                rows={4}
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none resize-none transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                }`}
+                autoFocus
+                maxLength={500}
+              />
+              <div className={`text-xs text-right transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-500'
+              }`}>
+                {noteText.length}/500
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNoteInput(false);
+                    setNoteText('');
+                  }}
+                  className={`flex-1 py-3 px-4 rounded-xl transition-colors duration-300 ${
+                    isDarkMode 
+                      ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
+                      : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                  }`}
+                >
+                  Abbrechen
+                </button>
+                <button
+                  type="submit"
+                  disabled={!noteText.trim()}
+                  className="flex-1 bg-pink-600 hover:bg-pink-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3 px-4 rounded-xl transition-colors"
+                >
+                  Senden
+                </button>
+              </div>
+            </form>
           </div>
-          <AudioWaveform
-            isRecording={isRecording}
-            color={isDarkMode ? '#ec4899' : '#ec4899'}
-            className="rounded"
-          />
         </div>
       )}
     </div>

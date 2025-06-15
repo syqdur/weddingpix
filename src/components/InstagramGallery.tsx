@@ -1,6 +1,7 @@
 import React from 'react';
 import { MediaItem, Comment, Like } from '../types';
 import { InstagramPost } from './InstagramPost';
+import { NotePost } from './NotePost';
 
 interface InstagramGalleryProps {
   items: MediaItem[];
@@ -45,7 +46,7 @@ export const InstagramGallery: React.FC<InstagramGalleryProps> = ({
         <p className={`text-sm transition-colors duration-300 ${
           isDarkMode ? 'text-gray-400' : 'text-gray-500'
         }`}>
-          Lade das erste Foto von eurer Hochzeit hoch!
+          Lade das erste Foto von eurer Hochzeit hoch oder hinterlasse eine Notiz!
         </p>
       </div>
     );
@@ -54,21 +55,38 @@ export const InstagramGallery: React.FC<InstagramGalleryProps> = ({
   return (
     <div className="space-y-0">
       {items.map((item, index) => (
-        <InstagramPost
-          key={item.id}
-          item={item}
-          comments={comments.filter(c => c.mediaId === item.id)}
-          likes={likes.filter(l => l.mediaId === item.id)}
-          onAddComment={onAddComment}
-          onDeleteComment={onDeleteComment}
-          onToggleLike={onToggleLike}
-          onDelete={onDelete}
-          showDeleteButton={isAdmin}
-          userName={userName}
-          isAdmin={isAdmin}
-          onClick={() => onItemClick(index)}
-          isDarkMode={isDarkMode}
-        />
+        item.type === 'note' ? (
+          <NotePost
+            key={item.id}
+            item={item}
+            comments={comments.filter(c => c.mediaId === item.id)}
+            likes={likes.filter(l => l.mediaId === item.id)}
+            onAddComment={onAddComment}
+            onDeleteComment={onDeleteComment}
+            onToggleLike={onToggleLike}
+            onDelete={onDelete}
+            showDeleteButton={isAdmin}
+            userName={userName}
+            isAdmin={isAdmin}
+            isDarkMode={isDarkMode}
+          />
+        ) : (
+          <InstagramPost
+            key={item.id}
+            item={item}
+            comments={comments.filter(c => c.mediaId === item.id)}
+            likes={likes.filter(l => l.mediaId === item.id)}
+            onAddComment={onAddComment}
+            onDeleteComment={onDeleteComment}
+            onToggleLike={onToggleLike}
+            onDelete={onDelete}
+            showDeleteButton={isAdmin}
+            userName={userName}
+            isAdmin={isAdmin}
+            onClick={() => onItemClick(index)}
+            isDarkMode={isDarkMode}
+          />
+        )
       ))}
     </div>
   );

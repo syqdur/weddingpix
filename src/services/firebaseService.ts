@@ -48,23 +48,19 @@ export const uploadFiles = async (
   }
 };
 
-export const uploadAudio = async (
-  audioBlob: Blob,
+export const addNote = async (
+  noteText: string,
   userName: string,
   deviceId: string
 ): Promise<void> => {
-  const fileName = `${Date.now()}-audio.webm`;
-  const storageRef = ref(storage, `uploads/${fileName}`);
-  
-  await uploadBytes(storageRef, audioBlob);
-  
-  // Add metadata to Firestore
+  // Add note as a special media item
   await addDoc(collection(db, 'media'), {
-    name: fileName,
+    name: `note-${Date.now()}`,
     uploadedBy: userName,
     deviceId: deviceId,
     uploadedAt: new Date().toISOString(),
-    type: 'audio'
+    type: 'note',
+    noteText: noteText
   });
 };
 
@@ -76,21 +72,37 @@ export const loadGallery = (callback: (items: MediaItem[]) => void): () => void 
     
     for (const doc of snapshot.docs) {
       const data = doc.data();
-      try {
-        const storageRef = ref(storage, `uploads/${data.name}`);
-        const url = await getDownloadURL(storageRef);
-        
+      
+      if (data.type === 'note') {
+        // Handle note items
         items.push({
           id: doc.id,
           name: data.name,
-          url,
+          url: '', // Notes don't have URLs
           uploadedBy: data.uploadedBy,
           uploadedAt: data.uploadedAt,
           deviceId: data.deviceId,
-          type: data.type
+          type: 'note',
+          noteText: data.noteText
         });
-      } catch (error) {
-        console.error('Error loading item:', error);
+      } else {
+        // Handle media items (images/videos)
+        try {
+          const storageRef = ref(storage, `uploads/${data.name}`);
+          const url = await getDownloadURL(storageRef);
+          
+          items.push({
+            id: doc.id,
+            name: data.name,
+            url,
+            uploadedBy: data.uploadedBy,
+            uploadedAt: data.uploadedAt,
+            deviceId: data.deviceId,
+            type: data.type
+          });
+        } catch (error) {
+          console.error('Error loading item:', error);
+        }
       }
     }
     
@@ -99,9 +111,11 @@ export const loadGallery = (callback: (items: MediaItem[]) => void): () => void 
 };
 
 export const deleteMediaItem = async (item: MediaItem): Promise<void> => {
-  // Delete from storage
-  const storageRef = ref(storage, `uploads/${item.name}`);
-  await deleteObject(storageRef);
+  // Delete from storage (only if it's not a note)
+  if (item.type !== 'note') {
+    const storageRef = ref(storage, `uploads/${item.name}`);
+    await deleteObject(storageRef);
+  }
   
   // Delete from Firestore
   await deleteDoc(doc(db, 'media', item.id));

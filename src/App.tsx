@@ -4,29 +4,26 @@ import { UserNamePrompt } from './components/UserNamePrompt';
 import { UploadSection } from './components/UploadSection';
 import { InstagramGallery } from './components/InstagramGallery';
 import { MediaModal } from './components/MediaModal';
-import { AdminPanel } from './components/AdminPanel';
 import { ProfileHeader } from './components/ProfileHeader';
 import { UnderConstructionPage } from './components/UnderConstructionPage';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
-import { useUnderConstruction } from './hooks/useUnderConstruction';
 import { MediaItem, Comment, Like } from './types';
 import {
   uploadFiles,
-  uploadAudio,
   loadGallery,
   deleteMediaItem,
   loadComments,
   addComment,
   deleteComment,
   loadLikes,
-  toggleLike
+  toggleLike,
+  addNote
 } from './services/firebaseService';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
   const { isDarkMode, toggleDarkMode } = useDarkMode();
-  const { isUnderConstruction, isAdmin, toggleUnderConstruction, setIsAdmin } = useUnderConstruction();
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [likes, setLikes] = useState<Like[]>([]);
@@ -35,6 +32,13 @@ function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [status, setStatus] = useState('');
+  const [isUnderConstruction, setIsUnderConstruction] = useState(true);
+
+  useEffect(() => {
+    // Check under construction status
+    const constructionStatus = localStorage.getItem('wedding_under_construction');
+    setIsUnderConstruction(constructionStatus !== 'false');
+  }, []);
 
   useEffect(() => {
     if (!userName || isUnderConstruction) return;
@@ -71,19 +75,19 @@ function App() {
     }
   };
 
-  const handleAudioUpload = async (audioBlob: Blob) => {
+  const handleNoteSubmit = async (noteText: string) => {
     if (!userName) return;
 
     setIsUploading(true);
-    setStatus('⏳ Audio wird hochgeladen...');
+    setStatus('⏳ Notiz wird gespeichert...');
 
     try {
-      await uploadAudio(audioBlob, userName, deviceId);
-      setStatus('✅ Audio erfolgreich hochgeladen!');
+      await addNote(noteText, userName, deviceId);
+      setStatus('✅ Notiz erfolgreich hinterlassen!');
       setTimeout(() => setStatus(''), 3000);
     } catch (error) {
-      setStatus('❌ Fehler beim Audio-Upload. Bitte versuche es erneut.');
-      console.error('Audio upload error:', error);
+      setStatus('❌ Fehler beim Speichern der Notiz. Bitte versuche es erneut.');
+      console.error('Note error:', error);
       setTimeout(() => setStatus(''), 5000);
     } finally {
       setIsUploading(false);
@@ -144,8 +148,8 @@ function App() {
     );
   };
 
-  // Show under construction page if enabled and user is not admin
-  if (isUnderConstruction && !isAdmin) {
+  // Show under construction page if enabled
+  if (isUnderConstruction) {
     return <UnderConstructionPage isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />;
   }
 
@@ -199,7 +203,7 @@ function App() {
         
         <UploadSection
           onUpload={handleUpload}
-          onAudioUpload={handleAudioUpload}
+          onNoteSubmit={handleNoteSubmit}
           isUploading={isUploading}
           progress={uploadProgress}
           isDarkMode={isDarkMode}
@@ -217,7 +221,7 @@ function App() {
           items={mediaItems}
           onItemClick={openModal}
           onDelete={handleDelete}
-          isAdmin={isAdmin}
+          isAdmin={false}
           comments={comments}
           likes={likes}
           onAddComment={handleAddComment}
@@ -241,15 +245,7 @@ function App() {
         onDeleteComment={handleDeleteComment}
         onToggleLike={handleToggleLike}
         userName={userName || ''}
-        isAdmin={isAdmin}
-        isDarkMode={isDarkMode}
-      />
-
-      <AdminPanel
-        isAdmin={isAdmin}
-        onToggleAdmin={setIsAdmin}
-        isUnderConstruction={isUnderConstruction}
-        onToggleUnderConstruction={toggleUnderConstruction}
+        isAdmin={false}
         isDarkMode={isDarkMode}
       />
     </div>

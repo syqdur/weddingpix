@@ -5,7 +5,8 @@ export interface MediaItem {
   uploadedBy: string;
   uploadedAt: string;
   deviceId: string;
-  type: 'image' | 'video' | 'audio';
+  type: 'image' | 'video' | 'note';
+  noteText?: string;
 }
 
 export interface Comment {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Sun, Moon, Lock } from 'lucide-react';
+import { Heart, Sun, Moon, Lock, Unlock } from 'lucide-react';
 
 interface UnderConstructionPageProps {
   isDarkMode: boolean;
@@ -18,10 +18,19 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
   toggleDarkMode
 }) => {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
-  const [pin, setPin] = useState('');
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [password, setPassword] = useState('');
+  const [isUnderConstruction, setIsUnderConstruction] = useState(true);
 
   const weddingDate = new Date('2025-07-12T00:00:00');
+
+  useEffect(() => {
+    // Check if under construction is disabled
+    const constructionStatus = localStorage.getItem('wedding_under_construction');
+    if (constructionStatus === 'false') {
+      setIsUnderConstruction(false);
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -41,17 +50,28 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const handleAdminLogin = (e: React.FormEvent) => {
+  const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === '2407') {
-      // Set admin mode and reload page
-      localStorage.setItem('wedding_admin_mode', 'true');
+    if (password === 'remove') {
+      // Disable under construction
+      localStorage.setItem('wedding_under_construction', 'false');
       window.location.reload();
+    } else if (password === 'aktivieren') {
+      // Enable under construction
+      localStorage.setItem('wedding_under_construction', 'true');
+      setShowPasswordInput(false);
+      setPassword('');
     } else {
-      alert('Falscher Code!');
-      setPin('');
+      alert('Falsches Passwort!');
+      setPassword('');
     }
   };
+
+  // If under construction is disabled, redirect to main app
+  if (!isUnderConstruction) {
+    window.location.reload();
+    return null;
+  }
 
   return (
     <div className={`min-h-screen flex flex-col transition-colors duration-500 ${
@@ -180,22 +200,23 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
         </p>
       </div>
 
-      {/* Admin Login Button */}
+      {/* Admin Control Button */}
       <div className="fixed bottom-6 left-6">
         <button
-          onClick={() => setShowAdminLogin(true)}
+          onClick={() => setShowPasswordInput(true)}
           className={`p-3 rounded-full transition-all duration-300 ${
             isDarkMode
               ? 'bg-gray-800/50 hover:bg-gray-700/50 text-gray-400 hover:text-white backdrop-blur-sm'
               : 'bg-white/50 hover:bg-white/70 text-gray-600 hover:text-gray-800 backdrop-blur-sm'
           }`}
+          title="Website verwalten"
         >
-          <Lock className="w-5 h-5" />
+          {isUnderConstruction ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
         </button>
       </div>
 
-      {/* Admin Login Modal */}
-      {showAdminLogin && (
+      {/* Password Input Modal */}
+      {showPasswordInput && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className={`rounded-3xl p-8 max-w-sm w-full transition-colors duration-300 ${
             isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white'
@@ -203,14 +224,21 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
             <h3 className={`text-xl font-semibold mb-6 text-center transition-colors duration-300 ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              Admin-Zugang
+              Website verwalten
             </h3>
-            <form onSubmit={handleAdminLogin} className="space-y-4">
+            <div className={`text-sm mb-4 p-3 rounded-lg transition-colors duration-300 ${
+              isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+            }`}>
+              <p className="mb-2"><strong>Passwörter:</strong></p>
+              <p>• <code className="bg-gray-600 text-white px-1 rounded">remove</code> - Website für Gäste aktivieren</p>
+              <p>• <code className="bg-gray-600 text-white px-1 rounded">aktivieren</code> - Under Construction aktivieren</p>
+            </div>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
               <input
                 type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                placeholder="PIN eingeben..."
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Passwort eingeben..."
                 className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
                   isDarkMode 
                     ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -222,8 +250,8 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setShowAdminLogin(false);
-                    setPin('');
+                    setShowPasswordInput(false);
+                    setPassword('');
                   }}
                   className={`flex-1 py-3 px-4 rounded-xl transition-colors duration-300 ${
                     isDarkMode 
@@ -237,7 +265,7 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
                   type="submit"
                   className="flex-1 bg-pink-600 hover:bg-pink-700 text-white py-3 px-4 rounded-xl transition-colors"
                 >
-                  Anmelden
+                  Bestätigen
                 </button>
               </div>
             </form>
