@@ -20,7 +20,8 @@ import {
   deleteComment,
   loadLikes,
   toggleLike,
-  addNote
+  addNote,
+  editNote
 } from './services/firebaseService';
 import { subscribeSiteStatus, SiteStatus } from './services/siteStatusService';
 
@@ -122,12 +123,50 @@ function App() {
     }
   };
 
+  const handleEditNote = async (item: MediaItem, newText: string) => {
+    if (!userName || item.uploadedBy !== userName) {
+      alert('Du kannst nur deine eigenen Notizen bearbeiten.');
+      return;
+    }
+
+    setIsUploading(true);
+    setStatus('⏳ Notiz wird aktualisiert...');
+
+    try {
+      await editNote(item.id, newText);
+      setStatus('✅ Notiz erfolgreich aktualisiert!');
+      setTimeout(() => setStatus(''), 3000);
+    } catch (error) {
+      setStatus('❌ Fehler beim Aktualisieren der Notiz. Bitte versuche es erneut.');
+      console.error('Edit note error:', error);
+      setTimeout(() => setStatus(''), 5000);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleDelete = async (item: MediaItem) => {
+    // Check permissions
+    if (!isAdmin && item.uploadedBy !== userName) {
+      alert('Du kannst nur deine eigenen Beiträge löschen.');
+      return;
+    }
+
+    const itemType = item.type === 'note' ? 'Notiz' : item.type === 'video' ? 'Video' : 'Bild';
+    const confirmMessage = isAdmin 
+      ? `${itemType} von ${item.uploadedBy} wirklich löschen?`
+      : `Dein${item.type === 'note' ? 'e' : ''} ${itemType} wirklich löschen?`;
+
+    if (!window.confirm(confirmMessage)) return;
+
     try {
       await deleteMediaItem(item);
+      setStatus(`✅ ${itemType} erfolgreich gelöscht!`);
+      setTimeout(() => setStatus(''), 3000);
     } catch (error) {
-      alert('Fehler beim Löschen der Datei.');
+      setStatus(`❌ Fehler beim Löschen des ${itemType}s.`);
       console.error('Delete error:', error);
+      setTimeout(() => setStatus(''), 5000);
     }
   };
 
@@ -276,6 +315,7 @@ function App() {
           items={mediaItems}
           onItemClick={openModal}
           onDelete={handleDelete}
+          onEditNote={handleEditNote}
           isAdmin={isAdmin}
           comments={comments}
           likes={likes}

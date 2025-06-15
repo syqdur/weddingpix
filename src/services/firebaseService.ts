@@ -14,7 +14,8 @@ import {
   deleteDoc, 
   doc, 
   where,
-  getDocs
+  getDocs,
+  updateDoc
 } from 'firebase/firestore';
 import { storage, db } from '../config/firebase';
 import { MediaItem, Comment, Like } from '../types';
@@ -89,6 +90,17 @@ export const addNote = async (
   });
 };
 
+export const editNote = async (
+  noteId: string,
+  newText: string
+): Promise<void> => {
+  const noteRef = doc(db, 'media', noteId);
+  await updateDoc(noteRef, {
+    noteText: newText,
+    lastEdited: new Date().toISOString()
+  });
+};
+
 // Vereinfachte und robuste Download-URL Funktion
 const getDownloadURLSafe = async (fileName: string): Promise<string> => {
   try {
@@ -119,7 +131,6 @@ export const loadGallery = (callback: (items: MediaItem[]) => void): () => void 
   
   return onSnapshot(q, async (snapshot) => {
     console.log(`📊 Loading ${snapshot.docs.length} items from Firestore...`);
-    const items: MediaItem[] = [];
     
     // Verarbeite alle Items parallel für bessere Performance
     const itemPromises = snapshot.docs.map(async (docSnapshot) => {

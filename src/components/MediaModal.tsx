@@ -84,8 +84,11 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     }
   };
 
-  const handleDeleteComment = (commentId: string) => {
-    if (window.confirm('Kommentar wirklich löschen?')) {
+  const handleDeleteComment = (commentId: string, comment: Comment) => {
+    // User can delete their own comments or admin can delete any
+    const canDeleteComment = isAdmin || comment.userName === userName;
+    
+    if (canDeleteComment && window.confirm('Kommentar wirklich löschen?')) {
       onDeleteComment(commentId);
     }
   };
@@ -115,19 +118,18 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   // Generate beautiful wedding-themed avatar based on username
   const getAvatarUrl = (username: string) => {
     const weddingAvatars = [
-      'https://images.pexels.com/photos/1444442/pexels-photo-1444442.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', // Wedding rings
-      'https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', // White roses
-      'https://images.pexels.com/photos/1616113/pexels-photo-1616113.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', // Pink flowers
-      'https://images.pexels.com/photos/1729797/pexels-photo-1729797.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', // Wedding bouquet
-      'https://images.pexels.com/photos/1024960/pexels-photo-1024960.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', // White peonies
-      'https://images.pexels.com/photos/1070850/pexels-photo-1070850.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', // Pink roses
-      'https://images.pexels.com/photos/1444424/pexels-photo-1444424.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', // Wedding bands
-      'https://images.pexels.com/photos/1024967/pexels-photo-1024967.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', // White flowers
-      'https://images.pexels.com/photos/1729799/pexels-photo-1729799.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', // Bridal bouquet
-      'https://images.pexels.com/photos/1444443/pexels-photo-1444443.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'  // Diamond ring
+      'https://images.pexels.com/photos/1444442/pexels-photo-1444442.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1024993/pexels-photo-1024993.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1616113/pexels-photo-1616113.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1729797/pexels-photo-1729797.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1024960/pexels-photo-1024960.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1070850/pexels-photo-1070850.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1444424/pexels-photo-1444424.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1024967/pexels-photo-1024967.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1729799/pexels-photo-1729799.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop',
+      'https://images.pexels.com/photos/1444443/pexels-photo-1444443.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
     ];
     
-    // Use username to consistently select an avatar
     const hash = username.split('').reduce((a, b) => {
       a = ((a << 5) - a) + b.charCodeAt(0);
       return a & a;
@@ -306,6 +308,13 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
                   {currentItem.uploadedBy}
+                  {currentItem.uploadedBy === userName && (
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full transition-colors duration-300 ${
+                      isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      Du
+                    </span>
+                  )}
                 </span>
                 <div className={`text-xs transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-500'
@@ -325,42 +334,54 @@ export const MediaModal: React.FC<MediaModalProps> = ({
 
           {/* Comments */}
           <div className="max-h-40 overflow-y-auto px-4">
-            {currentComments.map((comment) => (
-              <div key={comment.id} className="flex items-start gap-3 py-2 group">
-                <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
-                  <img 
-                    src={getAvatarUrl(comment.userName)}
-                    alt={comment.userName}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex-1">
-                  <span className={`font-semibold text-sm mr-2 transition-colors duration-300 ${
-                    isDarkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    {comment.userName}
-                  </span>
-                  <span className={`text-sm transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                  }`}>
-                    {comment.text}
-                  </span>
-                  <div className={`text-xs mt-1 transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-500' : 'text-gray-500'
-                  }`}>
-                    {formatDate(comment.createdAt)}
+            {currentComments.map((comment) => {
+              const canDeleteThisComment = isAdmin || comment.userName === userName;
+              
+              return (
+                <div key={comment.id} className="flex items-start gap-3 py-2 group">
+                  <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
+                    <img 
+                      src={getAvatarUrl(comment.userName)}
+                      alt={comment.userName}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
+                  <div className="flex-1">
+                    <span className={`font-semibold text-sm mr-2 transition-colors duration-300 ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      {comment.userName}
+                      {comment.userName === userName && (
+                        <span className={`ml-1 text-xs px-1.5 py-0.5 rounded transition-colors duration-300 ${
+                          isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          Du
+                        </span>
+                      )}
+                    </span>
+                    <span className={`text-sm transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      {comment.text}
+                    </span>
+                    <div className={`text-xs mt-1 transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                    }`}>
+                      {formatDate(comment.createdAt)}
+                    </div>
+                  </div>
+                  {canDeleteThisComment && (
+                    <button
+                      onClick={() => handleDeleteComment(comment.id, comment)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded transition-all"
+                      title="Kommentar löschen"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
-                {isAdmin && (
-                  <button
-                    onClick={() => handleDeleteComment(comment.id)}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:bg-red-50 rounded transition-all"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Add comment */}

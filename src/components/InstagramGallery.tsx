@@ -7,6 +7,7 @@ interface InstagramGalleryProps {
   items: MediaItem[];
   onItemClick: (index: number) => void;
   onDelete?: (item: MediaItem) => void;
+  onEditNote?: (item: MediaItem, newText: string) => void;
   isAdmin: boolean;
   comments: Comment[];
   likes: Like[];
@@ -21,6 +22,7 @@ export const InstagramGallery: React.FC<InstagramGalleryProps> = ({
   items,
   onItemClick,
   onDelete,
+  onEditNote,
   isAdmin,
   comments,
   likes,
@@ -65,6 +67,7 @@ export const InstagramGallery: React.FC<InstagramGalleryProps> = ({
             onDeleteComment={onDeleteComment}
             onToggleLike={onToggleLike}
             onDelete={onDelete}
+            onEditNote={onEditNote}
             showDeleteButton={isAdmin}
             userName={userName}
             isAdmin={isAdmin}
@@ -80,6 +83,7 @@ export const InstagramGallery: React.FC<InstagramGalleryProps> = ({
             onDeleteComment={onDeleteComment}
             onToggleLike={onToggleLike}
             onDelete={onDelete}
+            onEditNote={onEditNote}
             showDeleteButton={isAdmin}
             userName={userName}
             isAdmin={isAdmin}
