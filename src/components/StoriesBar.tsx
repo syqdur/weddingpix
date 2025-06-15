@@ -125,6 +125,7 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
               onClick={() => handleStoryClick(userStory.userName)}
               className="relative"
             >
+              {/* Story Ring */}
               <div className={`w-16 h-16 rounded-full p-0.5 transition-all duration-300 ${
                 userStory.hasUnviewed
                   ? 'bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500'
@@ -135,10 +136,16 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
                 <div className={`w-full h-full rounded-full overflow-hidden border-2 transition-colors duration-300 ${
                   isDarkMode ? 'border-gray-800' : 'border-white'
                 }`}>
+                  {/* 🎯 NEW: Use story thumbnail instead of avatar */}
                   <img 
-                    src={getAvatarUrl(userStory.userName)}
-                    alt={userStory.userName}
+                    src={userStory.latestStory.mediaUrl}
+                    alt={`${userStory.userName}'s story`}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback to avatar if story image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.src = getAvatarUrl(userStory.userName);
+                    }}
                   />
                 </div>
               </div>
@@ -149,6 +156,13 @@ export const StoriesBar: React.FC<StoriesBarProps> = ({
                   isDarkMode ? 'bg-gray-700 text-white border-2 border-gray-800' : 'bg-white text-gray-900 border-2 border-white shadow-sm'
                 }`}>
                   {userStory.stories.length}
+                </div>
+              )}
+
+              {/* Video indicator */}
+              {userStory.latestStory.mediaType === 'video' && (
+                <div className="absolute top-1 right-1 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
+                  <div className="w-0 h-0 border-l-[3px] border-l-white border-y-[2px] border-y-transparent ml-0.5"></div>
                 </div>
               )}
             </button>

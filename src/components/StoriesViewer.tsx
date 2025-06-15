@@ -81,6 +81,32 @@ export const StoriesViewer: React.FC<StoriesViewerProps> = ({
     return () => clearInterval(interval);
   }, [isOpen, isPaused, isLoading, currentIndex, stories.length, onClose]);
 
+  // 🎯 NEW: Keyboard navigation
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (!isOpen) return;
+      
+      switch (e.key) {
+        case 'Escape':
+          onClose();
+          break;
+        case 'ArrowLeft':
+          goToPrevious();
+          break;
+        case 'ArrowRight':
+          goToNext();
+          break;
+        case ' ': // Spacebar
+          e.preventDefault();
+          togglePause();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isOpen, currentIndex, stories.length]);
+
   const goToNext = () => {
     if (currentIndex < stories.length - 1) {
       setCurrentIndex(prev => prev + 1);
@@ -251,28 +277,32 @@ export const StoriesViewer: React.FC<StoriesViewerProps> = ({
           />
         )}
 
-        {/* Navigation areas */}
+        {/* 🎯 NEW: Enhanced Navigation Areas */}
         <button
           onClick={goToPrevious}
-          className="absolute left-0 top-0 w-1/3 h-full flex items-center justify-start pl-4 opacity-0 hover:opacity-100 transition-opacity"
+          className="absolute left-0 top-0 w-1/3 h-full flex items-center justify-start pl-4 opacity-0 hover:opacity-100 transition-opacity group"
           disabled={currentIndex === 0}
         >
           {currentIndex > 0 && (
-            <ChevronLeft className="w-8 h-8 text-white bg-black/30 rounded-full p-1" />
+            <div className="bg-black/50 rounded-full p-2 group-hover:bg-black/70 transition-colors">
+              <ChevronLeft className="w-6 h-6 text-white" />
+            </div>
           )}
         </button>
 
         <button
           onClick={goToNext}
-          className="absolute right-0 top-0 w-1/3 h-full flex items-center justify-end pr-4 opacity-0 hover:opacity-100 transition-opacity"
+          className="absolute right-0 top-0 w-1/3 h-full flex items-center justify-end pr-4 opacity-0 hover:opacity-100 transition-opacity group"
         >
-          <ChevronRight className="w-8 h-8 text-white bg-black/30 rounded-full p-1" />
+          <div className="bg-black/50 rounded-full p-2 group-hover:bg-black/70 transition-colors">
+            <ChevronRight className="w-6 h-6 text-white" />
+          </div>
         </button>
 
-        {/* Tap to pause/play */}
+        {/* Tap to pause/play (center area) */}
         <button
           onClick={togglePause}
-          className="absolute inset-0 w-full h-full"
+          className="absolute inset-0 w-1/3 h-full left-1/3"
           style={{ background: 'transparent' }}
         />
       </div>
@@ -287,6 +317,11 @@ export const StoriesViewer: React.FC<StoriesViewerProps> = ({
             <span>
               {currentStory.views.length} Aufrufe
             </span>
+          </div>
+          
+          {/* 🎯 NEW: Keyboard shortcuts hint */}
+          <div className="text-white/60 text-xs mt-2 text-center">
+            ← → Navigieren • Leertaste Pause • Esc Schließen
           </div>
         </div>
       </div>
