@@ -10,197 +10,233 @@ interface PDFOptions {
   quality: 'standard' | 'high';
 }
 
-// Load image with proper CORS handling and Firebase URL processing
+// Advanced image loading with multiple fallback methods
 const loadImageAsBase64 = async (url: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    
-    // Add timestamp to bypass cache issues
-    const imageUrl = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`;
-    
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          reject(new Error('Could not get canvas context'));
-          return;
-        }
-        
-        // Set canvas size to image size
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        
-        // Draw image on canvas
-        ctx.drawImage(img, 0, 0);
-        
-        // Convert to base64 with high quality
-        const dataURL = canvas.toDataURL('image/jpeg', 0.9);
-        
-        if (dataURL === 'data:,') {
-          reject(new Error('Failed to convert image to base64'));
-          return;
-        }
-        
-        resolve(dataURL);
-      } catch (error) {
-        reject(new Error(`Canvas conversion failed: ${error}`));
-      }
-    };
-    
-    img.onerror = (error) => {
-      console.error('Image load error:', error);
-      reject(new Error(`Failed to load image from: ${url}`));
-    };
-    
-    // Set the source last
-    img.src = imageUrl;
-  });
-};
-
-// Alternative method using fetch for Firebase images
-const loadFirebaseImageAsBase64 = async (url: string): Promise<string> => {
+  console.log(`🖼️ Loading image: ${url}`);
+  
+  // Method 1: Direct fetch with CORS
   try {
     const response = await fetch(url, {
       method: 'GET',
       mode: 'cors',
-      cache: 'no-cache'
+      cache: 'no-cache',
+      headers: {
+        'Accept': 'image/*',
+        'Origin': window.location.origin
+      }
     });
     
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(`HTTP ${response.status}`);
     }
     
     const blob = await response.blob();
     
+    if (blob.size === 0) {
+      throw new Error('Empty blob received');
+    }
+    
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result);
-      };
-      reader.onerror = () => reject(new Error('Failed to read blob as base64'));
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error('FileReader failed'));
       reader.readAsDataURL(blob);
     });
-  } catch (error) {
-    throw new Error(`Fetch failed: ${error}`);
+  } catch (fetchError) {
+    console.log(`Fetch failed: ${fetchError}, trying canvas method...`);
+    
+    // Method 2: Canvas-based loading
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error('Canvas context not available'));
+            return;
+          }
+          
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          
+          ctx.drawImage(img, 0, 0);
+          
+          const dataURL = canvas.toDataURL('image/jpeg', 0.95);
+          
+          if (dataURL === 'data:,') {
+            reject(new Error('Canvas conversion failed'));
+            return;
+          }
+          
+          console.log(`✅ Image loaded via canvas method`);
+          resolve(dataURL);
+        } catch (canvasError) {
+          reject(new Error(`Canvas error: ${canvasError}`));
+        }
+      };
+      
+      img.onerror = () => {
+        reject(new Error('Image load failed'));
+      };
+      
+      // Add cache busting
+      const imageUrl = url.includes('?') ? `${url}&cb=${Date.now()}` : `${url}?cb=${Date.now()}`;
+      img.src = imageUrl;
+    });
   }
 };
 
-// Create elegant page background
-const createPageBackground = (pdf: jsPDF) => {
+// Create luxurious page background
+const createLuxuryBackground = (pdf: jsPDF) => {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   
-  // Cream background
-  pdf.setFillColor(254, 252, 247);
+  // Ivory background
+  pdf.setFillColor(255, 253, 250);
   pdf.rect(0, 0, pageWidth, pageHeight, 'F');
   
-  // Subtle border
-  pdf.setDrawColor(220, 200, 180);
-  pdf.setLineWidth(0.5);
-  pdf.rect(15, 15, pageWidth - 30, pageHeight - 30, 'S');
+  // Gold border frame
+  pdf.setDrawColor(184, 134, 11);
+  pdf.setLineWidth(1.5);
+  pdf.rect(20, 20, pageWidth - 40, pageHeight - 40, 'S');
   
-  // Corner decorations
-  pdf.setDrawColor(200, 180, 160);
+  // Inner border
+  pdf.setDrawColor(218, 165, 32);
+  pdf.setLineWidth(0.5);
+  pdf.rect(25, 25, pageWidth - 50, pageHeight - 50, 'S');
+  
+  // Elegant corner flourishes
+  pdf.setDrawColor(184, 134, 11);
   pdf.setLineWidth(1);
   
-  // Top corners
-  pdf.line(20, 20, 35, 20);
-  pdf.line(20, 20, 20, 35);
-  pdf.line(pageWidth - 35, 20, pageWidth - 20, 20);
-  pdf.line(pageWidth - 20, 20, pageWidth - 20, 35);
+  // Top left corner
+  pdf.line(30, 30, 50, 30);
+  pdf.line(30, 30, 30, 50);
+  pdf.line(35, 35, 45, 35);
+  pdf.line(35, 35, 35, 45);
   
-  // Bottom corners
-  pdf.line(20, pageHeight - 35, 20, pageHeight - 20);
-  pdf.line(20, pageHeight - 20, 35, pageHeight - 20);
-  pdf.line(pageWidth - 20, pageHeight - 35, pageWidth - 20, pageHeight - 20);
-  pdf.line(pageWidth - 35, pageHeight - 20, pageWidth - 20, pageHeight - 20);
+  // Top right corner
+  pdf.line(pageWidth - 50, 30, pageWidth - 30, 30);
+  pdf.line(pageWidth - 30, 30, pageWidth - 30, 50);
+  pdf.line(pageWidth - 45, 35, pageWidth - 35, 35);
+  pdf.line(pageWidth - 35, 35, pageWidth - 35, 45);
+  
+  // Bottom left corner
+  pdf.line(30, pageHeight - 50, 30, pageHeight - 30);
+  pdf.line(30, pageHeight - 30, 50, pageHeight - 30);
+  pdf.line(35, pageHeight - 45, 35, pageHeight - 35);
+  pdf.line(35, pageHeight - 35, 45, pageHeight - 35);
+  
+  // Bottom right corner
+  pdf.line(pageWidth - 30, pageHeight - 50, pageWidth - 30, pageHeight - 30);
+  pdf.line(pageWidth - 50, pageHeight - 30, pageWidth - 30, pageHeight - 30);
+  pdf.line(pageWidth - 35, pageHeight - 45, pageWidth - 35, pageHeight - 35);
+  pdf.line(pageWidth - 45, pageHeight - 35, pageWidth - 35, pageHeight - 35);
 };
 
-// Create beautiful cover page
-const createCoverPage = (pdf: jsPDF, options: PDFOptions) => {
+// Create luxurious cover page
+const createLuxuryCoverPage = (pdf: jsPDF, options: PDFOptions) => {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   
-  createPageBackground(pdf);
+  createLuxuryBackground(pdf);
   
-  // Elegant title
+  // Elegant title with shadow effect
   pdf.setFont('times', 'bold');
-  pdf.setFontSize(48);
-  pdf.setTextColor(101, 67, 33);
+  pdf.setFontSize(52);
   
-  const titleY = pageHeight * 0.25;
-  pdf.text(options.title, pageWidth / 2, titleY, { align: 'center' });
+  // Shadow
+  pdf.setTextColor(200, 200, 200);
+  pdf.text(options.title, pageWidth / 2 + 2, pageHeight * 0.28 + 2, { align: 'center' });
   
-  // Decorative line
-  pdf.setDrawColor(180, 140, 100);
-  pdf.setLineWidth(2);
-  pdf.line(pageWidth / 2 - 80, titleY + 15, pageWidth / 2 + 80, titleY + 15);
+  // Main title
+  pdf.setTextColor(139, 69, 19);
+  pdf.text(options.title, pageWidth / 2, pageHeight * 0.28, { align: 'center' });
   
-  // Subtitle
+  // Decorative line with ornaments
+  pdf.setDrawColor(184, 134, 11);
+  pdf.setLineWidth(3);
+  pdf.line(pageWidth / 2 - 100, pageHeight * 0.32, pageWidth / 2 + 100, pageHeight * 0.32);
+  
+  // Ornamental dots
+  pdf.setFillColor(184, 134, 11);
+  pdf.circle(pageWidth / 2 - 110, pageHeight * 0.32, 3, 'F');
+  pdf.circle(pageWidth / 2 + 110, pageHeight * 0.32, 3, 'F');
+  
+  // Elegant subtitle
   pdf.setFont('times', 'italic');
-  pdf.setFontSize(20);
-  pdf.setTextColor(120, 100, 80);
+  pdf.setFontSize(22);
+  pdf.setTextColor(101, 67, 33);
   
   const subtitleLines = options.subtitle.split('\n');
   subtitleLines.forEach((line, index) => {
-    pdf.text(line, pageWidth / 2, titleY + 50 + (index * 25), { align: 'center' });
+    pdf.text(line, pageWidth / 2, pageHeight * 0.38 + (index * 28), { align: 'center' });
   });
   
-  // Wedding date
-  pdf.setFont('times', 'normal');
+  // Wedding date in elegant frame
+  pdf.setFillColor(255, 248, 220);
+  pdf.roundedRect(pageWidth / 2 - 80, pageHeight * 0.52, 160, 40, 8, 8, 'F');
+  
+  pdf.setDrawColor(184, 134, 11);
+  pdf.setLineWidth(2);
+  pdf.roundedRect(pageWidth / 2 - 80, pageHeight * 0.52, 160, 40, 8, 8, 'S');
+  
+  pdf.setFont('times', 'bold');
   pdf.setFontSize(28);
-  pdf.setTextColor(160, 82, 45);
+  pdf.setTextColor(139, 69, 19);
   pdf.text('12. Juli 2025', pageWidth / 2, pageHeight * 0.55, { align: 'center' });
   
-  // Hearts
+  // Elegant hearts
   pdf.setFont('times', 'normal');
-  pdf.setFontSize(24);
+  pdf.setFontSize(20);
   pdf.setTextColor(205, 92, 92);
-  pdf.text('♥', pageWidth / 2 - 30, pageHeight * 0.62, { align: 'center' });
-  pdf.text('♥', pageWidth / 2 + 30, pageHeight * 0.62, { align: 'center' });
+  pdf.text('♥', pageWidth / 2 - 40, pageHeight * 0.65, { align: 'center' });
+  pdf.text('♥', pageWidth / 2 + 40, pageHeight * 0.65, { align: 'center' });
   
-  // Elegant quote
+  // Romantic quote
   pdf.setFont('times', 'italic');
   pdf.setFontSize(18);
   pdf.setTextColor(139, 115, 85);
-  pdf.text('Ein Tag voller Liebe und unvergesslicher Momente', pageWidth / 2, pageHeight * 0.7, { align: 'center' });
+  pdf.text('Ein Tag voller Liebe, Freude und unvergesslicher Momente', pageWidth / 2, pageHeight * 0.72, { align: 'center' });
   
-  // Footer
+  // Elegant footer
   pdf.setFont('times', 'normal');
-  pdf.setFontSize(12);
-  pdf.setTextColor(120, 100, 80);
-  pdf.text('Liebevoll erstellt von kristinundmauro.de', pageWidth / 2, pageHeight - 40, { align: 'center' });
+  pdf.setFontSize(14);
+  pdf.setTextColor(101, 67, 33);
+  pdf.text('Mit Liebe erstellt von kristinundmauro.de', pageWidth / 2, pageHeight - 60, { align: 'center' });
   
   const currentDate = new Date().toLocaleDateString('de-DE', {
     day: 'numeric',
     month: 'long',
     year: 'numeric'
   });
-  pdf.text(`Erstellt am ${currentDate}`, pageWidth / 2, pageHeight - 25, { align: 'center' });
+  pdf.setFontSize(12);
+  pdf.setTextColor(139, 115, 85);
+  pdf.text(`Erstellt am ${currentDate}`, pageWidth / 2, pageHeight - 40, { align: 'center' });
 };
 
-// Create statistics page
-const createStatsPage = (pdf: jsPDF, mediaItems: MediaItem[]) => {
+// Create elegant statistics page
+const createElegantStatsPage = (pdf: jsPDF, mediaItems: MediaItem[]) => {
   pdf.addPage();
-  createPageBackground(pdf);
+  createLuxuryBackground(pdf);
   
   const pageWidth = pdf.internal.pageSize.getWidth();
-  let yPosition = 60;
+  let yPosition = 70;
   
-  // Title
+  // Elegant title
   pdf.setFont('times', 'bold');
-  pdf.setFontSize(32);
-  pdf.setTextColor(101, 67, 33);
+  pdf.setFontSize(36);
+  pdf.setTextColor(139, 69, 19);
   pdf.text('Unsere Hochzeits-Erinnerungen', pageWidth / 2, yPosition, { align: 'center' });
   
-  // Decorative line
-  pdf.setDrawColor(180, 140, 100);
+  // Decorative underline
+  pdf.setDrawColor(184, 134, 11);
   pdf.setLineWidth(2);
-  pdf.line(pageWidth / 2 - 100, yPosition + 10, pageWidth / 2 + 100, yPosition + 10);
+  pdf.line(pageWidth / 2 - 120, yPosition + 8, pageWidth / 2 + 120, yPosition + 8);
   
   yPosition += 60;
   
@@ -213,7 +249,7 @@ const createStatsPage = (pdf: jsPDF, mediaItems: MediaItem[]) => {
     contributors: new Set(mediaItems.map(item => item.uploadedBy)).size
   };
   
-  // Stats boxes
+  // Elegant stats boxes
   const statsData = [
     { label: 'Gesamte Beiträge', value: stats.totalItems, color: [52, 152, 219] },
     { label: 'Wunderschöne Bilder', value: stats.images, color: [46, 204, 113] },
@@ -223,40 +259,43 @@ const createStatsPage = (pdf: jsPDF, mediaItems: MediaItem[]) => {
   ];
   
   statsData.forEach((stat, index) => {
-    const boxY = yPosition + (index * 50);
+    const boxY = yPosition + (index * 55);
     
-    // Background box
-    pdf.setFillColor(250, 248, 245);
-    pdf.roundedRect(40, boxY - 15, pageWidth - 80, 35, 5, 5, 'F');
+    // Elegant background
+    pdf.setFillColor(255, 250, 245);
+    pdf.roundedRect(50, boxY - 18, pageWidth - 100, 40, 10, 10, 'F');
     
-    // Border
-    pdf.setDrawColor(...stat.color);
-    pdf.setLineWidth(1);
-    pdf.roundedRect(40, boxY - 15, pageWidth - 80, 35, 5, 5, 'S');
+    // Gold border
+    pdf.setDrawColor(184, 134, 11);
+    pdf.setLineWidth(1.5);
+    pdf.roundedRect(50, boxY - 18, pageWidth - 100, 40, 10, 10, 'S');
     
     // Label
     pdf.setFont('times', 'normal');
-    pdf.setFontSize(16);
-    pdf.setTextColor(80, 60, 40);
-    pdf.text(stat.label, 50, boxY + 5);
+    pdf.setFontSize(18);
+    pdf.setTextColor(101, 67, 33);
+    pdf.text(stat.label, 65, boxY + 5);
     
-    // Value
+    // Value in elegant circle
+    pdf.setFillColor(...stat.color);
+    pdf.circle(pageWidth - 80, boxY + 2, 15, 'F');
+    
     pdf.setFont('times', 'bold');
     pdf.setFontSize(20);
-    pdf.setTextColor(...stat.color);
-    pdf.text(stat.value.toString(), pageWidth - 50, boxY + 5, { align: 'right' });
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(stat.value.toString(), pageWidth - 80, boxY + 7, { align: 'center' });
   });
   
-  yPosition += statsData.length * 50 + 40;
+  yPosition += statsData.length * 55 + 50;
   
-  // Contributors
+  // Contributors section
   if (stats.contributors > 0) {
     pdf.setFont('times', 'bold');
-    pdf.setFontSize(24);
-    pdf.setTextColor(101, 67, 33);
+    pdf.setFontSize(26);
+    pdf.setTextColor(139, 69, 19);
     pdf.text('Unsere wunderbaren Gäste', pageWidth / 2, yPosition, { align: 'center' });
     
-    yPosition += 30;
+    yPosition += 35;
     
     const contributors = Array.from(new Set(mediaItems.map(item => item.uploadedBy)));
     contributors.forEach((contributor, index) => {
@@ -268,8 +307,8 @@ const createStatsPage = (pdf: jsPDF, mediaItems: MediaItem[]) => {
       };
       
       pdf.setFont('times', 'normal');
-      pdf.setFontSize(14);
-      pdf.setTextColor(80, 60, 40);
+      pdf.setFontSize(16);
+      pdf.setTextColor(101, 67, 33);
       
       let contributionText = `${contributor}`;
       const contributions = [];
@@ -281,116 +320,115 @@ const createStatsPage = (pdf: jsPDF, mediaItems: MediaItem[]) => {
         contributionText += ` - ${contributions.join(', ')}`;
       }
       
-      pdf.text(contributionText, 50, yPosition + (index * 20));
+      // Elegant bullet point
+      pdf.setFillColor(184, 134, 11);
+      pdf.circle(60, yPosition + (index * 22) - 2, 2, 'F');
+      
+      pdf.text(contributionText, 70, yPosition + (index * 22));
     });
   }
 };
 
-// Create notes page
-const createNotesPage = (pdf: jsPDF, mediaItems: MediaItem[]) => {
+// Create elegant notes page
+const createElegantNotesPage = (pdf: jsPDF, mediaItems: MediaItem[]) => {
   const notes = mediaItems.filter(item => item.type === 'note' && item.noteText);
   
   if (notes.length === 0) return;
   
   pdf.addPage();
-  createPageBackground(pdf);
+  createLuxuryBackground(pdf);
   
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-  let yPosition = 60;
+  let yPosition = 70;
   
-  // Title
+  // Elegant title
   pdf.setFont('times', 'bold');
-  pdf.setFontSize(32);
-  pdf.setTextColor(101, 67, 33);
+  pdf.setFontSize(36);
+  pdf.setTextColor(139, 69, 19);
   pdf.text('Liebevolle Worte unserer Gäste', pageWidth / 2, yPosition, { align: 'center' });
   
-  // Decorative line
-  pdf.setDrawColor(180, 140, 100);
+  // Decorative underline
+  pdf.setDrawColor(184, 134, 11);
   pdf.setLineWidth(2);
-  pdf.line(pageWidth / 2 - 120, yPosition + 10, pageWidth / 2 + 120, yPosition + 10);
+  pdf.line(pageWidth / 2 - 140, yPosition + 8, pageWidth / 2 + 140, yPosition + 8);
   
   yPosition += 60;
   
   notes.forEach((note, index) => {
     // Check if we need a new page
-    if (yPosition > pageHeight - 120) {
+    if (yPosition > pageHeight - 140) {
       pdf.addPage();
-      createPageBackground(pdf);
-      yPosition = 60;
+      createLuxuryBackground(pdf);
+      yPosition = 70;
     }
     
-    // Note container
-    pdf.setFillColor(255, 250, 245);
-    pdf.roundedRect(30, yPosition - 10, pageWidth - 60, 80, 8, 8, 'F');
+    // Elegant note container
+    pdf.setFillColor(255, 248, 220);
+    pdf.roundedRect(40, yPosition - 15, pageWidth - 80, 90, 12, 12, 'F');
     
-    // Border
-    pdf.setDrawColor(220, 200, 180);
-    pdf.setLineWidth(1);
-    pdf.roundedRect(30, yPosition - 10, pageWidth - 60, 80, 8, 8, 'S');
+    // Gold border
+    pdf.setDrawColor(184, 134, 11);
+    pdf.setLineWidth(2);
+    pdf.roundedRect(40, yPosition - 15, pageWidth - 80, 90, 12, 12, 'S');
     
-    // Author
+    // Author with elegant styling
     pdf.setFont('times', 'bold');
-    pdf.setFontSize(16);
-    pdf.setTextColor(160, 82, 45);
-    pdf.text(`Von ${note.uploadedBy}`, 40, yPosition + 10);
+    pdf.setFontSize(18);
+    pdf.setTextColor(139, 69, 19);
+    pdf.text(`Von ${note.uploadedBy}`, 55, yPosition + 10);
     
     // Date
     pdf.setFont('times', 'italic');
-    pdf.setFontSize(12);
-    pdf.setTextColor(120, 100, 80);
+    pdf.setFontSize(14);
+    pdf.setTextColor(139, 115, 85);
     const noteDate = new Date(note.uploadedAt).toLocaleDateString('de-DE', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
     });
-    pdf.text(noteDate, pageWidth - 40, yPosition + 10, { align: 'right' });
+    pdf.text(noteDate, pageWidth - 55, yPosition + 10, { align: 'right' });
     
-    // Note text
+    // Note text with elegant formatting
     pdf.setFont('times', 'normal');
-    pdf.setFontSize(14);
-    pdf.setTextColor(60, 50, 40);
+    pdf.setFontSize(16);
+    pdf.setTextColor(101, 67, 33);
     
-    const noteLines = pdf.splitTextToSize(`"${note.noteText}"`, pageWidth - 80);
-    pdf.text(noteLines, 40, yPosition + 35);
+    const noteLines = pdf.splitTextToSize(`"${note.noteText}"`, pageWidth - 110);
+    pdf.text(noteLines, 55, yPosition + 35);
     
-    yPosition += 100;
+    yPosition += 110;
   });
 };
 
-// Add image to PDF with proper error handling
-const addImageToPDF = async (pdf: jsPDF, imageUrl: string, item: MediaItem, pageIndex: number) => {
+// Add image with luxury presentation
+const addLuxuryImagePage = async (pdf: jsPDF, imageUrl: string, item: MediaItem, pageIndex: number) => {
   try {
-    console.log(`Loading image ${pageIndex}: ${imageUrl}`);
+    console.log(`🎨 Processing luxury image ${pageIndex}: ${imageUrl}`);
     
-    let base64Image: string;
-    
-    try {
-      // Try Firebase fetch method first
-      base64Image = await loadFirebaseImageAsBase64(imageUrl);
-      console.log(`✅ Image ${pageIndex} loaded via fetch`);
-    } catch (fetchError) {
-      console.log(`Fetch failed for image ${pageIndex}, trying direct load...`);
-      // Fallback to direct image load
-      base64Image = await loadImageAsBase64(imageUrl);
-      console.log(`✅ Image ${pageIndex} loaded via direct method`);
-    }
+    const base64Image = await loadImageAsBase64(imageUrl);
+    console.log(`✅ Image ${pageIndex} loaded successfully`);
     
     pdf.addPage();
-    createPageBackground(pdf);
+    createLuxuryBackground(pdf);
     
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     
-    // Page title
+    // Elegant page title
     pdf.setFont('times', 'bold');
-    pdf.setFontSize(20);
-    pdf.setTextColor(101, 67, 33);
-    pdf.text(`Erinnerung ${pageIndex}`, pageWidth / 2, 45, { align: 'center' });
+    pdf.setFontSize(24);
+    pdf.setTextColor(139, 69, 19);
+    pdf.text(`Erinnerung ${pageIndex}`, pageWidth / 2, 55, { align: 'center' });
     
-    // Calculate image dimensions
-    const maxWidth = pageWidth - 80;
-    const maxHeight = pageHeight - 160;
+    // Decorative line under title
+    pdf.setDrawColor(184, 134, 11);
+    pdf.setLineWidth(1);
+    pdf.line(pageWidth / 2 - 60, 62, pageWidth / 2 + 60, 62);
+    
+    // Calculate image dimensions with luxury spacing
+    const maxWidth = pageWidth - 120;
+    const maxHeight = pageHeight - 200;
     
     // Create temporary image to get dimensions
     const tempImg = new Image();
@@ -410,29 +448,47 @@ const addImageToPDF = async (pdf: jsPDF, imageUrl: string, item: MediaItem, page
     }
     
     const x = (pageWidth - imgWidth) / 2;
-    const y = 70;
+    const y = 85;
     
-    // White background for image
+    // Luxury frame with multiple borders
+    // Outer shadow
+    pdf.setFillColor(220, 220, 220);
+    pdf.rect(x - 15, y - 15, imgWidth + 30, imgHeight + 30, 'F');
+    
+    // Gold outer frame
+    pdf.setFillColor(184, 134, 11);
+    pdf.rect(x - 12, y - 12, imgWidth + 24, imgHeight + 24, 'F');
+    
+    // White mat
     pdf.setFillColor(255, 255, 255);
     pdf.rect(x - 8, y - 8, imgWidth + 16, imgHeight + 16, 'F');
     
-    // Elegant frame
-    pdf.setDrawColor(180, 140, 100);
-    pdf.setLineWidth(2);
-    pdf.rect(x - 8, y - 8, imgWidth + 16, imgHeight + 16, 'S');
+    // Inner gold frame
+    pdf.setFillColor(218, 165, 32);
+    pdf.rect(x - 4, y - 4, imgWidth + 8, imgHeight + 8, 'F');
     
-    // Inner frame
-    pdf.setDrawColor(220, 200, 180);
-    pdf.setLineWidth(1);
-    pdf.rect(x - 4, y - 4, imgWidth + 8, imgHeight + 8, 'S');
+    // Final white border
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(x - 2, y - 2, imgWidth + 4, imgHeight + 4, 'F');
     
     // Add the image
     pdf.addImage(base64Image, 'JPEG', x, y, imgWidth, imgHeight);
     
-    // Image metadata
+    // Elegant metadata section
+    const metaY = y + imgHeight + 40;
+    
+    // Background for metadata
+    pdf.setFillColor(255, 248, 220);
+    pdf.roundedRect(60, metaY - 10, pageWidth - 120, 35, 8, 8, 'F');
+    
+    pdf.setDrawColor(184, 134, 11);
+    pdf.setLineWidth(1);
+    pdf.roundedRect(60, metaY - 10, pageWidth - 120, 35, 8, 8, 'S');
+    
+    // Metadata text
     pdf.setFont('times', 'italic');
-    pdf.setFontSize(14);
-    pdf.setTextColor(120, 100, 80);
+    pdf.setFontSize(16);
+    pdf.setTextColor(139, 69, 19);
     
     const uploadDate = new Date(item.uploadedAt).toLocaleDateString('de-DE', {
       day: 'numeric',
@@ -440,39 +496,39 @@ const addImageToPDF = async (pdf: jsPDF, imageUrl: string, item: MediaItem, page
       year: 'numeric'
     });
     
-    pdf.text(`Aufgenommen von ${item.uploadedBy}`, pageWidth / 2, pageHeight - 50, { align: 'center' });
-    pdf.text(`am ${uploadDate}`, pageWidth / 2, pageHeight - 30, { align: 'center' });
+    pdf.text(`Aufgenommen von ${item.uploadedBy}`, pageWidth / 2, metaY + 5, { align: 'center' });
+    pdf.text(`am ${uploadDate}`, pageWidth / 2, metaY + 20, { align: 'center' });
     
-    console.log(`✅ Image ${pageIndex} successfully added to PDF`);
+    console.log(`✅ Luxury image ${pageIndex} successfully added to PDF`);
     
   } catch (error) {
-    console.error(`❌ Error adding image ${pageIndex} to PDF:`, error);
+    console.error(`❌ Error adding luxury image ${pageIndex}:`, error);
     
-    // Add error page
+    // Elegant error page
     pdf.addPage();
-    createPageBackground(pdf);
+    createLuxuryBackground(pdf);
     
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     
-    // Error message
+    // Error message in elegant style
     pdf.setFont('times', 'bold');
-    pdf.setFontSize(24);
-    pdf.setTextColor(231, 76, 60);
-    pdf.text('Bild konnte nicht geladen werden', pageWidth / 2, pageHeight / 2 - 40, { align: 'center' });
+    pdf.setFontSize(28);
+    pdf.setTextColor(139, 69, 19);
+    pdf.text('Bild konnte nicht geladen werden', pageWidth / 2, pageHeight / 2 - 50, { align: 'center' });
     
     pdf.setFont('times', 'normal');
-    pdf.setFontSize(16);
-    pdf.setTextColor(120, 100, 80);
-    pdf.text(`Von ${item.uploadedBy}`, pageWidth / 2, pageHeight / 2 - 10, { align: 'center' });
+    pdf.setFontSize(18);
+    pdf.setTextColor(139, 115, 85);
+    pdf.text(`Von ${item.uploadedBy}`, pageWidth / 2, pageHeight / 2 - 20, { align: 'center' });
     
     const uploadDate = new Date(item.uploadedAt).toLocaleDateString('de-DE');
-    pdf.text(`Datum: ${uploadDate}`, pageWidth / 2, pageHeight / 2 + 15, { align: 'center' });
+    pdf.text(`Datum: ${uploadDate}`, pageWidth / 2, pageHeight / 2 + 5, { align: 'center' });
     
     pdf.setFont('times', 'italic');
-    pdf.setFontSize(12);
-    pdf.setTextColor(150, 150, 150);
-    pdf.text('Möglicherweise ist das Bild nicht mehr verfügbar', pageWidth / 2, pageHeight / 2 + 40, { align: 'center' });
+    pdf.setFontSize(14);
+    pdf.setTextColor(180, 180, 180);
+    pdf.text('Das Bild ist möglicherweise nicht mehr verfügbar', pageWidth / 2, pageHeight / 2 + 35, { align: 'center' });
   }
 };
 
@@ -487,7 +543,7 @@ export const generatePDFPhotobook = async (
   }
 ): Promise<void> => {
   try {
-    console.log('🎨 Starting PDF generation...');
+    console.log('🎨 Starting luxury PDF generation...');
     
     // Create PDF document
     const pdf = new jsPDF({
@@ -497,72 +553,75 @@ export const generatePDFPhotobook = async (
       compress: true
     });
     
-    // Create cover page
-    console.log('📖 Creating cover page...');
-    createCoverPage(pdf, options);
+    // Create luxury cover page
+    console.log('👑 Creating luxury cover page...');
+    createLuxuryCoverPage(pdf, options);
     
-    // Create statistics page
-    console.log('📊 Creating statistics page...');
-    createStatsPage(pdf, mediaItems);
+    // Create elegant statistics page
+    console.log('📊 Creating elegant statistics page...');
+    createElegantStatsPage(pdf, mediaItems);
     
-    // Create notes page if requested
+    // Create elegant notes page if requested
     if (options.includeNotes) {
-      console.log('💌 Creating notes page...');
-      createNotesPage(pdf, mediaItems);
+      console.log('💌 Creating elegant notes page...');
+      createElegantNotesPage(pdf, mediaItems);
     }
     
-    // Add images
+    // Add images with luxury presentation
     const images = mediaItems.filter(item => item.type === 'image' && item.url);
     
     if (images.length > 0) {
-      console.log(`📸 Adding ${images.length} images...`);
+      console.log(`🖼️ Adding ${images.length} images with luxury presentation...`);
       
-      // Add section divider
+      // Add elegant section divider
       pdf.addPage();
-      createPageBackground(pdf);
+      createLuxuryBackground(pdf);
       
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       
       pdf.setFont('times', 'bold');
-      pdf.setFontSize(36);
-      pdf.setTextColor(101, 67, 33);
-      pdf.text('Unsere Hochzeitsbilder', pageWidth / 2, pageHeight / 2 - 30, { align: 'center' });
+      pdf.setFontSize(42);
+      pdf.setTextColor(139, 69, 19);
+      pdf.text('Unsere Hochzeitsbilder', pageWidth / 2, pageHeight / 2 - 40, { align: 'center' });
       
       pdf.setFont('times', 'italic');
-      pdf.setFontSize(20);
-      pdf.setTextColor(120, 100, 80);
-      pdf.text(`${images.length} wunderschöne Erinnerungen`, pageWidth / 2, pageHeight / 2, { align: 'center' });
+      pdf.setFontSize(24);
+      pdf.setTextColor(139, 115, 85);
+      pdf.text(`${images.length} wunderschöne Erinnerungen`, pageWidth / 2, pageHeight / 2 - 5, { align: 'center' });
       
+      // Decorative hearts
       pdf.setFont('times', 'normal');
-      pdf.setFontSize(18);
-      pdf.setTextColor(160, 82, 45);
-      pdf.text('♥ ♥ ♥', pageWidth / 2, pageHeight / 2 + 40, { align: 'center' });
+      pdf.setFontSize(24);
+      pdf.setTextColor(205, 92, 92);
+      pdf.text('♥', pageWidth / 2 - 50, pageHeight / 2 + 30, { align: 'center' });
+      pdf.text('♥', pageWidth / 2, pageHeight / 2 + 30, { align: 'center' });
+      pdf.text('♥', pageWidth / 2 + 50, pageHeight / 2 + 30, { align: 'center' });
       
-      // Add each image
+      // Add each image with luxury presentation
       for (let i = 0; i < images.length; i++) {
         const image = images[i];
-        console.log(`Processing image ${i + 1} of ${images.length}...`);
-        await addImageToPDF(pdf, image.url, image, i + 1);
+        console.log(`Processing luxury image ${i + 1} of ${images.length}...`);
+        await addLuxuryImagePage(pdf, image.url, image, i + 1);
       }
     }
     
-    // Add final thank you page
-    console.log('💕 Creating thank you page...');
+    // Add elegant thank you page
+    console.log('💕 Creating elegant thank you page...');
     pdf.addPage();
-    createPageBackground(pdf);
+    createLuxuryBackground(pdf);
     
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     
     pdf.setFont('times', 'bold');
-    pdf.setFontSize(32);
-    pdf.setTextColor(101, 67, 33);
-    pdf.text('Vielen herzlichen Dank!', pageWidth / 2, pageHeight / 2 - 80, { align: 'center' });
+    pdf.setFontSize(38);
+    pdf.setTextColor(139, 69, 19);
+    pdf.text('Vielen herzlichen Dank!', pageWidth / 2, pageHeight / 2 - 100, { align: 'center' });
     
     pdf.setFont('times', 'normal');
-    pdf.setFontSize(18);
-    pdf.setTextColor(120, 100, 80);
+    pdf.setFontSize(20);
+    pdf.setTextColor(101, 67, 33);
     
     const thankYouText = [
       'Danke an alle unsere lieben Gäste,',
@@ -576,28 +635,35 @@ export const generatePDFPhotobook = async (
     ];
     
     thankYouText.forEach((line, index) => {
-      pdf.text(line, pageWidth / 2, pageHeight / 2 - 40 + (index * 15), { align: 'center' });
+      pdf.text(line, pageWidth / 2, pageHeight / 2 - 60 + (index * 18), { align: 'center' });
     });
     
-    // Signature
+    // Elegant signature
     pdf.setFont('times', 'italic');
-    pdf.setFontSize(24);
-    pdf.setTextColor(160, 82, 45);
-    pdf.text('Kristin & Maurizio', pageWidth / 2, pageHeight / 2 + 60, { align: 'center' });
+    pdf.setFontSize(28);
+    pdf.setTextColor(139, 69, 19);
+    pdf.text('Kristin & Maurizio', pageWidth / 2, pageHeight / 2 + 80, { align: 'center' });
+    
+    // Decorative hearts
+    pdf.setFont('times', 'normal');
+    pdf.setFontSize(20);
+    pdf.setTextColor(205, 92, 92);
+    pdf.text('♥', pageWidth / 2 - 60, pageHeight / 2 + 100, { align: 'center' });
+    pdf.text('♥', pageWidth / 2 + 60, pageHeight / 2 + 100, { align: 'center' });
     
     // Generate filename
     const today = new Date().toISOString().slice(0, 10);
-    const filename = `Hochzeitsfotobuch_Kristin_Maurizio_${today}.pdf`;
+    const filename = `Luxus_Hochzeitsfotobuch_Kristin_Maurizio_${today}.pdf`;
     
     // Save the PDF
-    console.log('💾 Saving PDF...');
+    console.log('💾 Saving luxury PDF...');
     pdf.save(filename);
     
-    console.log('✅ PDF Fotobuch erfolgreich erstellt!');
+    console.log('✅ Luxuriöses PDF-Fotobuch erfolgreich erstellt!');
     
   } catch (error) {
-    console.error('❌ Error generating PDF photobook:', error);
-    throw new Error(`Fehler beim Erstellen des PDF-Fotobuchs: ${error}`);
+    console.error('❌ Error generating luxury PDF photobook:', error);
+    throw new Error(`Fehler beim Erstellen des luxuriösen PDF-Fotobuchs: ${error}`);
   }
 };
 
@@ -611,7 +677,7 @@ export const generatePDFPreview = async (mediaItems: MediaItem[]): Promise<strin
     });
     
     // Create cover page
-    createCoverPage(pdf, {
+    createLuxuryCoverPage(pdf, {
       title: 'Kristin & Maurizio',
       subtitle: 'Unsere Hochzeit in Bildern',
       includeNotes: true,

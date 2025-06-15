@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, FileText, Image, MessageSquare, Settings, X, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Download, FileText, Image, MessageSquare, Settings, X, AlertTriangle, CheckCircle, Crown, Sparkles } from 'lucide-react';
 import { MediaItem } from '../types';
 import { generatePDFPhotobook } from '../services/pdfService';
 
@@ -50,12 +50,12 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
       await generatePDFPhotobook(mediaItems, options);
       
       // Show success message
-      alert(`✨ Wunderschönes PDF-Fotobuch erfolgreich erstellt!\n\n📖 Inhalt:\n- Elegante Titelseite mit Hochzeitsdaten\n- Detaillierte Statistik-Übersicht\n- ${stats.images} Hochzeitsbilder in schöner Präsentation\n${options.includeNotes ? `- ${stats.notes} Gästenachrichten liebevoll formatiert\n` : ''}- Dankesseite für alle Gäste\n\n💎 Das PDF wurde mit elegantem Design und professioneller Typografie erstellt.`);
+      alert(`✨ Luxuriöses PDF-Fotobuch erfolgreich erstellt!\n\n👑 Premium-Inhalt:\n- Elegante Titelseite mit goldenen Verzierungen\n- Detaillierte Statistik-Übersicht mit luxuriösem Design\n- ${stats.images} Hochzeitsbilder in edler Rahmen-Präsentation\n${options.includeNotes ? `- ${stats.notes} Gästenachrichten liebevoll formatiert\n` : ''}- Dankesseite mit herzlichen Worten\n\n💎 Das PDF wurde mit luxuriösem Design, goldenen Rahmen und professioneller Typografie erstellt.`);
       
       onClose();
     } catch (error) {
       console.error('PDF generation error:', error);
-      alert(`❌ Fehler beim Erstellen des PDF-Fotobuchs:\n${error}\n\n🔧 Lösungsvorschläge:\n- Versuche es mit weniger Bildern\n- Wähle 'Standard' Qualität\n- Überprüfe deine Internetverbindung\n- Verwende einen anderen Browser`);
+      alert(`❌ Fehler beim Erstellen des luxuriösen PDF-Fotobuchs:\n${error}\n\n🔧 Lösungsvorschläge:\n- Versuche es mit weniger Bildern\n- Wähle 'Standard' Qualität\n- Überprüfe deine Internetverbindung\n- Verwende einen anderen Browser`);
     } finally {
       setIsGenerating(false);
     }
@@ -82,20 +82,20 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className={`p-3 rounded-full transition-colors duration-300 ${
-              isDarkMode ? 'bg-red-600' : 'bg-red-500'
+              isDarkMode ? 'bg-gradient-to-r from-yellow-600 to-yellow-500' : 'bg-gradient-to-r from-yellow-500 to-yellow-400'
             }`}>
-              <FileText className="w-6 h-6 text-white" />
+              <Crown className="w-6 h-6 text-white" />
             </div>
             <div>
               <h3 className={`text-xl font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                Elegantes PDF-Fotobuch erstellen
+                Luxuriöses PDF-Fotobuch erstellen
               </h3>
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Professionelles Hochzeitsfotobuch mit wunderschönem Design
+                Professionelles Hochzeitsfotobuch mit edlem Design und goldenen Verzierungen
               </p>
             </div>
           </div>
@@ -182,7 +182,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
             isDarkMode ? 'text-blue-300' : 'text-blue-800'
           }`}>
             <FileText className="w-4 h-4" />
-            Elegante PDF-Struktur:
+            Luxuriöse PDF-Struktur:
           </h4>
           
           <div className={`space-y-2 text-sm transition-colors duration-300 ${
@@ -190,48 +190,67 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
           }`}>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>1. Wunderschöne Titelseite mit eleganter Typografie</span>
+              <span>1. Luxuriöse Titelseite mit goldenen Verzierungen und eleganter Typografie</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>2. Detaillierte Statistik-Übersicht mit schönem Design</span>
+              <span>2. Detaillierte Statistik-Übersicht mit edlem Design und farbigen Akzenten</span>
             </div>
             {options.includeNotes && stats.notes > 0 && (
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 text-green-500" />
-                <span>3. Alle {stats.notes} Gästenachrichten liebevoll formatiert</span>
+                <span>3. Alle {stats.notes} Gästenachrichten in eleganten Containern liebevoll formatiert</span>
               </div>
             )}
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>{options.includeNotes && stats.notes > 0 ? '4' : '3'}. {stats.images} Hochzeitsbilder (elegant gerahmt, je eine Seite)</span>
+              <span>{options.includeNotes && stats.notes > 0 ? '4' : '3'}. {stats.images} Hochzeitsbilder (luxuriös gerahmt mit goldenen Bordüren, je eine Seite)</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>{options.includeNotes && stats.notes > 0 ? '5' : '4'}. Dankesseite mit herzlichen Worten</span>
+              <span>{options.includeNotes && stats.notes > 0 ? '5' : '4'}. Dankesseite mit herzlichen Worten und eleganter Signatur</span>
             </div>
           </div>
         </div>
 
-        {/* Design Features */}
+        {/* Luxury Design Features */}
         <div className={`p-4 rounded-xl mb-6 transition-colors duration-300 ${
-          isDarkMode ? 'bg-purple-900/20 border border-purple-700/30' : 'bg-purple-50 border border-purple-200'
+          isDarkMode ? 'bg-gradient-to-r from-yellow-900/20 to-orange-900/20 border border-yellow-700/30' : 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200'
         }`}>
-          <h4 className={`font-semibold mb-3 transition-colors duration-300 ${
-            isDarkMode ? 'text-purple-300' : 'text-purple-800'
+          <h4 className={`font-semibold mb-3 flex items-center gap-2 transition-colors duration-300 ${
+            isDarkMode ? 'text-yellow-300' : 'text-yellow-800'
           }`}>
-            Elegantes Design:
+            <Sparkles className="w-4 h-4" />
+            Luxuriöses Design:
           </h4>
           
           <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 text-sm transition-colors duration-300 ${
-            isDarkMode ? 'text-purple-200' : 'text-purple-700'
+            isDarkMode ? 'text-yellow-200' : 'text-yellow-700'
           }`}>
-            <div>• Professionelle Times-Schriftart</div>
-            <div>• Warme, elegante Farbpalette</div>
-            <div>• Dekorative Rahmen und Verzierungen</div>
-            <div>• Hochwertige Bildpräsentation</div>
-            <div>• Romantische Typografie</div>
-            <div>• Druckfertige Qualität</div>
+            <div className="flex items-center gap-2">
+              <Crown className="w-3 h-3" />
+              <span>Elegante Times-Schriftart</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Crown className="w-3 h-3" />
+              <span>Goldene Farbpalette mit warmen Tönen</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Crown className="w-3 h-3" />
+              <span>Luxuriöse Rahmen und Verzierungen</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Crown className="w-3 h-3" />
+              <span>Mehrschichtige Bildrahmen mit Goldakzenten</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Crown className="w-3 h-3" />
+              <span>Romantische Typografie mit Schatten-Effekten</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Crown className="w-3 h-3" />
+              <span>Druckfertige Premium-Qualität</span>
+            </div>
           </div>
         </div>
 
@@ -247,7 +266,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
               type="text"
               value={options.title}
               onChange={(e) => setOptions(prev => ({ ...prev, title: e.target.value }))}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-colors duration-300 ${
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-colors duration-300 ${
                 isDarkMode 
                   ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
                   : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
@@ -265,7 +284,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
               value={options.subtitle}
               onChange={(e) => setOptions(prev => ({ ...prev, subtitle: e.target.value }))}
               rows={2}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none resize-none transition-colors duration-300 ${
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none resize-none transition-colors duration-300 ${
                 isDarkMode 
                   ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
                   : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
@@ -279,7 +298,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
               id="includeNotes"
               checked={options.includeNotes}
               onChange={(e) => setOptions(prev => ({ ...prev, includeNotes: e.target.checked }))}
-              className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 rounded focus:ring-red-500"
+              className="w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500"
             />
             <label htmlFor="includeNotes" className={`text-sm transition-colors duration-300 ${
               isDarkMode ? 'text-gray-300' : 'text-gray-700'
@@ -319,12 +338,12 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                       value="portrait"
                       checked={options.layout === 'portrait'}
                       onChange={(e) => setOptions(prev => ({ ...prev, layout: e.target.value as 'portrait' | 'landscape' }))}
-                      className="text-red-600"
+                      className="text-yellow-600"
                     />
                     <span className={`text-sm transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-700'
                     }`}>
-                      Hochformat (empfohlen)
+                      Hochformat (empfohlen für Luxus-Design)
                     </span>
                   </label>
                   <label className="flex items-center gap-2">
@@ -334,7 +353,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                       value="landscape"
                       checked={options.layout === 'landscape'}
                       onChange={(e) => setOptions(prev => ({ ...prev, layout: e.target.value as 'portrait' | 'landscape' }))}
-                      className="text-red-600"
+                      className="text-yellow-600"
                     />
                     <span className={`text-sm transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-700'
@@ -359,7 +378,7 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                       value="standard"
                       checked={options.quality === 'standard'}
                       onChange={(e) => setOptions(prev => ({ ...prev, quality: e.target.value as 'standard' | 'high' }))}
-                      className="text-red-600"
+                      className="text-yellow-600"
                     />
                     <span className={`text-sm transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-700'
@@ -374,12 +393,12 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                       value="high"
                       checked={options.quality === 'high'}
                       onChange={(e) => setOptions(prev => ({ ...prev, quality: e.target.value as 'standard' | 'high' }))}
-                      className="text-red-600"
+                      className="text-yellow-600"
                     />
                     <span className={`text-sm transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-700'
                     }`}>
-                      Hoch (beste Qualität)
+                      Hoch (beste Luxus-Qualität)
                     </span>
                   </label>
                 </div>
@@ -399,12 +418,12 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
                 <h4 className={`font-semibold text-sm transition-colors duration-300 ${
                   isDarkMode ? 'text-yellow-300' : 'text-yellow-800'
                 }`}>
-                  Großes Fotobuch
+                  Großes Luxus-Fotobuch
                 </h4>
                 <p className={`text-sm mt-1 transition-colors duration-300 ${
                   isDarkMode ? 'text-yellow-200' : 'text-yellow-700'
                 }`}>
-                  Mit {stats.images} Bildern wird das PDF etwa {getEstimatedSize()} MB groß und benötigt ca. {getEstimatedTime()} Minuten zum Erstellen. 
+                  Mit {stats.images} Bildern wird das luxuriöse PDF etwa {getEstimatedSize()} MB groß und benötigt ca. {getEstimatedTime()} Minuten zum Erstellen. 
                   Für schnellere Erstellung wähle "Standard" Qualität.
                 </p>
               </div>
@@ -430,18 +449,18 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
             className={`flex-1 py-3 px-4 rounded-xl transition-all duration-300 ${
               isGenerating || stats.images === 0
                 ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                : 'bg-red-600 hover:bg-red-700 text-white hover:scale-105'
+                : 'bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-700 hover:to-yellow-600 text-white hover:scale-105 shadow-lg'
             }`}
           >
             {isGenerating ? (
               <div className="flex items-center justify-center gap-2">
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                PDF wird erstellt...
+                Luxus-PDF wird erstellt...
               </div>
             ) : (
               <div className="flex items-center justify-center gap-2">
-                <Download className="w-4 h-4" />
-                Elegantes Fotobuch erstellen
+                <Crown className="w-4 h-4" />
+                Luxuriöses Fotobuch erstellen
               </div>
             )}
           </button>
@@ -457,13 +476,13 @@ export const PDFDownloadModal: React.FC<PDFDownloadModalProps> = ({
               <span className={`font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-blue-300' : 'text-blue-800'
               }`}>
-                Elegantes PDF-Fotobuch wird erstellt...
+                Luxuriöses PDF-Fotobuch wird erstellt...
               </span>
             </div>
             <p className={`text-sm transition-colors duration-300 ${
               isDarkMode ? 'text-blue-200' : 'text-blue-700'
             }`}>
-              Ihr persönliches Hochzeitsfotobuch wird mit wunderschönem Design zusammengestellt. 
+              Ihr persönliches Hochzeitsfotobuch wird mit luxuriösem Design, goldenen Rahmen und eleganter Typografie zusammengestellt. 
               Dies kann einige Minuten dauern.
             </p>
           </div>
