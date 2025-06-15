@@ -111,8 +111,24 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     const audio = audioRef.current;
     if (audio && !audioInitialized) {
       try {
-        // Load the audio
-        audio.load();
+        // Ensure audio is loaded
+        if (audio.readyState < 2) {
+          await new Promise((resolve, reject) => {
+            const handleCanPlay = () => {
+              audio.removeEventListener('canplay', handleCanPlay);
+              audio.removeEventListener('error', handleError);
+              resolve(true);
+            };
+            const handleError = () => {
+              audio.removeEventListener('canplay', handleCanPlay);
+              audio.removeEventListener('error', handleError);
+              reject(new Error('Audio failed to load'));
+            };
+            audio.addEventListener('canplay', handleCanPlay);
+            audio.addEventListener('error', handleError);
+            audio.load();
+          });
+        }
         setAudioInitialized(true);
         return true;
       } catch (error) {
@@ -130,23 +146,32 @@ export const MediaModal: React.FC<MediaModalProps> = ({
     try {
       // Initialize audio if not already done
       const initialized = await initializeAudio();
-      if (!initialized) return;
+      if (!initialized) {
+        alert('Audio konnte nicht geladen werden. Bitte versuchen Sie es erneut.');
+        return;
+      }
 
       if (isPlaying) {
         audio.pause();
       } else {
         // Reset to beginning and play
         audio.currentTime = 0;
-        const playPromise = audio.play();
         
+        // Handle play promise properly
+        const playPromise = audio.play();
         if (playPromise !== undefined) {
-          await playPromise;
+          try {
+            await playPromise;
+          } catch (playError) {
+            console.error('Play failed:', playError);
+            throw new Error('Playback failed');
+          }
         }
       }
     } catch (error) {
       console.error('Error playing audio:', error);
-      // Show user-friendly error
-      alert('Audio konnte nicht abgespielt werden. Bitte versuchen Sie es erneut.');
+      setIsPlaying(false);
+      alert('Audio konnte nicht abgespielt werden. Möglicherweise ist eine Benutzerinteraktion erforderlich.');
     }
   };
 
@@ -156,6 +181,15 @@ export const MediaModal: React.FC<MediaModalProps> = ({
   const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
     console.error('Audio error:', e);
     setIsPlaying(false);
+    setAudioInitialized(false);
+  };
+
+  const handleAudioLoadStart = () => {
+    setAudioInitialized(false);
+  };
+
+  const handleAudioCanPlay = () => {
+    setAudioInitialized(true);
   };
 
   return (
@@ -204,6 +238,7 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                   <button
                     onClick={toggleAudioPlayback}
                     className="text-pink-500 hover:text-pink-600 transition-colors"
+                    disabled={!audioInitialized && !isPlaying}
                   >
                     {isPlaying ? <Pause className="w-10 h-10" /> : <Play className="w-10 h-10 ml-1" />}
                   </button>
@@ -221,7 +256,9 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                 
                 <div className="text-center text-white">
                   <div className="font-semibold text-lg">🎵 Audio Nachricht</div>
-                  <div className="text-sm opacity-75">Tippe zum Abspielen</div>
+                  <div className="text-sm opacity-75">
+                    {audioInitialized ? 'Tippe zum Abspielen' : 'Lädt...'}
+                  </div>
                 </div>
               </div>
               <audio
@@ -231,7 +268,9 @@ export const MediaModal: React.FC<MediaModalProps> = ({
                 onPause={handleAudioPause}
                 onEnded={handleAudioEnded}
                 onError={handleAudioError}
-                preload="metadata"
+                onLoadStart={handleAudioLoadStart}
+                onCanPlay={handleAudioCanPlay}
+                preload="auto"
                 crossOrigin="anonymous"
               />
             </div>
