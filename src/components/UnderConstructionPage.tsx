@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, Sun, Moon, Lock, Unlock } from 'lucide-react';
+import { Heart, Sun, Moon, Lock, Unlock, Power } from 'lucide-react';
 
 interface UnderConstructionPageProps {
   isDarkMode: boolean;
@@ -53,18 +53,29 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (password === 'remove') {
-      // Disable under construction
+      // Disable under construction temporarily
       localStorage.setItem('wedding_under_construction', 'false');
+      window.location.reload();
+    } else if (password === 'permanent') {
+      // Disable under construction permanently
+      localStorage.setItem('wedding_under_construction', 'false');
+      localStorage.setItem('wedding_under_construction_permanent', 'true');
+      alert('✅ Under Construction wurde permanent deaktiviert!\n\nDie Website ist jetzt dauerhaft für alle Besucher verfügbar.');
       window.location.reload();
     } else if (password === 'aktivieren') {
       // Enable under construction
       localStorage.setItem('wedding_under_construction', 'true');
+      localStorage.removeItem('wedding_under_construction_permanent');
       setShowPasswordInput(false);
       setPassword('');
     } else {
-      alert('Falsches Passwort!');
+      alert('Falsches Passwort!\n\nVerfügbare Befehle:\n- "remove" = Temporär deaktivieren\n- "permanent" = Permanent deaktivieren\n- "aktivieren" = Aktivieren');
       setPassword('');
     }
+  };
+
+  const isPermanentlyDisabled = () => {
+    return localStorage.getItem('wedding_under_construction_permanent') === 'true';
   };
 
   // If under construction is disabled, redirect to main app
@@ -198,6 +209,24 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
         }`}>
           Wir freuen uns darauf, diesen besonderen Moment mit euch zu teilen! 💕
         </p>
+
+        {/* Status Indicator */}
+        {isPermanentlyDisabled() && (
+          <div className={`mt-6 px-4 py-2 rounded-full transition-colors duration-500 ${
+            isDarkMode ? 'bg-green-900/30 border border-green-700/50' : 'bg-green-100 border border-green-300'
+          }`}>
+            <div className="flex items-center gap-2">
+              <Power className={`w-4 h-4 transition-colors duration-500 ${
+                isDarkMode ? 'text-green-400' : 'text-green-600'
+              }`} />
+              <span className={`text-sm transition-colors duration-500 ${
+                isDarkMode ? 'text-green-300' : 'text-green-700'
+              }`}>
+                Under Construction ist permanent deaktiviert
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Admin Control Button */}
@@ -226,12 +255,30 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
             }`}>
               Website verwalten
             </h3>
+            
+            <div className={`mb-6 p-4 rounded-xl transition-colors duration-300 ${
+              isDarkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-gray-50 border border-gray-200'
+            }`}>
+              <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                Verfügbare Befehle:
+              </h4>
+              <ul className={`text-sm space-y-1 transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-600'
+              }`}>
+                <li><code className="bg-gray-600 text-white px-2 py-1 rounded">remove</code> - Temporär deaktivieren</li>
+                <li><code className="bg-orange-600 text-white px-2 py-1 rounded">permanent</code> - Permanent deaktivieren</li>
+                <li><code className="bg-blue-600 text-white px-2 py-1 rounded">aktivieren</code> - Wieder aktivieren</li>
+              </ul>
+            </div>
+
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Passwort eingeben..."
+                placeholder="Befehl eingeben..."
                 className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
                   isDarkMode 
                     ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -258,7 +305,7 @@ export const UnderConstructionPage: React.FC<UnderConstructionPageProps> = ({
                   type="submit"
                   className="flex-1 bg-pink-600 hover:bg-pink-700 text-white py-3 px-4 rounded-xl transition-colors"
                 >
-                  Bestätigen
+                  Ausführen
                 </button>
               </div>
             </form>

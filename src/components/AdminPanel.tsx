@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle, Power, PowerOff } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 
@@ -57,6 +57,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     window.location.reload();
   };
 
+  const permanentlyDisableUnderConstruction = () => {
+    if (window.confirm('Under Construction permanent deaktivieren?\n\nDie Seite wird für alle Besucher dauerhaft verfügbar sein, bis du sie wieder manuell aktivierst.')) {
+      localStorage.setItem('wedding_under_construction', 'false');
+      localStorage.setItem('wedding_under_construction_permanent', 'true');
+      alert('✅ Under Construction wurde permanent deaktiviert!\n\nDie Website ist jetzt dauerhaft für alle Besucher verfügbar.');
+      window.location.reload();
+    }
+  };
+
   const handleDownloadAll = async () => {
     const downloadableItems = mediaItems.filter(item => item.type !== 'note');
     
@@ -94,6 +103,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const isUnderConstructionActive = () => {
     const status = localStorage.getItem('wedding_under_construction');
     return status !== 'false';
+  };
+
+  const isPermanentlyDisabled = () => {
+    return localStorage.getItem('wedding_under_construction_permanent') === 'true';
   };
 
   const getDownloadButtonText = () => {
@@ -146,6 +159,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             title={isUnderConstructionActive() ? "Under Construction deaktivieren" : "Under Construction aktivieren"}
           >
             <Settings className="w-6 h-6" />
+          </button>
+
+          {/* Permanent Under Construction Toggle */}
+          <button
+            onClick={permanentlyDisableUnderConstruction}
+            className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
+              isPermanentlyDisabled()
+                ? isDarkMode
+                  ? 'bg-green-600 hover:bg-green-700 text-white'
+                  : 'bg-green-500 hover:bg-green-600 text-white'
+                : isDarkMode
+                  ? 'bg-orange-600 hover:bg-orange-700 text-white hover:scale-110'
+                  : 'bg-orange-500 hover:bg-orange-600 text-white hover:scale-110'
+            }`}
+            title={isPermanentlyDisabled() ? "Under Construction ist permanent deaktiviert" : "Under Construction permanent deaktivieren"}
+          >
+            {isPermanentlyDisabled() ? <Power className="w-6 h-6" /> : <PowerOff className="w-6 h-6" />}
           </button>
           
           <button
