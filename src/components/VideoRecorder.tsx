@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Video, Square, RotateCcw, Check, X } from 'lucide-react';
+import { Video, Square, RotateCcw, Check, X, RotateCw } from 'lucide-react';
 
 interface VideoRecorderProps {
   onVideoRecorded: (videoBlob: Blob) => void;
@@ -16,6 +16,7 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
   const [recordedVideo, setRecordedVideo] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment'); // Start with back camera
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -23,11 +24,18 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const startCamera = useCallback(async () => {
+  const startCamera = useCallback(async (requestedFacingMode?: 'user' | 'environment') => {
     try {
+      // Stop existing stream first
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      const currentFacingMode = requestedFacingMode || facingMode;
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
-          facingMode: 'user', // Front camera by default
+          facingMode: currentFacingMode, // Use back camera by default
           width: { ideal: 1080 },
           height: { ideal: 1920 }
         },
@@ -39,11 +47,45 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
         videoRef.current.srcObject = stream;
       }
       setHasPermission(true);
+      setFacingMode(currentFacingMode);
     } catch (error) {
       console.error('Error accessing camera:', error);
-      setHasPermission(false);
+      
+      // If back camera fails, try front camera as fallback
+      if (requestedFacingMode === 'environment') {
+        console.log('Back camera failed, trying front camera...');
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              facingMode: 'user',
+              width: { ideal: 1080 },
+              height: { ideal: 1920 }
+            },
+            audio: true
+          });
+          
+          streamRef.current = stream;
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+          setHasPermission(true);
+          setFacingMode('user');
+        } catch (fallbackError) {
+          console.error('Both cameras failed:', fallbackError);
+          setHasPermission(false);
+        }
+      } else {
+        setHasPermission(false);
+      }
     }
-  }, []);
+  }, [facingMode]);
+
+  const switchCamera = useCallback(async () => {
+    if (isRecording) return; // Don't allow switching during recording
+    
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    await startCamera(newFacingMode);
+  }, [facingMode, isRecording, startCamera]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -121,7 +163,7 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
 
   // Initialize camera on mount
   React.useEffect(() => {
-    startCamera();
+    startCamera('environment'); // Explicitly start with back camera
     return () => {
       stopCamera();
       if (timerRef.current) {
@@ -131,7 +173,7 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
         URL.revokeObjectURL(recordedVideo);
       }
     };
-  }, [startCamera, stopCamera, recordedVideo]);
+  }, [stopCamera, recordedVideo]);
 
   if (hasPermission === false) {
     return (
@@ -167,7 +209,7 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
       <div className="flex items-center justify-between p-4 bg-black/50">
         <button
           onClick={onClose}
-          className="p-2 rounded-full bg-black/30 text-white"
+          className="p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
         >
           <X className="w-6 h-6" />
         </button>
@@ -181,7 +223,23 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
           </div>
         )}
         
-        <div></div>
+        {/* Camera Switch Button */}
+        {!recordedVideo && (
+          <button
+            onClick={switchCamera}
+            disabled={isRecording}
+            className={`p-2 rounded-full transition-colors ${
+              isRecording 
+                ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                : 'bg-black/30 text-white hover:bg-black/50'
+            }`}
+            title={`Zur ${facingMode === 'user' ? 'Rück' : 'Front'}kamera wechseln`}
+          >
+            <RotateCw className="w-6 h-6" />
+          </button>
+        )}
+        
+        {recordedVideo && <div></div>}
       </div>
 
       {/* Video Area */}
@@ -203,6 +261,15 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
             className="w-full h-full object-cover"
           />
         )}
+        
+        {/* Camera indicator */}
+        {!recordedVideo && hasPermission && (
+          <div className="absolute top-4 left-4 bg-black/50 px-3 py-1 rounded-full">
+            <span className="text-white text-sm">
+              {facingMode === 'user' ? '🤳 Frontkamera' : '📷 Rückkamera'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Controls */}
@@ -212,12 +279,14 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
             <button
               onClick={handleRetake}
               className="p-4 rounded-full bg-gray-600 hover:bg-gray-700 text-white transition-colors"
+              title="Erneut aufnehmen"
             >
               <RotateCcw className="w-6 h-6" />
             </button>
             <button
               onClick={handleConfirm}
               className="p-4 rounded-full bg-green-600 hover:bg-green-700 text-white transition-colors"
+              title="Video verwenden"
             >
               <Check className="w-6 h-6" />
             </button>
@@ -231,6 +300,7 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
                   ? 'bg-red-600 hover:bg-red-700 scale-110'
                   : 'bg-white hover:bg-gray-100'
               }`}
+              title={isRecording ? 'Aufnahme stoppen' : 'Aufnahme starten'}
             >
               {isRecording ? (
                 <Square className="w-8 h-8 text-white" />
