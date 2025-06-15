@@ -5,18 +5,20 @@ interface VideoRecorderProps {
   onVideoRecorded: (videoBlob: Blob) => void;
   onClose: () => void;
   isDarkMode: boolean;
+  maxDuration?: number; // in seconds
 }
 
 export const VideoRecorder: React.FC<VideoRecorderProps> = ({
   onVideoRecorded,
   onClose,
-  isDarkMode
+  isDarkMode,
+  maxDuration = 60 // Default 60 seconds, 10 for stories
 }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordedVideo, setRecordedVideo] = useState<string | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment'); // Start with back camera
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -35,7 +37,7 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
       
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
-          facingMode: currentFacingMode, // Use back camera by default
+          facingMode: currentFacingMode,
           width: { ideal: 1080 },
           height: { ideal: 1920 }
         },
@@ -99,7 +101,7 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
 
     chunksRef.current = [];
     const mediaRecorder = new MediaRecorder(streamRef.current, {
-      mimeType: 'video/webm;codecs=vp9' // High quality codec
+      mimeType: 'video/webm;codecs=vp9'
     });
     
     mediaRecorderRef.current = mediaRecorder;
@@ -123,9 +125,19 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
     
     // Start timer
     timerRef.current = setInterval(() => {
-      setRecordingTime(prev => prev + 1);
+      setRecordingTime(prev => {
+        const newTime = prev + 1;
+        
+        // Auto-stop when max duration reached
+        if (newTime >= maxDuration) {
+          stopRecording();
+          return maxDuration;
+        }
+        
+        return newTime;
+      });
     }, 1000);
-  }, [stopCamera]);
+  }, [stopCamera, maxDuration]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -163,7 +175,7 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
 
   // Initialize camera on mount
   React.useEffect(() => {
-    startCamera('environment'); // Explicitly start with back camera
+    startCamera('environment');
     return () => {
       stopCamera();
       if (timerRef.current) {
@@ -215,11 +227,18 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
         </button>
         
         {isRecording && (
-          <div className="flex items-center gap-2 bg-red-600 px-3 py-1 rounded-full">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-            <span className="text-white text-sm font-mono">
-              {formatTime(recordingTime)}
-            </span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-red-600 px-3 py-1 rounded-full">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              <span className="text-white text-sm font-mono">
+                {formatTime(recordingTime)}
+              </span>
+            </div>
+            {maxDuration <= 10 && (
+              <div className="text-white text-sm bg-black/50 px-2 py-1 rounded">
+                Story: max {maxDuration}s
+              </div>
+            )}
           </div>
         )}
         
@@ -268,6 +287,18 @@ export const VideoRecorder: React.FC<VideoRecorderProps> = ({
             <span className="text-white text-sm">
               {facingMode === 'user' ? '🤳 Frontkamera' : '📷 Rückkamera'}
             </span>
+          </div>
+        )}
+
+        {/* Recording progress for stories */}
+        {isRecording && maxDuration <= 10 && (
+          <div className="absolute bottom-20 left-4 right-4">
+            <div className="w-full h-1 bg-white/30 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-red-500 transition-all duration-1000 ease-linear"
+                style={{ width: `${(recordingTime / maxDuration) * 100}%` }}
+              />
+            </div>
           </div>
         )}
       </div>
