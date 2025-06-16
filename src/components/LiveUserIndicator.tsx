@@ -8,7 +8,9 @@ import {
   query,
   where,
   orderBy,
-  limit
+  limit,
+  deleteDoc,
+  getDocs
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -47,10 +49,40 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
     console.log(`👤 User: ${currentUser}`);
     console.log(`📱 Device ID: ${deviceId}`);
 
-    // Update user presence
+    // 🔧 FIX: Clean up any duplicate entries first
+    const cleanupDuplicates = async () => {
+      try {
+        console.log(`🧹 Cleaning up duplicate entries for ${currentUser}...`);
+        
+        // Find all entries for this user (by userName, not deviceId)
+        const duplicateQuery = query(
+          collection(db, 'live_users'),
+          where('userName', '==', currentUser)
+        );
+        
+        const duplicateSnapshot = await getDocs(duplicateQuery);
+        console.log(`🔍 Found ${duplicateSnapshot.docs.length} existing entries for ${currentUser}`);
+        
+        // Delete all existing entries for this user
+        const deletePromises = duplicateSnapshot.docs.map(doc => {
+          console.log(`🗑️ Deleting duplicate entry: ${doc.id}`);
+          return deleteDoc(doc.ref);
+        });
+        
+        await Promise.all(deletePromises);
+        console.log(`✅ Cleaned up ${deletePromises.length} duplicate entries`);
+        
+      } catch (error) {
+        console.error('❌ Error cleaning up duplicates:', error);
+      }
+    };
+
+    // Update user presence (after cleanup)
     const updatePresence = async () => {
       try {
         console.log(`📡 Updating presence for ${currentUser}...`);
+        
+        // 🔧 FIX: Use deviceId as document ID to ensure uniqueness
         const userRef = doc(db, 'live_users', deviceId);
         await setDoc(userRef, {
           userName: currentUser,
@@ -58,7 +90,8 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
           lastSeen: new Date().toISOString(),
           isActive: true
         }, { merge: true });
-        console.log(`✅ Presence updated for ${currentUser}`);
+        
+        console.log(`✅ Presence updated for ${currentUser} (${deviceId})`);
         
         if (!isInitialized) {
           setIsInitialized(true);
@@ -83,14 +116,19 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
       }
     };
 
-    // Initial presence update
-    updatePresence();
+    // Initialize: cleanup duplicates then set presence
+    const initialize = async () => {
+      await cleanupDuplicates();
+      await updatePresence();
+    };
 
-    // Set up presence heartbeat
+    initialize();
+
+    // Set up presence heartbeat (less frequent to avoid spam)
     const presenceInterval = setInterval(() => {
       console.log(`💓 Heartbeat for ${currentUser}`);
       updatePresence();
-    }, 30000); // Every 30 seconds
+    }, 45000); // Every 45 seconds (less frequent)
 
     // 🔧 FIX: Use simpler query without complex index requirements
     console.log(`👥 Subscribing to live users (simplified query)...`);
@@ -113,6 +151,7 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
         
         const users: LiveUser[] = [];
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const seenUsers = new Set<string>(); // 🔧 FIX: Track seen usernames to prevent duplicates
         
         snapshot.docs.forEach((doc, index) => {
           const data = doc.data();
@@ -121,16 +160,19 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
           
           console.log(`  ${index + 1}. ${data.userName} (${data.deviceId}) - Last seen: ${lastSeen.toLocaleTimeString()} - Recent: ${isRecent}`);
           
-          // Only include users who were active in the last 5 minutes
-          if (isRecent) {
+          // 🔧 FIX: Only include users who were active in the last 5 minutes AND not already seen
+          if (isRecent && !seenUsers.has(data.userName)) {
+            seenUsers.add(data.userName);
             users.push({
               id: doc.id,
               ...data
             } as LiveUser);
+          } else if (seenUsers.has(data.userName)) {
+            console.log(`    ⚠️ Duplicate user ${data.userName} ignored`);
           }
         });
         
-        console.log(`👥 Active users (last 5 min): ${users.length}`);
+        console.log(`👥 Active users (last 5 min, deduplicated): ${users.length}`);
         users.forEach((user, index) => {
           console.log(`  ${index + 1}. ${user.userName} ${user.userName === currentUser ? '(YOU)' : ''}`);
         });
@@ -154,6 +196,7 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
           
           const users: LiveUser[] = [];
           const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          const seenUsers = new Set<string>(); // 🔧 FIX: Track seen usernames to prevent duplicates
           
           snapshot.docs.forEach((doc, index) => {
             const data = doc.data();
@@ -162,19 +205,22 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
             
             console.log(`  ${index + 1}. ${data.userName} (${data.deviceId}) - Last seen: ${lastSeen.toLocaleTimeString()} - Recent: ${isRecent}`);
             
-            // Only include users who were active in the last 5 minutes
-            if (isRecent) {
+            // 🔧 FIX: Only include users who were active in the last 5 minutes AND not already seen
+            if (isRecent && !seenUsers.has(data.userName)) {
+              seenUsers.add(data.userName);
               users.push({
                 id: doc.id,
                 ...data
               } as LiveUser);
+            } else if (seenUsers.has(data.userName)) {
+              console.log(`    ⚠️ Duplicate user ${data.userName} ignored`);
             }
           });
           
           // Sort in memory by lastSeen (newest first)
           users.sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime());
           
-          console.log(`👥 Active users (last 5 min, sorted): ${users.length}`);
+          console.log(`👥 Active users (last 5 min, sorted, deduplicated): ${users.length}`);
           users.forEach((user, index) => {
             console.log(`  ${index + 1}. ${user.userName} ${user.userName === currentUser ? '(YOU)' : ''}`);
           });
@@ -392,7 +438,7 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
                 </a>
               </>
             ) : (
-              'Live-Anzeige • Aktualisiert alle 30s'
+              'Live-Anzeige • Aktualisiert alle 45s'
             )}
           </div>
         </div>
