@@ -45,6 +45,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   const [liveUsers, setLiveUsers] = useState<LiveUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [error, setError] = useState<string | null>(null);
   const [sharedSpotifyStatus, setSharedSpotifyStatus] = useState<{
     isAvailable: boolean;
     authenticatedBy: string | null;
@@ -70,45 +71,66 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     }
   }, [isOpen]);
 
-  // Subscribe to live users
+  // Subscribe to live users with error handling
   useEffect(() => {
     if (!isOpen) return;
 
     console.log('👥 Subscribing to live users...');
     
-    const q = query(
-      collection(db, 'live_users'),
-      orderBy('lastSeen', 'desc')
-    );
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const now = new Date();
-      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-      const activeUsers: LiveUser[] = [];
+    try {
+      const q = query(
+        collection(db, 'live_users'),
+        orderBy('lastSeen', 'desc')
+      );
       
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const lastSeen = new Date(data.lastSeen);
-        const isActive = lastSeen > fiveMinutesAgo;
-        
-        if (isActive) {
-          activeUsers.push({
-            id: doc.id,
-            userName: data.userName,
-            deviceId: data.deviceId,
-            lastSeen: data.lastSeen,
-            isActive: true
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        try {
+          const now = new Date();
+          const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+          const activeUsers: LiveUser[] = [];
+          
+          snapshot.docs.forEach(doc => {
+            try {
+              const data = doc.data();
+              if (data && data.lastSeen && data.userName && data.deviceId) {
+                const lastSeen = new Date(data.lastSeen);
+                const isActive = lastSeen > fiveMinutesAgo;
+                
+                if (isActive) {
+                  activeUsers.push({
+                    id: doc.id,
+                    userName: data.userName,
+                    deviceId: data.deviceId,
+                    lastSeen: data.lastSeen,
+                    isActive: true
+                  });
+                }
+              }
+            } catch (docError) {
+              console.warn('Error processing live user document:', docError);
+            }
           });
+          
+          console.log(`👥 Found ${activeUsers.length} active users`);
+          setLiveUsers(activeUsers);
+          setError(null);
+          
+        } catch (snapshotError) {
+          console.error('Error processing live users snapshot:', snapshotError);
+          setError('Fehler beim Laden der Live-Benutzer');
         }
+      }, (error) => {
+        console.error('❌ Error loading live users:', error);
+        setError('Fehler beim Laden der Live-Benutzer');
+        setLiveUsers([]);
       });
-      
-      console.log(`👥 Found ${activeUsers.length} active users`);
-      setLiveUsers(activeUsers);
-    }, (error) => {
-      console.error('❌ Error loading live users:', error);
-    });
 
-    return unsubscribe;
+      return unsubscribe;
+    } catch (subscriptionError) {
+      console.error('❌ Error setting up live users subscription:', subscriptionError);
+      setError('Fehler beim Einrichten der Live-Benutzer-Überwachung');
+      return () => {};
+    }
   }, [isOpen]);
 
   const loadSharedSpotifyStatus = async () => {
@@ -124,6 +146,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     if (!isOpen) return;
 
     setIsLoading(true);
+    setError(null);
     console.log('👥 === LOADING USER MANAGEMENT DATA ===');
 
     try {
@@ -140,55 +163,67 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       
       // Process media contributions
       mediaSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const key = `${data.userName}-${data.deviceId}`;
-        
-        if (!userMap.has(key)) {
-          userMap.set(key, {
-            userName: data.userName,
-            deviceId: data.deviceId,
-            lastSeen: data.uploadedAt,
-            isOnline: false,
-            hasSpotifyAccess: false,
-            tokenType: 'none',
-            contributionCount: 0,
-            lastActivity: data.uploadedAt
-          });
-        }
-        
-        const user = userMap.get(key)!;
-        user.contributionCount++;
-        
-        // Update last activity if this is more recent
-        if (new Date(data.uploadedAt) > new Date(user.lastActivity)) {
-          user.lastActivity = data.uploadedAt;
+        try {
+          const data = doc.data();
+          if (data && data.userName && data.deviceId && data.uploadedAt) {
+            const key = `${data.userName}-${data.deviceId}`;
+            
+            if (!userMap.has(key)) {
+              userMap.set(key, {
+                userName: data.userName,
+                deviceId: data.deviceId,
+                lastSeen: data.uploadedAt,
+                isOnline: false,
+                hasSpotifyAccess: false,
+                tokenType: 'none',
+                contributionCount: 0,
+                lastActivity: data.uploadedAt
+              });
+            }
+            
+            const user = userMap.get(key)!;
+            user.contributionCount++;
+            
+            // Update last activity if this is more recent
+            if (new Date(data.uploadedAt) > new Date(user.lastActivity)) {
+              user.lastActivity = data.uploadedAt;
+            }
+          }
+        } catch (docError) {
+          console.warn('Error processing media document:', docError);
         }
       });
       
       // Process music contributions
       musicSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const key = `${data.requestedBy}-${data.deviceId}`;
-        
-        if (!userMap.has(key)) {
-          userMap.set(key, {
-            userName: data.requestedBy,
-            deviceId: data.deviceId,
-            lastSeen: data.requestedAt,
-            isOnline: false,
-            hasSpotifyAccess: false,
-            tokenType: 'none',
-            contributionCount: 0,
-            lastActivity: data.requestedAt
-          });
-        }
-        
-        const user = userMap.get(key)!;
-        user.contributionCount++;
-        
-        // Update last activity if this is more recent
-        if (new Date(data.requestedAt) > new Date(user.lastActivity)) {
-          user.lastActivity = data.requestedAt;
+        try {
+          const data = doc.data();
+          if (data && data.requestedBy && data.deviceId && data.requestedAt) {
+            const key = `${data.requestedBy}-${data.deviceId}`;
+            
+            if (!userMap.has(key)) {
+              userMap.set(key, {
+                userName: data.requestedBy,
+                deviceId: data.deviceId,
+                lastSeen: data.requestedAt,
+                isOnline: false,
+                hasSpotifyAccess: false,
+                tokenType: 'none',
+                contributionCount: 0,
+                lastActivity: data.requestedAt
+              });
+            }
+            
+            const user = userMap.get(key)!;
+            user.contributionCount++;
+            
+            // Update last activity if this is more recent
+            if (new Date(data.requestedAt) > new Date(user.lastActivity)) {
+              user.lastActivity = data.requestedAt;
+            }
+          }
+        } catch (docError) {
+          console.warn('Error processing music document:', docError);
         }
       });
       
@@ -197,26 +232,30 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       
       // Update online status and Spotify access
       allUsers.forEach(user => {
-        // Check if user is currently online
-        const liveUser = liveUsers.find(lu => lu.deviceId === user.deviceId);
-        user.isOnline = !!liveUser;
-        if (liveUser) {
-          user.lastSeen = liveUser.lastSeen;
-        }
-        
-        // Check Spotify access
-        const hasLocalSpotifyToken = localStorage.getItem('spotify_access_token') !== null;
-        const hasSharedSpotifyAccess = sharedSpotifyStatus.isAvailable;
-        
-        if (hasLocalSpotifyToken) {
-          user.hasSpotifyAccess = true;
-          user.tokenType = 'admin';
-        } else if (hasSharedSpotifyAccess) {
-          user.hasSpotifyAccess = true;
-          user.tokenType = 'shared';
-        } else {
-          user.hasSpotifyAccess = false;
-          user.tokenType = 'none';
+        try {
+          // Check if user is currently online
+          const liveUser = liveUsers.find(lu => lu.deviceId === user.deviceId);
+          user.isOnline = !!liveUser;
+          if (liveUser) {
+            user.lastSeen = liveUser.lastSeen;
+          }
+          
+          // Check Spotify access
+          const hasLocalSpotifyToken = localStorage.getItem('spotify_access_token') !== null;
+          const hasSharedSpotifyAccess = sharedSpotifyStatus.isAvailable;
+          
+          if (hasLocalSpotifyToken) {
+            user.hasSpotifyAccess = true;
+            user.tokenType = 'admin';
+          } else if (hasSharedSpotifyAccess) {
+            user.hasSpotifyAccess = true;
+            user.tokenType = 'shared';
+          } else {
+            user.hasSpotifyAccess = false;
+            user.tokenType = 'none';
+          }
+        } catch (userError) {
+          console.warn('Error processing user data:', userError);
         }
       });
       
@@ -236,24 +275,30 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       
     } catch (error) {
       console.error('❌ Error loading user data:', error);
+      setError('Fehler beim Laden der Benutzerdaten');
     } finally {
       setIsLoading(false);
     }
   };
 
   const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'gerade eben';
-    if (diffInMinutes < 60) return `vor ${diffInMinutes}m`;
-    
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `vor ${diffInHours}h`;
-    
-    const diffInDays = Math.floor(diffInHours / 24);
-    return `vor ${diffInDays}d`;
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+      
+      if (diffInMinutes < 1) return 'gerade eben';
+      if (diffInMinutes < 60) return `vor ${diffInMinutes}m`;
+      
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      if (diffInHours < 24) return `vor ${diffInHours}h`;
+      
+      const diffInDays = Math.floor(diffInHours / 24);
+      return `vor ${diffInDays}d`;
+    } catch (error) {
+      console.warn('Error formatting time:', error);
+      return 'unbekannt';
+    }
   };
 
   const getTokenTypeInfo = (tokenType: string) => {
@@ -331,6 +376,23 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+          {/* Error Display */}
+          {error && (
+            <div className={`mb-6 p-4 rounded-xl border transition-colors duration-300 ${
+              isDarkMode 
+                ? 'bg-red-900/20 border-red-700/30 text-red-300' 
+                : 'bg-red-50 border-red-200 text-red-700'
+            }`}>
+              <div className="flex items-center gap-2">
+                <XCircle className="w-5 h-5" />
+                <div>
+                  <div className="font-semibold">Fehler beim Laden der Daten</div>
+                  <div className="text-sm mt-1">{error}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Statistics Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className={`p-4 rounded-xl transition-colors duration-300 ${
@@ -486,7 +548,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
           )}
 
           {/* Users Table */}
-          {!isLoading && (
+          {!isLoading && users.length > 0 && (
             <div className={`rounded-xl border overflow-hidden transition-colors duration-300 ${
               isDarkMode ? 'border-gray-700' : 'border-gray-200'
             }`}>
@@ -656,7 +718,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
           )}
 
           {/* Empty State */}
-          {!isLoading && users.length === 0 && (
+          {!isLoading && users.length === 0 && !error && (
             <div className="text-center py-12">
               <Users className={`w-16 h-16 mx-auto mb-4 transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-600' : 'text-gray-400'
