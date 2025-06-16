@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Music, ExternalLink, Plus, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Search, Music, ExternalLink, Plus, CheckCircle, AlertCircle, Sparkles, Zap } from 'lucide-react';
 import { SpotifyTrack } from '../types';
 import { searchSpotifyTracks } from '../services/spotifyService';
 import { addMusicRequest, addMusicRequestFromUrl } from '../services/musicService';
@@ -196,6 +196,27 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
             </div>
           )}
 
+          {/* Info Banner - NEW: Explain automatic integration */}
+          <div className={`mb-6 p-4 rounded-xl transition-colors duration-300 ${
+            isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
+          }`}>
+            <div className="flex items-center gap-3 mb-2">
+              <Zap className={`w-5 h-5 transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-400' : 'text-blue-600'
+              }`} />
+              <h4 className={`font-semibold transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-300' : 'text-blue-800'
+              }`}>
+                🎯 Automatische Spotify-Integration
+              </h4>
+            </div>
+            <p className={`text-sm transition-colors duration-300 ${
+              isDarkMode ? 'text-blue-200' : 'text-blue-700'
+            }`}>
+              Deine Songs werden automatisch zur Hochzeits-Playlist hinzugefügt und - falls ein Admin Spotify eingerichtet hat - auch direkt zur Spotify-Playlist! Du musst nichts weiter tun.
+            </p>
+          </div>
+
           {/* Search Section */}
           <div className="mb-6">
             <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
@@ -227,7 +248,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 <span className={`text-sm transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  Suche läuft...
+                  Durchsuche Millionen von Songs...
                 </span>
               </div>
             )}
@@ -239,7 +260,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <h4 className={`font-semibold mb-3 transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                Suchergebnisse:
+                🎵 Suchergebnisse ({searchResults.length}):
               </h4>
               <div className="max-h-60 overflow-y-auto space-y-2">
                 {searchResults.map((track) => (
@@ -247,12 +268,12 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                     key={track.id}
                     onClick={() => handleTrackSelect(track)}
                     disabled={isSubmitting}
-                    className={`w-full text-left p-3 rounded-lg transition-all duration-300 ${
+                    className={`w-full text-left p-3 rounded-lg transition-all duration-300 hover:scale-[1.02] ${
                       isSubmitting
                         ? 'cursor-not-allowed opacity-50'
                         : isDarkMode 
-                          ? 'hover:bg-gray-700 text-gray-300' 
-                          : 'hover:bg-gray-50 text-gray-700'
+                          ? 'hover:bg-gray-700 text-gray-300 border border-gray-600' 
+                          : 'hover:bg-gray-50 text-gray-700 border border-gray-200 shadow-sm'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -278,8 +299,11 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                           </div>
                         )}
                       </div>
-                      <div className="text-xs opacity-60">
-                        {track.popularity}% ⭐
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs opacity-60">
+                          {track.popularity}% ⭐
+                        </div>
+                        <Plus className="w-4 h-4 text-green-500" />
                       </div>
                     </div>
                   </button>
@@ -313,7 +337,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 disabled={!urlInput.trim() || isSubmitting}
                 className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-3 px-4 rounded-xl transition-colors font-medium"
               >
-                {isSubmitting ? 'Wird hinzugefügt...' : 'Song hinzufügen'}
+                {isSubmitting ? 'Wird hinzugefügt...' : '🎯 Song zur Playlist hinzufügen'}
               </button>
             </form>
           </div>
@@ -345,23 +369,29 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
             </div>
           </div>
 
-          {/* Info */}
+          {/* Enhanced Info */}
           <div className={`p-4 rounded-xl transition-colors duration-300 ${
-            isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
+            isDarkMode ? 'bg-purple-900/20 border border-purple-700/30' : 'bg-purple-50 border border-purple-200'
           }`}>
-            <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
-              isDarkMode ? 'text-blue-300' : 'text-blue-800'
-            }`}>
-              ℹ️ So funktioniert's:
-            </h4>
+            <div className="flex items-center gap-3 mb-3">
+              <Sparkles className={`w-5 h-5 transition-colors duration-300 ${
+                isDarkMode ? 'text-purple-400' : 'text-purple-600'
+              }`} />
+              <h4 className={`font-semibold transition-colors duration-300 ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              }`}>
+                ✨ So funktioniert's:
+              </h4>
+            </div>
             <ul className={`text-sm space-y-1 transition-colors duration-300 ${
-              isDarkMode ? 'text-blue-200' : 'text-blue-700'
+              isDarkMode ? 'text-purple-200' : 'text-purple-700'
             }`}>
-              <li>• 🔍 Suche nach deinem Lieblingssong</li>
-              <li>• 🎯 Song wird sofort zur Playlist hinzugefügt</li>
-              <li>• 🎵 Falls ein Admin Spotify eingerichtet hat, wird der Song automatisch auch zur Spotify-Playlist hinzugefügt</li>
-              <li>• 👍 Andere Gäste können für Songs voten</li>
-              <li>• 🎶 Beliebte Songs werden häufiger gespielt</li>
+              <li>🔍 <strong>Suche:</strong> Durchsuche Millionen von Spotify-Songs</li>
+              <li>🎯 <strong>Sofort hinzugefügt:</strong> Song wird direkt zur Playlist hinzugefügt</li>
+              <li>🎵 <strong>Spotify-Sync:</strong> Automatisch auch zu Spotify (falls eingerichtet)</li>
+              <li>👍 <strong>Voting:</strong> Andere Gäste können für Songs voten</li>
+              <li>🎶 <strong>Beliebte Songs:</strong> Werden häufiger gespielt</li>
+              <li>🔗 <strong>Spotify-Links:</strong> Funktionieren auch direkt</li>
             </ul>
           </div>
 
