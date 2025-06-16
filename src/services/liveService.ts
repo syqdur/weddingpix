@@ -1,6 +1,5 @@
 import { 
   doc, 
-  setDoc, 
   onSnapshot, 
   collection,
   query,
@@ -9,21 +8,10 @@ import {
   addDoc,
   deleteDoc,
   getDocs,
-  serverTimestamp,
-  Timestamp,
   updateDoc
 } from 'firebase/firestore';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../config/firebase';
-
-// Live View Counter Types
-export interface LiveUser {
-  id: string;
-  userName: string;
-  deviceId: string;
-  lastSeen: string;
-  isActive: boolean;
-}
 
 // Stories Types
 export interface Story {
@@ -37,64 +25,6 @@ export interface Story {
   views: string[]; // Array of user IDs who viewed this story
   fileName?: string; // For deletion from storage
 }
-
-// Live View Counter Functions
-export const updateUserPresence = async (userName: string, deviceId: string): Promise<void> => {
-  try {
-    const userRef = doc(db, 'live_users', deviceId);
-    await setDoc(userRef, {
-      userName,
-      deviceId,
-      lastSeen: new Date().toISOString(),
-      isActive: true
-    }, { merge: true });
-  } catch (error) {
-    console.error('Error updating user presence:', error);
-  }
-};
-
-export const setUserOffline = async (deviceId: string): Promise<void> => {
-  try {
-    const userRef = doc(db, 'live_users', deviceId);
-    await setDoc(userRef, {
-      isActive: false,
-      lastSeen: new Date().toISOString()
-    }, { merge: true });
-  } catch (error) {
-    console.error('Error setting user offline:', error);
-  }
-};
-
-export const subscribeLiveUsers = (callback: (users: LiveUser[]) => void): (() => void) => {
-  const q = query(
-    collection(db, 'live_users'),
-    where('isActive', '==', true),
-    orderBy('lastSeen', 'desc')
-  );
-  
-  return onSnapshot(q, (snapshot) => {
-    const users: LiveUser[] = [];
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    
-    snapshot.docs.forEach(doc => {
-      const data = doc.data();
-      const lastSeen = new Date(data.lastSeen);
-      
-      // Only include users who were active in the last 5 minutes
-      if (lastSeen > fiveMinutesAgo) {
-        users.push({
-          id: doc.id,
-          ...data
-        } as LiveUser);
-      }
-    });
-    
-    callback(users);
-  }, (error) => {
-    console.error('Error listening to live users:', error);
-    callback([]);
-  });
-};
 
 // Stories Functions - FIXED TO USE SAME STORAGE PATH AS REGULAR UPLOADS
 export const addStory = async (

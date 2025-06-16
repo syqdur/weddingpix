@@ -99,19 +99,19 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     setShowSuggestions(false);
   };
 
-  // 🤖 FULLY AUTOMATIC: Songs werden direkt gespielt - kein DJ-Eingriff nötig
+  // 🎯 SIMPLIFIED: Songs werden direkt zur Playlist hinzugefügt
   const handleTrackClick = async (track: SpotifyTrack) => {
     setIsSubmitting(true);
     setSuccessMessage(null);
     setErrorMessage(null);
     
     try {
-      console.log(`🎵 Adding track (fully automatic): ${track.name} by ${track.artists[0].name}`);
+      console.log(`🎵 Adding track: ${track.name} by ${track.artists[0].name}`);
       
-      // 🤖 AUTOMATIC: Song wird hinzugefügt und automatisch als gespielt markiert
+      // Song wird automatisch zur Playlist hinzugefügt
       await addMusicRequest(track, userName, deviceId, '');
       
-      setSuccessMessage(`🎵 "${track.name}" wurde gespielt und ist jetzt im Verlauf!`);
+      setSuccessMessage(`🎵 "${track.name}" wurde zur Playlist hinzugefügt!`);
       
       // Close modal immediately
       setTimeout(() => {
@@ -123,7 +123,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       
       // 🔍 DUPLICATE DETECTION
       if (error.message?.includes('bereits in der Playlist')) {
-        setErrorMessage(`🔄 "${track.name}" wurde bereits gespielt`);
+        setErrorMessage(`🔄 "${track.name}" ist bereits in der Playlist`);
       } else {
         setErrorMessage(`❌ Fehler: ${error.message || 'Unbekannter Fehler'}`);
       }
@@ -140,10 +140,10 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     setErrorMessage(null);
     
     try {
-      // 🤖 AUTOMATIC: Song wird hinzugefügt und automatisch als gespielt markiert
+      // Song wird automatisch zur Playlist hinzugefügt
       await addMusicRequestFromUrl(spotifyUrl, userName, deviceId, '');
       
-      setSuccessMessage('🎵 Song wurde gespielt und ist jetzt im Verlauf!');
+      setSuccessMessage('🎵 Song wurde zur Playlist hinzugefügt!');
       
       // Reset form
       setSpotifyUrl('');
@@ -162,7 +162,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       
       // 🔍 DUPLICATE DETECTION
       if (error.message?.includes('bereits in der Playlist')) {
-        setErrorMessage(`🔄 Song wurde bereits gespielt`);
+        setErrorMessage(`🔄 Song ist bereits in der Playlist`);
       } else {
         setErrorMessage(`❌ Fehler: ${error.message || 'Unbekannter Fehler'}`);
       }
@@ -204,12 +204,12 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <h3 className={`text-xl font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                🎵 Song wählen
+                🎵 Song zur Playlist hinzufügen
               </h3>
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Songs werden automatisch gespielt und zum Verlauf hinzugefügt
+                Songs werden automatisch zur Hochzeits-Playlist hinzugefügt
               </p>
             </div>
           </div>
@@ -334,7 +334,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 <p className={`text-xs mt-2 transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  💡 Songs werden automatisch gespielt und zum Verlauf hinzugefügt!
+                  💡 Songs werden automatisch zur Hochzeits-Playlist hinzugefügt!
                 </p>
               </div>
 
@@ -420,7 +420,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                           <div className={`text-xs px-2 py-1 rounded-full transition-colors duration-300 ${
                             isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
                           }`}>
-                            🎵 Jetzt spielen
+                            🎵 Zur Playlist
                           </div>
                         </div>
                       </div>
@@ -524,12 +524,12 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                     {isSubmitting ? (
                       <>
                         <Loader className="w-4 h-4 animate-spin" />
-                        Song wird gespielt...
+                        Song wird hinzugefügt...
                       </>
                     ) : (
                       <>
                         <Play className="w-4 h-4" />
-                        🎵 Jetzt spielen
+                        🎵 Zur Playlist hinzufügen
                       </>
                     )}
                   </button>
@@ -545,12 +545,12 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <p className={`text-lg font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                Song wird gespielt...
+                Song wird zur Playlist hinzugefügt...
               </p>
               <p className={`text-sm mt-1 transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Song wird automatisch zum Verlauf hinzugefügt
+                Song wird automatisch zur Hochzeits-Playlist hinzugefügt
               </p>
             </div>
           )}

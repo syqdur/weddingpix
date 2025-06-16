@@ -7,7 +7,6 @@ import { MediaModal } from './components/MediaModal';
 import { AdminPanel } from './components/AdminPanel';
 import { ProfileHeader } from './components/ProfileHeader';
 import { UnderConstructionPage } from './components/UnderConstructionPage';
-import { LiveViewCounter } from './components/LiveViewCounter';
 import { StoriesBar } from './components/StoriesBar';
 import { StoriesViewer } from './components/StoriesViewer';
 import { StoryUploadModal } from './components/StoryUploadModal';
@@ -31,16 +30,12 @@ import {
 } from './services/firebaseService';
 import { subscribeSiteStatus, SiteStatus } from './services/siteStatusService';
 import {
-  updateUserPresence,
-  setUserOffline,
-  subscribeLiveUsers,
   subscribeStories,
   subscribeAllStories,
   addStory,
   markStoryAsViewed,
   deleteStory,
   cleanupExpiredStories,
-  LiveUser,
   Story
 } from './services/liveService';
 import { initializeSpotifyAuth } from './services/spotifyPlaylistService';
@@ -51,7 +46,6 @@ function App() {
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [likes, setLikes] = useState<Like[]>([]);
-  const [liveUsers, setLiveUsers] = useState<LiveUser[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -79,20 +73,9 @@ function App() {
     return unsubscribe;
   }, []);
 
-  // Subscribe to live users and stories when user is logged in
+  // Subscribe to stories when user is logged in
   useEffect(() => {
     if (!userName || !siteStatus || siteStatus.isUnderConstruction) return;
-
-    // Update user presence
-    updateUserPresence(userName, deviceId);
-
-    // Set up presence heartbeat
-    const presenceInterval = setInterval(() => {
-      updateUserPresence(userName, deviceId);
-    }, 30000); // Update every 30 seconds
-
-    // Subscribe to live users
-    const unsubscribeLiveUsers = subscribeLiveUsers(setLiveUsers);
 
     // Subscribe to stories (admin sees all, users see only active)
     const unsubscribeStories = isAdmin 
@@ -104,19 +87,8 @@ function App() {
       cleanupExpiredStories();
     }, 60000); // Check every minute
 
-    // Set user offline when leaving
-    const handleBeforeUnload = () => {
-      setUserOffline(deviceId);
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
     return () => {
-      clearInterval(presenceInterval);
       clearInterval(cleanupInterval);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      setUserOffline(deviceId);
-      unsubscribeLiveUsers();
       unsubscribeStories();
     };
   }, [userName, deviceId, siteStatus, isAdmin]);
@@ -386,13 +358,6 @@ function App() {
               👰🤵‍♂️ kristinundmauro
             </h1>
             <div className="flex items-center gap-4">
-              {/* Live View Counter */}
-              <LiveViewCounter 
-                liveUsers={liveUsers}
-                currentUser={userName || ''}
-                isDarkMode={isDarkMode}
-              />
-              
               <button
                 onClick={toggleDarkMode}
                 className={`p-2 rounded-full transition-colors duration-300 ${

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Plus, Filter, TrendingUp, Clock, Check, Play, List, History } from 'lucide-react';
+import { Music, Plus, History } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { loadMusicRequests } from '../services/musicService';
 import { MusicRequestModal } from './MusicRequestModal';
 import { MusicHistoryList } from './MusicHistoryList';
+import { PlaylistExportModal } from './PlaylistExportModal';
 
 interface MusicRequestsSectionProps {
   userName: string;
@@ -20,6 +21,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
 }) => {
   const [requests, setRequests] = useState<MusicRequest[]>([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -45,8 +47,8 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
     };
   }, [userName, deviceId, isAdmin]);
 
-  // 🎯 ONLY SHOW PLAYED SONGS (HISTORY)
-  const playedRequests = requests.filter(request => request.status === 'played');
+  // Show all requests (no filtering by status)
+  const allRequests = requests;
 
   return (
     <div className={`border-b transition-colors duration-300 ${
@@ -70,13 +72,30 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Songs werden automatisch gespielt und hier angezeigt
+                Songs werden automatisch zur Playlist hinzugefügt
               </p>
             </div>
           </div>
 
-          {/* Add Song Button */}
+          {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* Playlist Management Button (Admin only) */}
+            {isAdmin && allRequests.length > 0 && (
+              <button
+                onClick={() => setShowPlaylistModal(true)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-300 hover:scale-105 ${
+                  isDarkMode
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                    : 'bg-purple-500 hover:bg-purple-600 text-white'
+                }`}
+                title="Playlist verwalten"
+              >
+                <History className="w-4 h-4" />
+                <span className="hidden sm:inline">Playlist</span>
+              </button>
+            )}
+
+            {/* Add Song Button */}
             <button
               onClick={() => setShowRequestModal(true)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 ${
@@ -92,7 +111,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
           </div>
         </div>
 
-        {/* History Header */}
+        {/* Info Box */}
         <div className={`p-4 rounded-xl mb-4 transition-colors duration-300 ${
           isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
         }`}>
@@ -103,13 +122,13 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             <h3 className={`font-semibold transition-colors duration-300 ${
               isDarkMode ? 'text-blue-300' : 'text-blue-800'
             }`}>
-              🎵 Verlauf der gespielten Songs
+              🎵 Musikwünsche für die Hochzeit
             </h3>
           </div>
           <p className={`text-sm transition-colors duration-300 ${
             isDarkMode ? 'text-blue-200' : 'text-blue-700'
           }`}>
-            Alle Songs die bereits auf der Hochzeit gespielt wurden ({playedRequests.length} Songs)
+            Alle Songs die für die Hochzeit gewünscht wurden ({allRequests.length} Songs)
           </p>
         </div>
 
@@ -126,21 +145,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             <div className={`text-xs transition-colors duration-300 ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              Gesamt
-            </div>
-          </div>
-          <div className={`p-3 rounded-lg transition-colors duration-300 ${
-            isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-          }`}>
-            <div className={`text-2xl font-bold transition-colors duration-300 ${
-              isDarkMode ? 'text-blue-400' : 'text-blue-600'
-            }`}>
-              {playedRequests.length}
-            </div>
-            <div className={`text-xs transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Gespielt
+              Songs gewünscht
             </div>
           </div>
           <div className={`p-3 rounded-lg transition-colors duration-300 ${
@@ -149,7 +154,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             <div className={`text-2xl font-bold transition-colors duration-300 ${
               isDarkMode ? 'text-purple-400' : 'text-purple-600'
             }`}>
-              {new Set(playedRequests.map(r => r.requestedBy)).size}
+              {new Set(allRequests.map(r => r.requestedBy)).size}
             </div>
             <div className={`text-xs transition-colors duration-300 ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
@@ -163,12 +168,26 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             <div className={`text-2xl font-bold transition-colors duration-300 ${
               isDarkMode ? 'text-pink-400' : 'text-pink-600'
             }`}>
-              {playedRequests.reduce((sum, r) => sum + r.votes, 0)}
+              {allRequests.reduce((sum, r) => sum + r.votes, 0)}
             </div>
             <div className={`text-xs transition-colors duration-300 ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              Votes
+              Gesamt Votes
+            </div>
+          </div>
+          <div className={`p-3 rounded-lg transition-colors duration-300 ${
+            isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+          }`}>
+            <div className={`text-2xl font-bold transition-colors duration-300 ${
+              isDarkMode ? 'text-blue-400' : 'text-blue-600'
+            }`}>
+              {Math.floor(allRequests.reduce((sum, r) => sum + (r.duration || 0), 0) / 60000)}
+            </div>
+            <div className={`text-xs transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Minuten Musik
             </div>
           </div>
         </div>
@@ -197,7 +216,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
       {!isLoading && (
         <div className="px-4 pb-4">
           <MusicHistoryList
-            requests={playedRequests}
+            requests={allRequests}
             currentUser={userName}
             isDarkMode={isDarkMode}
           />
@@ -210,6 +229,14 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
         onClose={() => setShowRequestModal(false)}
         userName={userName}
         deviceId={deviceId}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Playlist Export Modal */}
+      <PlaylistExportModal
+        isOpen={showPlaylistModal}
+        onClose={() => setShowPlaylistModal(false)}
+        approvedRequests={allRequests}
         isDarkMode={isDarkMode}
       />
     </div>
