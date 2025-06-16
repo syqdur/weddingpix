@@ -44,6 +44,51 @@ let userTokenExpiry: number | null = null;
 
 // === SPOTIFY USER AUTHENTICATION ===
 
+// Handle OAuth callback (call this when page loads)
+export const handleSpotifyCallback = (): boolean => {
+  const hash = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  
+  const accessToken = params.get('access_token');
+  const expiresIn = params.get('expires_in');
+  
+  if (accessToken && expiresIn) {
+    console.log('✅ Spotify OAuth successful');
+    
+    userAccessToken = accessToken;
+    userTokenExpiry = Date.now() + (parseInt(expiresIn) * 1000);
+    
+    // Store in localStorage for persistence
+    localStorage.setItem('spotify_user_token', accessToken);
+    localStorage.setItem('spotify_user_token_expiry', userTokenExpiry.toString());
+    
+    // Clean up URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    
+    return true;
+  }
+  
+  return false;
+};
+
+// Initialize on page load
+if (typeof window !== 'undefined') {
+  // Check for OAuth callback
+  if (window.location.hash.includes('access_token')) {
+    handleSpotifyCallback();
+  }
+  
+  // Restore token from localStorage
+  const storedToken = localStorage.getItem('spotify_user_token');
+  const storedExpiry = localStorage.getItem('spotify_user_token_expiry');
+  
+  if (storedToken && storedExpiry && Date.now() < parseInt(storedExpiry)) {
+    userAccessToken = storedToken;
+    userTokenExpiry = parseInt(storedExpiry);
+    console.log('🔐 Restored Spotify session');
+  }
+}
+
 // Generiere Spotify Authorization URL
 export const generateSpotifyAuthUrl = (): string => {
   const params = new URLSearchParams({
@@ -67,30 +112,10 @@ export const initiateSpotifyLogin = (): void => {
   }
 
   const authUrl = generateSpotifyAuthUrl();
-  console.log(`🔗 Opening Spotify auth URL...`);
+  console.log(`🔗 Redirecting to Spotify auth...`);
   
-  // Öffne Spotify Login in neuem Fenster
-  const authWindow = window.open(
-    authUrl,
-    'spotify-auth',
-    'width=500,height=600,scrollbars=yes,resizable=yes'
-  );
-
-  // Überwache das Auth-Fenster
-  const checkClosed = setInterval(() => {
-    if (authWindow?.closed) {
-      clearInterval(checkClosed);
-      console.log('🔐 Auth window closed');
-      
-      // Prüfe ob Token in localStorage gespeichert wurde
-      const token = localStorage.getItem('spotify_user_token');
-      if (token) {
-        userAccessToken = token;
-        userTokenExpiry = Date.now() + (3600 * 1000); // 1 hour
-        console.log('✅ Spotify login successful');
-      }
-    }
-  }, 1000);
+  // Redirect to Spotify OAuth
+  window.location.href = authUrl;
 };
 
 // Prüfe ob User eingeloggt ist
@@ -500,4 +525,4 @@ console.log('🎯 === ENHANCED SPOTIFY PLAYLIST SERVICE INITIALIZED ===');
 console.log(`📋 Wedding Playlist ID: ${WEDDING_PLAYLIST_ID}`);
 console.log(`🔗 Wedding Playlist URL: ${WEDDING_PLAYLIST_URL}`);
 console.log('🎯 Ready to add tracks to your wedding playlist');
-console.log('📋 Supports user authentication and playlist management');
+console.log('📋 Supports secure OAuth authentication');
