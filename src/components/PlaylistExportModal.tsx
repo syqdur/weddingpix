@@ -8,13 +8,13 @@ import {
   openSpotifyPlaylist,
   copyTrackListToClipboard,
   PlaylistExport,
-  isSharedTokenAvailable,
   initiateAdminSpotifySetup,
   addToWeddingPlaylist,
   getWeddingPlaylistDetails,
   openWeddingPlaylist,
   getWeddingPlaylistUrl
 } from '../services/spotifyPlaylistService';
+import { isSpotifyAvailable } from '../services/spotifyService';
 
 interface PlaylistExportModalProps {
   isOpen: boolean;
@@ -39,7 +39,18 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setIsSpotifyConfigured(isSharedTokenAvailable());
+      // Check Spotify availability asynchronously
+      const checkSpotifyConfig = async () => {
+        try {
+          const available = await isSpotifyAvailable();
+          setIsSpotifyConfigured(available);
+        } catch (error) {
+          console.error('Error checking Spotify availability:', error);
+          setIsSpotifyConfigured(false);
+        }
+      };
+      
+      checkSpotifyConfig();
       
       if (approvedRequests.length > 0) {
         setIsLoading(true);
