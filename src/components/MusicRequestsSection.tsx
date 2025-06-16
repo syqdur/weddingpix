@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, History, Music, Sparkles, TrendingUp, Users, Clock, Search, Filter, SortAsc, Award } from 'lucide-react';
+import { Plus, History, Music, Sparkles, TrendingUp, Users, Clock, Search, Filter, SortAsc, Award, CheckCircle, AlertCircle } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { loadMusicRequests } from '../services/musicService';
 import { MusicHistoryList } from './MusicHistoryList';
 import { MusicRequestModal } from './MusicRequestModal';
 import { PlaylistExportModal } from './PlaylistExportModal';
+import { subscribeToSharedSpotifyStatus } from '../services/spotifyPlaylistService';
 
 interface MusicRequestsSectionProps {
   userName: string;
@@ -27,6 +28,17 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'alphabetical'>('popular');
+  
+  // 🌍 NEW: Shared Spotify status for all users
+  const [sharedSpotifyStatus, setSharedSpotifyStatus] = useState<{
+    isAvailable: boolean;
+    authenticatedBy: string | null;
+    authenticatedAt: string | null;
+  }>({
+    isAvailable: false,
+    authenticatedBy: null,
+    authenticatedAt: null
+  });
 
   // Load music requests
   useEffect(() => {
@@ -42,6 +54,21 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
 
     return () => {
       console.log('🎵 Cleaning up music requests subscription');
+      unsubscribe();
+    };
+  }, []);
+
+  // 🌍 NEW: Subscribe to shared Spotify status
+  useEffect(() => {
+    console.log('🌍 Setting up shared Spotify status subscription...');
+    
+    const unsubscribe = subscribeToSharedSpotifyStatus((status) => {
+      console.log('🌍 Shared Spotify status update:', status);
+      setSharedSpotifyStatus(status);
+    });
+
+    return () => {
+      console.log('🌍 Cleaning up shared Spotify status subscription');
       unsubscribe();
     };
   }, []);
@@ -123,6 +150,47 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* 🌍 NEW: Shared Spotify Status Banner */}
+      {sharedSpotifyStatus.isAvailable && (
+        <div className={`p-4 rounded-xl transition-colors duration-300 ${
+          isDarkMode 
+            ? 'bg-green-900/20 border border-green-700/30' 
+            : 'bg-green-50 border border-green-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <CheckCircle className={`w-5 h-5 transition-colors duration-300 ${
+              isDarkMode ? 'text-green-400' : 'text-green-600'
+            }`} />
+            <div className="flex-1">
+              <h4 className={`font-semibold transition-colors duration-300 ${
+                isDarkMode ? 'text-green-300' : 'text-green-800'
+              }`}>
+                🌍 Spotify Integration aktiv für ALLE Benutzer!
+              </h4>
+              <p className={`text-sm transition-colors duration-300 ${
+                isDarkMode ? 'text-green-200' : 'text-green-700'
+              }`}>
+                Eingerichtet von {sharedSpotifyStatus.authenticatedBy} am {' '}
+                {sharedSpotifyStatus.authenticatedAt && 
+                  new Date(sharedSpotifyStatus.authenticatedAt).toLocaleDateString('de-DE', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                }
+              </p>
+              <p className={`text-xs mt-1 transition-colors duration-300 ${
+                isDarkMode ? 'text-green-300' : 'text-green-600'
+              }`}>
+                ✅ Alle Songs werden automatisch zur Spotify-Playlist hinzugefügt
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Compact Hero Section */}
       <div className={`relative overflow-hidden rounded-2xl p-6 transition-colors duration-300 ${
         isDarkMode 
@@ -282,6 +350,28 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             <div>
               <div className="font-semibold">Fehler beim Laden der Musikwünsche</div>
               <div className="text-sm mt-1">{error}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🌍 NEW: No Spotify Integration Warning */}
+      {!sharedSpotifyStatus.isAvailable && (
+        <div className={`p-4 rounded-xl border transition-colors duration-300 ${
+          isDarkMode 
+            ? 'bg-yellow-900/20 border-yellow-700/30 text-yellow-300' 
+            : 'bg-yellow-50 border-yellow-200 text-yellow-700'
+        }`}>
+          <div className="flex items-center gap-3">
+            <AlertCircle className={`w-5 h-5 transition-colors duration-300 ${
+              isDarkMode ? 'text-yellow-400' : 'text-yellow-600'
+            }`} />
+            <div>
+              <div className="font-semibold">Spotify Integration nicht aktiv</div>
+              <div className="text-sm mt-1">
+                Songs werden zur internen Playlist hinzugefügt, aber nicht automatisch zu Spotify synchronisiert.
+                {isAdmin && ' Als Admin kannst du die Spotify-Integration einrichten.'}
+              </div>
             </div>
           </div>
         </div>

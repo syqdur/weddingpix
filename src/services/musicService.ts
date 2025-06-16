@@ -76,7 +76,7 @@ const checkForDuplicate = async (spotifyId: string): Promise<boolean> => {
   }
 };
 
-// 🎯 AUTOMATIC SPOTIFY INTEGRATION - Works for ALL users (FIXED)
+// 🎯 ENHANCED AUTOMATIC SPOTIFY INTEGRATION - Works for ALL users with shared auth
 const tryAddToSpotifyPlaylist = async (musicRequest: MusicRequest): Promise<void> => {
   try {
     console.log(`🎯 === ATTEMPTING SPOTIFY PLAYLIST INTEGRATION ===`);
@@ -88,12 +88,12 @@ const tryAddToSpotifyPlaylist = async (musicRequest: MusicRequest): Promise<void
       return;
     }
     
-    // 🔧 FIX: Try to initialize Spotify auth first (this will use stored tokens if available)
-    console.log(`🔄 Attempting to initialize Spotify auth...`);
-    const authResult = await initializeSpotifyAuth();
+    // 🌍 ENHANCED: Check for ANY Spotify authentication (local admin OR shared)
+    console.log(`🔄 Checking for Spotify authentication...`);
+    const authAvailable = await isSpotifyAuthenticated();
     
-    if (!authResult) {
-      console.log(`ℹ️ No Spotify authentication available - song added to requests only`);
+    if (!authAvailable) {
+      console.log(`ℹ️ No Spotify authentication available (local or shared)`);
       console.log(`💡 An admin needs to set up Spotify integration first`);
       return;
     }
@@ -119,7 +119,7 @@ const tryAddToSpotifyPlaylist = async (musicRequest: MusicRequest): Promise<void
   }
 };
 
-// 🎯 SIMPLIFIED SYSTEM: Song wird hinzugefügt → automatisch zur Playlist (für ALLE User)
+// 🎯 ENHANCED SYSTEM: Song wird hinzugefügt → automatisch zur Playlist (für ALLE User mit shared auth)
 export const addMusicRequest = async (
   track: SpotifyTrack,
   userName: string,
@@ -127,7 +127,7 @@ export const addMusicRequest = async (
   message?: string
 ): Promise<void> => {
   try {
-    console.log(`🎵 === ADDING MUSIC REQUEST (ALL USERS) ===`);
+    console.log(`🎵 === ADDING MUSIC REQUEST (ALL USERS WITH SHARED AUTH) ===`);
     console.log(`🎵 Song: "${track.name}" by ${track.artists[0].name}`);
     console.log(`👤 User: ${userName} (${deviceId})`);
     console.log(`💬 Message: ${message || 'none'}`);
@@ -169,13 +169,13 @@ export const addMusicRequest = async (
     const docRef = await addDoc(collection(db, 'music_requests'), musicRequest);
     console.log(`✅ Music request added successfully with ID: ${docRef.id}`);
 
-    // 🎯 AUTOMATICALLY TRY TO ADD TO SPOTIFY PLAYLIST (for ALL users)
+    // 🎯 AUTOMATICALLY TRY TO ADD TO SPOTIFY PLAYLIST (for ALL users with shared auth)
     const completeRequest: MusicRequest = {
       ...musicRequest,
       id: docRef.id
     };
     
-    // This will work if an admin has previously set up Spotify auth
+    // This will work if an admin has set up shared authentication
     await tryAddToSpotifyPlaylist(completeRequest);
     
   } catch (error) {
@@ -184,7 +184,7 @@ export const addMusicRequest = async (
   }
 };
 
-// 🎯 SIMPLIFIED SYSTEM: Add from URL (for ALL users)
+// 🎯 ENHANCED SYSTEM: Add from URL (for ALL users with shared auth)
 export const addMusicRequestFromUrl = async (
   spotifyUrl: string,
   userName: string,
@@ -192,7 +192,7 @@ export const addMusicRequestFromUrl = async (
   message?: string
 ): Promise<void> => {
   try {
-    console.log(`🔗 === ADDING FROM SPOTIFY URL (ALL USERS) ===`);
+    console.log(`🔗 === ADDING FROM SPOTIFY URL (ALL USERS WITH SHARED AUTH) ===`);
     console.log(`🔗 URL: ${spotifyUrl}`);
     
     // Validate URL
@@ -210,7 +210,7 @@ export const addMusicRequestFromUrl = async (
 
     console.log(`✅ Found track: "${track.name}" by ${track.artists[0].name}`);
 
-    // Add the request (will automatically try Spotify integration)
+    // Add the request (will automatically try Spotify integration with shared auth)
     await addMusicRequest(track, userName, deviceId, message);
     
   } catch (error) {
@@ -313,7 +313,7 @@ export const voteMusicRequest = async (
   }
 };
 
-// 🗑️ DELETE MUSIC REQUEST WITH SPOTIFY SYNC
+// 🗑️ DELETE MUSIC REQUEST WITH ENHANCED SPOTIFY SYNC
 export const deleteMusicRequest = async (requestId: string): Promise<void> => {
   try {
     console.log(`🗑️ === DELETING MUSIC REQUEST ===`);
@@ -346,8 +346,8 @@ export const deleteMusicRequest = async (requestId: string): Promise<void> => {
       try {
         console.log(`🎯 Attempting to remove from Spotify playlist...`);
         
-        // 🔧 FIX: Try to initialize Spotify auth first
-        const authResult = await initializeSpotifyAuth();
+        // 🌍 ENHANCED: Check for ANY Spotify authentication (local admin OR shared)
+        const authResult = await isSpotifyAuthenticated();
         
         if (authResult) {
           const playlistId = getActivePlaylistId();
@@ -380,9 +380,9 @@ export const deleteMusicRequest = async (requestId: string): Promise<void> => {
   }
 };
 
-console.log('🎵 === MUSIC SERVICE INITIALIZED ===');
+console.log('🎵 === ENHANCED MUSIC SERVICE INITIALIZED ===');
 console.log('🌍 Ready to search ALL Spotify tracks (when API is configured)');
 console.log('🔄 Fallback to enhanced mock database available');
-console.log('🎯 Songs werden automatisch zur Playlist hinzugefügt - für ALLE User!');
+console.log('🎯 Songs werden automatisch zur Playlist hinzugefügt - für ALLE User mit shared auth!');
 console.log('🗑️ Songs werden automatisch aus der Spotify-Playlist entfernt beim Löschen!');
-console.log('🔑 Verwendet gespeicherte Admin-Tokens für Spotify-Integration');
+console.log('🌍 Verwendet shared admin-tokens für Spotify-Integration für ALLE User!');
