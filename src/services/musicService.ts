@@ -53,20 +53,18 @@ export const searchSpotifyTracks = async (query: string): Promise<SpotifyTrack[]
   }
 };
 
-// 🔧 FIXED: Add music request with optional status parameter
+// 🎯 SIMPLIFIED: Songs werden direkt zur Playlist hinzugefügt (kein Genehmigungssystem)
 export const addMusicRequest = async (
   track: SpotifyTrack,
   userName: string,
   deviceId: string,
-  message?: string,
-  status: MusicRequest['status'] = 'approved' // 🎯 DEFAULT: approved statt pending
+  message?: string
 ): Promise<void> => {
   try {
     console.log(`🎵 === ADDING MUSIC REQUEST ===`);
     console.log(`🎵 Song: "${track.name}" by ${track.artists[0].name}`);
     console.log(`👤 User: ${userName} (${deviceId})`);
     console.log(`💬 Message: ${message || 'none'}`);
-    console.log(`⭐ Status: ${status}`);
     console.log(`🔗 Spotify URL: ${track.external_urls.spotify}`);
 
     // Validate track data
@@ -84,7 +82,7 @@ export const addMusicRequest = async (
       deviceId: deviceId,
       requestedAt: new Date().toISOString(),
       message: message || '',
-      status: status, // 🎯 Use provided status (default: approved)
+      status: 'approved', // 🎯 DIREKT GENEHMIGT - kein Wartestatus
       votes: 1, // User automatically votes for their own request
       votedBy: [deviceId],
       albumArt: track.album?.images?.[0]?.url || '',
@@ -93,7 +91,7 @@ export const addMusicRequest = async (
       popularity: track.popularity || 0
     };
 
-    console.log(`💾 Saving to Firestore with status: ${status}...`);
+    console.log(`💾 Saving to Firestore as APPROVED...`);
     const docRef = await addDoc(collection(db, 'music_requests'), musicRequest);
     console.log(`✅ Music request added successfully with ID: ${docRef.id}`);
     
@@ -103,18 +101,16 @@ export const addMusicRequest = async (
   }
 };
 
-// 🔧 FIXED: Add music request from Spotify URL with optional status
+// 🎯 SIMPLIFIED: Songs von URL werden direkt genehmigt
 export const addMusicRequestFromUrl = async (
   spotifyUrl: string,
   userName: string,
   deviceId: string,
-  message?: string,
-  status: MusicRequest['status'] = 'approved' // 🎯 DEFAULT: approved statt pending
+  message?: string
 ): Promise<void> => {
   try {
     console.log(`🔗 === ADDING FROM SPOTIFY URL ===`);
     console.log(`🔗 URL: ${spotifyUrl}`);
-    console.log(`⭐ Status: ${status}`);
     
     // Validate URL
     if (!validateSpotifyUrl(spotifyUrl)) {
@@ -131,8 +127,8 @@ export const addMusicRequestFromUrl = async (
 
     console.log(`✅ Found track: "${track.name}" by ${track.artists[0].name}`);
 
-    // Add the request with specified status
-    await addMusicRequest(track, userName, deviceId, message, status);
+    // Add the request (automatically approved)
+    await addMusicRequest(track, userName, deviceId, message);
     
   } catch (error) {
     console.error('❌ Error adding music request from URL:', error);
@@ -274,7 +270,7 @@ export const getPopularRequests = async (): Promise<MusicRequest[]> => {
     // Use simple query and sort in memory
     const q = query(
       collection(db, 'music_requests'),
-      where('status', '==', 'pending')
+      where('status', '==', 'approved') // 🎯 CHANGED: Nur genehmigte Songs anzeigen
     );
     
     const snapshot = await getDocs(q);
@@ -299,4 +295,4 @@ export const getPopularRequests = async (): Promise<MusicRequest[]> => {
 console.log('🎵 === MUSIC SERVICE INITIALIZED ===');
 console.log('🌍 Ready to search ALL Spotify tracks (when API is configured)');
 console.log('🔄 Fallback to enhanced mock database available');
-console.log('🎯 Songs werden automatisch als "approved" hinzugefügt');
+console.log('🎯 Songs werden automatisch als "approved" hinzugefügt - KEIN Genehmigungssystem');

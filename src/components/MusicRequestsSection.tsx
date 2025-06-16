@@ -22,7 +22,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
   const [requests, setRequests] = useState<MusicRequest[]>([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'played'>('all');
+  const [filter, setFilter] = useState<'all' | 'approved' | 'played'>('all'); // 🎯 REMOVED: pending, rejected
   const [isLoading, setIsLoading] = useState(true);
 
   // 🎧 DJ SYSTEM: Check if current user is DJ, Mauro, or Admin
@@ -70,7 +70,6 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
   const getFilterIcon = (status: MusicRequest['status'] | 'all') => {
     switch (status) {
       case 'all': return <Music className="w-4 h-4" />;
-      case 'pending': return <Clock className="w-4 h-4" />;
       case 'approved': return <Check className="w-4 h-4" />;
       case 'played': return <Play className="w-4 h-4" />;
       default: return <Music className="w-4 h-4" />;
@@ -80,8 +79,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
   const getFilterLabel = (status: MusicRequest['status'] | 'all') => {
     switch (status) {
       case 'all': return 'Alle';
-      case 'pending': return 'Wartend';
-      case 'approved': return 'Genehmigt';
+      case 'approved': return 'In Playlist';
       case 'played': return 'Gespielt';
       default: return 'Alle';
     }
@@ -114,7 +112,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             </div>
           </div>
 
-          {/* 🔧 FIXED: Buttons nebeneinander mit besserer Anordnung */}
+          {/* Add Song Button */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowRequestModal(true)}
@@ -125,13 +123,13 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
               }`}
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Wunsch hinzufügen</span>
+              <span className="hidden sm:inline">Song hinzufügen</span>
               <span className="sm:hidden">Hinzufügen</span>
             </button>
           </div>
         </div>
 
-        {/* 🎯 FIXED: Playlist Button unter dem Header, nur für DJ/Admin sichtbar */}
+        {/* 🎯 Playlist Button für DJ/Admin */}
         {isDJ && approvedRequests.length > 0 && (
           <div className="mb-4">
             <button
@@ -141,7 +139,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
                   ? 'border-purple-600 bg-purple-900/20 hover:bg-purple-900/30 text-purple-300'
                   : 'border-purple-500 bg-purple-50 hover:bg-purple-100 text-purple-700'
               }`}
-              title="Genehmigte Songs zu Spotify Playlist hinzufügen"
+              title="Songs zu Spotify Playlist hinzufügen"
             >
               <List className="w-5 h-5" />
               <span className="font-medium">
@@ -152,7 +150,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
           <div className={`p-3 rounded-lg transition-colors duration-300 ${
             isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
           }`}>
@@ -171,20 +169,6 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
           }`}>
             <div className={`text-2xl font-bold transition-colors duration-300 ${
-              isDarkMode ? 'text-yellow-400' : 'text-yellow-600'
-            }`}>
-              {getFilterCount('pending')}
-            </div>
-            <div className={`text-xs transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Wartend
-            </div>
-          </div>
-          <div className={`p-3 rounded-lg transition-colors duration-300 ${
-            isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-          }`}>
-            <div className={`text-2xl font-bold transition-colors duration-300 ${
               isDarkMode ? 'text-green-400' : 'text-green-600'
             }`}>
               {getFilterCount('approved')}
@@ -192,7 +176,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             <div className={`text-xs transition-colors duration-300 ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              Genehmigt
+              In Playlist
             </div>
           </div>
           <div className={`p-3 rounded-lg transition-colors duration-300 ${
@@ -211,9 +195,9 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
           </div>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Filter Tabs - 🎯 SIMPLIFIED: Nur noch 3 Filter */}
         <div className="flex gap-2 overflow-x-auto pb-2">
-          {(['all', 'pending', 'approved', 'played'] as const).map((status) => (
+          {(['all', 'approved', 'played'] as const).map((status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}

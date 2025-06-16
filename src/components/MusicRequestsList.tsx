@@ -132,7 +132,7 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
   const getStatusText = (status: MusicRequest['status']) => {
     switch (status) {
       case 'pending': return 'Wartend';
-      case 'approved': return 'Genehmigt';
+      case 'approved': return 'In Playlist';
       case 'played': return 'Gespielt';
       case 'rejected': return 'Abgelehnt';
       default: return 'Unbekannt';
@@ -185,7 +185,7 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-purple-200' : 'text-purple-700'
               }`}>
-                Du kannst Musikwünsche genehmigen und als gespielt markieren
+                Du kannst Songs als gespielt markieren
               </p>
             </div>
           </div>
@@ -206,7 +206,7 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
               : 'bg-white border-gray-200 shadow-sm'
           } ${isDeleting ? 'opacity-50' : ''}`}>
             <div className="flex items-start gap-4">
-              {/* Album Art - 🔧 FIXED: Made smaller */}
+              {/* Album Art */}
               <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
                 {request.albumArt ? (
                   <img 
@@ -375,60 +375,24 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                   </button>
 
                   {/* 🎧 DJ CONTROLS - Only visible to DJ and Admin */}
-                  {isDJ && !isDeleting && (
+                  {isDJ && !isDeleting && request.status === 'approved' && (
                     <div className="flex items-center gap-2">
-                      {request.status === 'pending' && (
-                        <>
-                          {/* 🔧 FIXED: Compact buttons - only icons with colors */}
-                          <button
-                            onClick={() => handleStatusUpdate(request.id, 'approved')}
-                            disabled={isUpdating}
-                            className={`p-2 rounded-full transition-colors ${
-                              isUpdating
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-green-600 hover:bg-green-700'
-                            } text-white`}
-                            title="Genehmigen"
-                          >
-                            {isUpdating ? (
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            ) : (
-                              <Check className="w-4 h-4" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleStatusUpdate(request.id, 'rejected')}
-                            disabled={isUpdating}
-                            className={`p-2 rounded-full transition-colors ${
-                              isUpdating
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-red-600 hover:bg-red-700'
-                            } text-white`}
-                            title="Ablehnen"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
-
-                      {request.status === 'approved' && (
-                        <button
-                          onClick={() => handleStatusUpdate(request.id, 'played')}
-                          disabled={isUpdating}
-                          className={`p-2 rounded-full transition-colors ${
-                            isUpdating
-                              ? 'bg-gray-400 cursor-not-allowed'
-                              : 'bg-blue-600 hover:bg-blue-700'
-                          } text-white`}
-                          title="Als gespielt markieren"
-                        >
-                          {isUpdating ? (
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <Play className="w-4 h-4" />
-                          )}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleStatusUpdate(request.id, 'played')}
+                        disabled={isUpdating}
+                        className={`p-2 rounded-full transition-colors ${
+                          isUpdating
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700'
+                        } text-white`}
+                        title="Als gespielt markieren"
+                      >
+                        {isUpdating ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Play className="w-4 h-4" />
+                        )}
+                      </button>
 
                       {/* DJ Badge */}
                       <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors duration-300 ${

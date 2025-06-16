@@ -98,7 +98,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     setShowSuggestions(false);
   };
 
-  // 🎯 FIXED: Direct song add when clicking on a track - Songs werden sofort hinzugefügt
+  // 🎯 SIMPLIFIED: Songs werden direkt zur Playlist hinzugefügt
   const handleTrackClick = async (track: SpotifyTrack) => {
     setIsSubmitting(true);
     setSuccessMessage(null);
@@ -106,10 +106,10 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     try {
       console.log(`🎵 Adding track directly: ${track.name} by ${track.artists[0].name}`);
       
-      // 🔧 FIX: Songs werden sofort mit Status 'approved' hinzugefügt
-      await addMusicRequest(track, userName, deviceId, '', 'approved');
+      // 🎯 SIMPLIFIED: Songs werden direkt hinzugefügt (automatisch genehmigt)
+      await addMusicRequest(track, userName, deviceId, '');
       
-      setSuccessMessage(`🎵 "${track.name}" wurde zu deiner Hochzeits-Playlist hinzugefügt!`);
+      setSuccessMessage(`🎵 "${track.name}" wurde zur Hochzeits-Playlist hinzugefügt!`);
       
       // Close modal immediately
       setTimeout(() => {
@@ -131,10 +131,10 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     setSuccessMessage(null);
     
     try {
-      // 🔧 FIX: Songs werden sofort mit Status 'approved' hinzugefügt
-      await addMusicRequestFromUrl(spotifyUrl, userName, deviceId, '', 'approved');
+      // 🎯 SIMPLIFIED: Songs werden direkt hinzugefügt (automatisch genehmigt)
+      await addMusicRequestFromUrl(spotifyUrl, userName, deviceId, '');
       
-      setSuccessMessage('🎵 Song wurde erfolgreich zu deiner Hochzeits-Playlist hinzugefügt!');
+      setSuccessMessage('🎵 Song wurde zur Hochzeits-Playlist hinzugefügt!');
       
       // Reset form
       setSpotifyUrl('');
@@ -194,7 +194,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Klicke auf einen Song, um ihn sofort zur Playlist hinzuzufügen
+                Klicke auf einen Song, um ihn direkt zur Playlist hinzuzufügen
               </p>
             </div>
           </div>
@@ -305,7 +305,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 <p className={`text-xs mt-2 transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  💡 Klicke auf einen Song, um ihn sofort zur Hochzeits-Playlist hinzuzufügen!
+                  💡 Klicke auf einen Song, um ihn direkt zur Hochzeits-Playlist hinzuzufügen!
                 </p>
               </div>
 
