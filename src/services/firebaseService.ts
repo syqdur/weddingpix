@@ -16,7 +16,7 @@ import {
   where,
   getDocs,
   updateDoc
-} from 'firebase/firestore';
+} from 'firestore/firestore';
 import { storage, db } from '../config/firebase';
 import { MediaItem, Comment, Like } from '../types';
 
@@ -101,27 +101,49 @@ export const editNote = async (
   });
 };
 
-// Vereinfachte und robuste Download-URL Funktion
+// 🔧 ENHANCED: Robuste Download-URL Funktion mit besserer Fehlerbehandlung
 const getDownloadURLSafe = async (fileName: string): Promise<string> => {
   try {
-    const storageRef = ref(storage, `uploads/${fileName}`);
-    const url = await getDownloadURL(storageRef);
+    console.log(`🔍 Attempting to get URL for: ${fileName}`);
     
-    console.log(`✅ URL generated for ${fileName}`);
-    return url;
+    // 🎯 FIX: Try multiple possible paths for the file
+    const possiblePaths = [
+      `uploads/${fileName}`,  // Standard path
+      fileName,               // Direct path (fallback)
+      `stories/${fileName}`,  // Stories path (if it was a story)
+      `media/${fileName}`     // Alternative media path
+    ];
+    
+    for (const path of possiblePaths) {
+      try {
+        console.log(`🔍 Trying path: ${path}`);
+        const storageRef = ref(storage, path);
+        const url = await getDownloadURL(storageRef);
+        
+        console.log(`✅ URL found at path: ${path}`);
+        return url;
+        
+      } catch (pathError) {
+        console.log(`❌ Path failed: ${path} - ${pathError.code}`);
+        continue; // Try next path
+      }
+    }
+    
+    // If all paths fail, throw a descriptive error
+    throw new Error(`File not found in any expected location: ${fileName}`);
     
   } catch (error) {
     console.error(`❌ Failed to get URL for ${fileName}:`, error);
     
-    // Fallback: Versuche alternative Pfade
-    try {
-      const altStorageRef = ref(storage, fileName);
-      const altUrl = await getDownloadURL(altStorageRef);
-      console.log(`✅ Alternative URL found for ${fileName}`);
-      return altUrl;
-    } catch (altError) {
-      console.error(`❌ Alternative path also failed for ${fileName}:`, altError);
-      throw new Error(`Could not load ${fileName}`);
+    // 🔧 FIX: Return a placeholder or handle gracefully
+    if (error.code === 'storage/object-not-found') {
+      console.warn(`⚠️ File not found: ${fileName} - marking as unavailable`);
+      throw new Error(`File not found: ${fileName}`);
+    } else if (error.code === 'storage/unauthorized') {
+      console.warn(`🔒 Access denied for: ${fileName} - checking permissions`);
+      throw new Error(`Access denied: ${fileName}`);
+    } else {
+      throw new Error(`Could not load ${fileName}: ${error.message}`);
     }
   }
 };
@@ -132,7 +154,7 @@ export const loadGallery = (callback: (items: MediaItem[]) => void): () => void 
   return onSnapshot(q, async (snapshot) => {
     console.log(`📊 Loading ${snapshot.docs.length} items from Firestore...`);
     
-    // Verarbeite alle Items parallel für bessere Performance
+    // 🔧 FIX: Process items with better error handling
     const itemPromises = snapshot.docs.map(async (docSnapshot) => {
       const data = docSnapshot.data();
       
@@ -166,8 +188,19 @@ export const loadGallery = (callback: (items: MediaItem[]) => void): () => void 
             };
             
           } catch (urlError) {
-            console.error(`❌ Could not load ${data.name}, skipping...`);
-            return null; // Skip this item
+            console.error(`❌ Could not load ${data.name}:`, urlError);
+            
+            // 🔧 FIX: Instead of skipping, create a placeholder item
+            return {
+              id: docSnapshot.id,
+              name: data.name,
+              url: '', // Empty URL indicates unavailable
+              uploadedBy: data.uploadedBy,
+              uploadedAt: data.uploadedAt,
+              deviceId: data.deviceId,
+              type: data.type as 'image' | 'video',
+              isUnavailable: true // Mark as unavailable
+            };
           }
         }
         
@@ -177,7 +210,7 @@ export const loadGallery = (callback: (items: MediaItem[]) => void): () => void 
       }
     });
     
-    // Warte auf alle Promises und filtere null-Werte
+    // Wait for all promises and filter null values
     const resolvedItems = await Promise.all(itemPromises);
     const validItems = resolvedItems.filter((item): item is MediaItem => item !== null);
     
@@ -185,36 +218,73 @@ export const loadGallery = (callback: (items: MediaItem[]) => void): () => void 
     console.log(`   📸 Images: ${validItems.filter(i => i.type === 'image').length}`);
     console.log(`   🎥 Videos: ${validItems.filter(i => i.type === 'video').length}`);
     console.log(`   💌 Notes: ${validItems.filter(i => i.type === 'note').length}`);
+    console.log(`   ⚠️ Unavailable: ${validItems.filter(i => i.isUnavailable).length}`);
     console.log(`   ❌ Failed: ${snapshot.docs.length - validItems.length}`);
     
     callback(validItems);
     
   }, (error) => {
     console.error('❌ Gallery listener error:', error);
-    // Fallback: leere Liste zurückgeben
+    // Fallback: empty list
     callback([]);
   });
 };
 
 export const deleteMediaItem = async (item: MediaItem): Promise<void> => {
   try {
-    // Delete from storage (only if it's not a note)
-    if (item.type !== 'note' && item.name) {
+    console.log(`🗑️ === DELETING MEDIA ITEM ===`);
+    console.log(`🗑️ Item: ${item.name} (${item.type})`);
+    console.log(`👤 Uploaded by: ${item.uploadedBy}`);
+    
+    // Delete from storage (only if it's not a note and has a valid URL)
+    if (item.type !== 'note' && item.name && !item.isUnavailable) {
       try {
-        const storageRef = ref(storage, `uploads/${item.name}`);
-        await deleteObject(storageRef);
-        console.log(`✅ Deleted from storage: ${item.name}`);
+        console.log(`🗑️ Attempting to delete from storage: ${item.name}`);
+        
+        // 🔧 FIX: Try multiple possible paths for deletion
+        const possiblePaths = [
+          `uploads/${item.name}`,  // Standard path
+          item.name,               // Direct path
+          `stories/${item.name}`,  // Stories path
+          `media/${item.name}`     // Alternative path
+        ];
+        
+        let deletedFromStorage = false;
+        
+        for (const path of possiblePaths) {
+          try {
+            console.log(`🗑️ Trying to delete from path: ${path}`);
+            const storageRef = ref(storage, path);
+            await deleteObject(storageRef);
+            console.log(`✅ Deleted from storage at path: ${path}`);
+            deletedFromStorage = true;
+            break; // Success, stop trying other paths
+          } catch (pathError) {
+            console.log(`❌ Delete failed for path: ${path} - ${pathError.code}`);
+            continue; // Try next path
+          }
+        }
+        
+        if (!deletedFromStorage) {
+          console.warn(`⚠️ Could not delete from storage: ${item.name} (file may not exist)`);
+          // Continue with Firestore deletion anyway
+        }
+        
       } catch (storageError) {
-        console.warn(`⚠️ Could not delete from storage: ${item.name}`, storageError);
+        console.warn(`⚠️ Storage deletion error for ${item.name}:`, storageError);
         // Continue with Firestore deletion even if storage deletion fails
       }
+    } else if (item.isUnavailable) {
+      console.log(`ℹ️ Skipping storage deletion for unavailable item: ${item.name}`);
     }
     
     // Delete from Firestore
+    console.log(`🗑️ Deleting from Firestore: ${item.id}`);
     await deleteDoc(doc(db, 'media', item.id));
     console.log(`✅ Deleted from Firestore: ${item.id}`);
     
     // Delete associated comments
+    console.log(`🗑️ Deleting associated comments...`);
     const commentsQuery = query(
       collection(db, 'comments'), 
       where('mediaId', '==', item.id)
@@ -226,6 +296,7 @@ export const deleteMediaItem = async (item: MediaItem): Promise<void> => {
     );
     
     // Delete associated likes
+    console.log(`🗑️ Deleting associated likes...`);
     const likesQuery = query(
       collection(db, 'likes'), 
       where('mediaId', '==', item.id)
@@ -237,7 +308,9 @@ export const deleteMediaItem = async (item: MediaItem): Promise<void> => {
     );
     
     await Promise.all([...deleteCommentPromises, ...deleteLikePromises]);
-    console.log(`✅ Deleted associated data for: ${item.id}`);
+    console.log(`✅ Deleted ${deleteCommentPromises.length} comments and ${deleteLikePromises.length} likes`);
+    
+    console.log(`🗑️ === DELETION COMPLETE ===`);
     
   } catch (error) {
     console.error(`❌ Error deleting item ${item.id}:`, error);

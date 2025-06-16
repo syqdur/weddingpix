@@ -7,6 +7,7 @@ export interface MediaItem {
   deviceId: string;
   type: 'image' | 'video' | 'note';
   noteText?: string;
+  isUnavailable?: boolean; // 🔧 NEW: Mark items that couldn't be loaded
 }
 
 export interface Comment {

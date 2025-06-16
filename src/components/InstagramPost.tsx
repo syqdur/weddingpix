@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, MessageCircle, MoreHorizontal, Trash2, Edit3 } from 'lucide-react';
+import { Heart, MessageCircle, MoreHorizontal, Trash2, Edit3, AlertTriangle } from 'lucide-react';
 import { MediaItem, Comment, Like } from '../types';
 
 interface InstagramPostProps {
@@ -213,7 +213,7 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
           />
         ) : (
           <div className="relative w-full aspect-square">
-            {imageLoading && (
+            {imageLoading && !item.isUnavailable && (
               <div className={`absolute inset-0 flex items-center justify-center transition-colors duration-300 ${
                 isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
               }`}>
@@ -221,17 +221,27 @@ export const InstagramPost: React.FC<InstagramPostProps> = ({
               </div>
             )}
             
-            {imageError ? (
+            {/* 🔧 FIX: Show unavailable state for items that couldn't be loaded */}
+            {(imageError || item.isUnavailable || !item.url) ? (
               <div className={`absolute inset-0 flex flex-col items-center justify-center transition-colors duration-300 ${
                 isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
               }`}>
-                <div className="text-4xl mb-2">📷</div>
-                <p className="text-sm text-center px-4">
-                  Bild nicht verfügbar
+                <AlertTriangle className="w-12 h-12 mb-4 text-orange-500" />
+                <div className="text-lg font-semibold mb-2">Datei nicht verfügbar</div>
+                <p className="text-sm text-center px-4 mb-2">
+                  {item.isUnavailable 
+                    ? 'Diese Datei konnte nicht geladen werden'
+                    : 'Bild konnte nicht geladen werden'
+                  }
                 </p>
-                <p className="text-xs text-center px-4 mt-1 opacity-75">
-                  Von {item.uploadedBy}
+                <p className="text-xs text-center px-4 opacity-75">
+                  Von {item.uploadedBy} • {formatDate(item.uploadedAt)}
                 </p>
+                <div className={`mt-4 px-3 py-1 rounded-full text-xs transition-colors duration-300 ${
+                  isDarkMode ? 'bg-orange-600 text-white' : 'bg-orange-100 text-orange-800'
+                }`}>
+                  {item.type === 'video' ? '🎥 Video' : '📷 Bild'}
+                </div>
               </div>
             ) : (
               <img
