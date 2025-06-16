@@ -124,11 +124,11 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
 
     initialize();
 
-    // Set up presence heartbeat (less frequent to avoid spam)
+    // Set up presence heartbeat (every 30 seconds for better responsiveness)
     const presenceInterval = setInterval(() => {
       console.log(`💓 Heartbeat for ${currentUser}`);
       updatePresence();
-    }, 45000); // Every 45 seconds (less frequent)
+    }, 30000); // Every 30 seconds
 
     // 🔧 FIX: Use simpler query without complex index requirements
     console.log(`👥 Subscribing to live users (simplified query)...`);
@@ -438,7 +438,7 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
                 </a>
               </>
             ) : (
-              'Live-Anzeige • Aktualisiert alle 45s'
+              'Live-Anzeige • Aktualisiert alle 30s'
             )}
           </div>
         </div>
