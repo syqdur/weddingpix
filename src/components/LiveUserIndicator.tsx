@@ -7,7 +7,8 @@ import {
   collection,
   query,
   where,
-  orderBy
+  orderBy,
+  limit
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
@@ -32,6 +33,7 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
   const [liveUsers, setLiveUsers] = useState<LiveUser[]>([]);
   const [showTooltip, setShowTooltip] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   // Real Firebase live user tracking
   useEffect(() => {
@@ -90,47 +92,109 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
       updatePresence();
     }, 30000); // Every 30 seconds
 
-    // Subscribe to live users
-    console.log(`👥 Subscribing to live users...`);
-    const q = query(
-      collection(db, 'live_users'),
-      where('isActive', '==', true),
-      orderBy('lastSeen', 'desc')
-    );
+    // 🔧 FIX: Use simpler query without complex index requirements
+    console.log(`👥 Subscribing to live users (simplified query)...`);
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      console.log(`👥 === LIVE USERS UPDATE ===`);
-      console.log(`📊 Raw docs from Firebase: ${snapshot.docs.length}`);
+    // Try the complex query first, fallback to simple query if it fails
+    let unsubscribe: (() => void) | null = null;
+    
+    try {
+      // First try: Complex query with index
+      const complexQuery = query(
+        collection(db, 'live_users'),
+        where('isActive', '==', true),
+        orderBy('lastSeen', 'desc'),
+        limit(50)
+      );
       
-      const users: LiveUser[] = [];
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      
-      snapshot.docs.forEach((doc, index) => {
-        const data = doc.data();
-        const lastSeen = new Date(data.lastSeen);
-        const isRecent = lastSeen > fiveMinutesAgo;
+      unsubscribe = onSnapshot(complexQuery, (snapshot) => {
+        console.log(`👥 === LIVE USERS UPDATE (COMPLEX QUERY) ===`);
+        console.log(`📊 Raw docs from Firebase: ${snapshot.docs.length}`);
         
-        console.log(`  ${index + 1}. ${data.userName} (${data.deviceId}) - Last seen: ${lastSeen.toLocaleTimeString()} - Recent: ${isRecent}`);
+        const users: LiveUser[] = [];
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
         
-        // Only include users who were active in the last 5 minutes
-        if (isRecent) {
-          users.push({
-            id: doc.id,
-            ...data
-          } as LiveUser);
-        }
+        snapshot.docs.forEach((doc, index) => {
+          const data = doc.data();
+          const lastSeen = new Date(data.lastSeen);
+          const isRecent = lastSeen > fiveMinutesAgo;
+          
+          console.log(`  ${index + 1}. ${data.userName} (${data.deviceId}) - Last seen: ${lastSeen.toLocaleTimeString()} - Recent: ${isRecent}`);
+          
+          // Only include users who were active in the last 5 minutes
+          if (isRecent) {
+            users.push({
+              id: doc.id,
+              ...data
+            } as LiveUser);
+          }
+        });
+        
+        console.log(`👥 Active users (last 5 min): ${users.length}`);
+        users.forEach((user, index) => {
+          console.log(`  ${index + 1}. ${user.userName} ${user.userName === currentUser ? '(YOU)' : ''}`);
+        });
+        
+        setLiveUsers(users);
+        setHasError(false);
+      }, (error) => {
+        console.error('❌ Complex query failed, trying simple query:', error);
+        setHasError(true);
+        
+        // Fallback: Simple query without orderBy
+        const simpleQuery = query(
+          collection(db, 'live_users'),
+          where('isActive', '==', true),
+          limit(50)
+        );
+        
+        const fallbackUnsubscribe = onSnapshot(simpleQuery, (snapshot) => {
+          console.log(`👥 === LIVE USERS UPDATE (SIMPLE QUERY) ===`);
+          console.log(`📊 Raw docs from Firebase: ${snapshot.docs.length}`);
+          
+          const users: LiveUser[] = [];
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          
+          snapshot.docs.forEach((doc, index) => {
+            const data = doc.data();
+            const lastSeen = new Date(data.lastSeen);
+            const isRecent = lastSeen > fiveMinutesAgo;
+            
+            console.log(`  ${index + 1}. ${data.userName} (${data.deviceId}) - Last seen: ${lastSeen.toLocaleTimeString()} - Recent: ${isRecent}`);
+            
+            // Only include users who were active in the last 5 minutes
+            if (isRecent) {
+              users.push({
+                id: doc.id,
+                ...data
+              } as LiveUser);
+            }
+          });
+          
+          // Sort in memory by lastSeen (newest first)
+          users.sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime());
+          
+          console.log(`👥 Active users (last 5 min, sorted): ${users.length}`);
+          users.forEach((user, index) => {
+            console.log(`  ${index + 1}. ${user.userName} ${user.userName === currentUser ? '(YOU)' : ''}`);
+          });
+          
+          setLiveUsers(users);
+          setHasError(false);
+        }, (fallbackError) => {
+          console.error('❌ Even simple query failed:', fallbackError);
+          setLiveUsers([]);
+          setHasError(true);
+        });
+        
+        // Replace the unsubscribe function
+        unsubscribe = fallbackUnsubscribe;
       });
       
-      console.log(`👥 Active users (last 5 min): ${users.length}`);
-      users.forEach((user, index) => {
-        console.log(`  ${index + 1}. ${user.userName} ${user.userName === currentUser ? '(YOU)' : ''}`);
-      });
-      
-      setLiveUsers(users);
-    }, (error) => {
-      console.error('❌ Error listening to live users:', error);
-      setLiveUsers([]);
-    });
+    } catch (queryError) {
+      console.error('❌ Failed to create query:', queryError);
+      setHasError(true);
+    }
 
     // Set user offline when leaving
     const handleBeforeUnload = () => {
@@ -157,7 +221,9 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       setOffline();
-      unsubscribe();
+      if (unsubscribe) {
+        unsubscribe();
+      }
     };
   }, [currentUser, isInitialized]);
 
@@ -171,14 +237,17 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
   console.log(`📊 Total online: ${onlineCount}`);
   console.log(`👤 Current user online: ${currentUserOnline}`);
   console.log(`👥 Other users: ${otherUsers.length}`);
+  console.log(`❌ Has error: ${hasError}`);
 
   const getStatusColor = () => {
+    if (hasError) return 'bg-orange-500';
     if (!currentUserOnline) return 'bg-red-500';
     if (onlineCount === 1) return 'bg-yellow-500';
     return 'bg-green-500';
   };
 
   const getStatusText = () => {
+    if (hasError) return 'Verbindungsfehler';
     if (!currentUserOnline) return 'Offline';
     if (onlineCount === 1) return 'Du bist online';
     return `${onlineCount} online`;
@@ -221,7 +290,7 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
         {/* Status Dot */}
         <div className="relative">
           <div className={`w-3 h-3 rounded-full ${getStatusColor()} transition-colors duration-300`}>
-            {currentUserOnline && (
+            {currentUserOnline && !hasError && (
               <div className={`absolute inset-0 rounded-full ${getStatusColor()} animate-ping opacity-75`}></div>
             )}
           </div>
@@ -252,7 +321,17 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
             <span className="font-semibold text-sm">{getStatusText()}</span>
           </div>
           
-          {onlineCount > 0 ? (
+          {hasError ? (
+            <div className={`text-sm transition-colors duration-300 ${
+              isDarkMode ? 'text-orange-300' : 'text-orange-600'
+            }`}>
+              Firebase Index wird erstellt...
+              <br />
+              <span className="text-xs opacity-75">
+                Dies kann einige Minuten dauern
+              </span>
+            </div>
+          ) : onlineCount > 0 ? (
             <div className="space-y-1">
               {liveUsers.map((user, index) => (
                 <div key={user.id} className="flex items-center gap-2 text-sm">
@@ -299,7 +378,22 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
           <div className={`mt-2 pt-2 border-t text-xs transition-colors duration-300 ${
             isDarkMode ? 'border-gray-700 text-gray-400' : 'border-gray-200 text-gray-500'
           }`}>
-            Live-Anzeige • Aktualisiert alle 30s
+            {hasError ? (
+              <>
+                ⚠️ Index wird erstellt
+                <br />
+                <a 
+                  href="https://console.firebase.google.com/v1/r/project/weddingpix-744e5/firestore/indexes"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 underline"
+                >
+                  Firebase Console öffnen
+                </a>
+              </>
+            ) : (
+              'Live-Anzeige • Aktualisiert alle 30s'
+            )}
           </div>
         </div>
       )}
