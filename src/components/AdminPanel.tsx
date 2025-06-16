@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code, Link } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code, Link, Music } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
 import { ShowcaseModal } from './ShowcaseModal';
 import { SpotifyUriModal } from './SpotifyUriModal';
+import { SpotifyAdminModal } from './SpotifyAdminModal';
 
 interface AdminPanelProps {
   isDarkMode: boolean;
@@ -29,6 +30,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [showExternalServices, setShowExternalServices] = useState(false);
   const [showShowcase, setShowShowcase] = useState(false);
   const [showSpotifyUris, setShowSpotifyUris] = useState(false);
+  const [showSpotifyAdmin, setShowSpotifyAdmin] = useState(false);
 
   const correctPIN = "2407";
 
@@ -213,13 +215,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Admin Controls - Alle Buttons in einer horizontalen Reihe */}
       {isAdmin && (
         <div className="fixed bottom-16 left-4 flex gap-2">
+          {/* Spotify Admin Button */}
+          <button
+            onClick={() => setShowSpotifyAdmin(true)}
+            className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
+              isDarkMode
+                ? 'bg-green-600 hover:bg-green-700 text-white hover:scale-110'
+                : 'bg-green-500 hover:bg-green-600 text-white hover:scale-110'
+            }`}
+            title="🎵 Spotify Einstellungen"
+          >
+            <Music className="w-4 h-4" />
+          </button>
+
           {/* Spotify URIs Button */}
           <button
             onClick={() => setShowSpotifyUris(true)}
             className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
               isDarkMode
-                ? 'bg-green-600 hover:bg-green-700 text-white hover:scale-110'
-                : 'bg-green-500 hover:bg-green-600 text-white hover:scale-110'
+                ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-110'
+                : 'bg-blue-500 hover:bg-blue-600 text-white hover:scale-110'
             }`}
             title="🔗 Spotify Redirect URIs anzeigen"
           >
@@ -251,11 +266,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : siteStatus.isUnderConstruction
                     ? isDarkMode
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-110'
-                      : 'bg-blue-500 hover:bg-blue-600 text-white hover:scale-110'
-                    : isDarkMode
                       ? 'bg-orange-600 hover:bg-orange-700 text-white hover:scale-110'
                       : 'bg-orange-500 hover:bg-orange-600 text-white hover:scale-110'
+                    : isDarkMode
+                      ? 'bg-red-600 hover:bg-red-700 text-white hover:scale-110'
+                      : 'bg-red-500 hover:bg-red-600 text-white hover:scale-110'
               }`}
               title={getSiteStatusInfo()}
             >
@@ -299,6 +314,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </button>
         </div>
       )}
+
+      {/* Spotify Admin Modal */}
+      <SpotifyAdminModal 
+        isOpen={showSpotifyAdmin}
+        onClose={() => setShowSpotifyAdmin(false)}
+        isDarkMode={isDarkMode}
+      />
 
       {/* Spotify URIs Modal */}
       <SpotifyUriModal 
@@ -551,6 +573,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <ul className={`text-sm space-y-1 transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-300' : 'text-gray-600'
               }`}>
+                <li>• Spotify-Einstellungen verwalten</li>
                 <li>• Website für alle freischalten/sperren</li>
                 <li>• Medien und Kommentare löschen</li>
                 <li>• Deutsche Fotobuch-Services</li>
