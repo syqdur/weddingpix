@@ -210,7 +210,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         {isAdmin ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
       </button>
 
-      {/* 🔧 FIXED: Admin Controls - Alle Buttons in einer horizontalen Reihe */}
+      {/* Admin Controls - Alle Buttons in einer horizontalen Reihe */}
       {isAdmin && (
         <div className="fixed bottom-16 left-4 flex gap-2">
           {/* Spotify URIs Button */}
@@ -296,18 +296,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             title={getDownloadButtonText()}
           >
             <Download className={`w-4 h-4 ${isDownloading ? 'animate-bounce' : ''}`} />
-          </button>
-
-          {/* Settings Button */}
-          <button
-            className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
-              isDarkMode
-                ? 'bg-gray-600 hover:bg-gray-500 text-white hover:scale-110'
-                : 'bg-gray-400 hover:bg-gray-500 text-white hover:scale-110'
-            }`}
-            title="Weitere Einstellungen"
-          >
-            <Settings className="w-4 h-4" />
           </button>
         </div>
       )}

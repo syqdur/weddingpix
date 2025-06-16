@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw, Heart, Star, Settings, User } from 'lucide-react';
+import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw, Heart, Star, Settings, User, ChevronDown } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { 
   createPlaylistExport, 
@@ -16,7 +16,9 @@ import {
   openWeddingPlaylist,
   getWeddingPlaylistUrl,
   logoutSpotify,
-  initializeSpotifyAuth
+  initializeSpotifyAuth,
+  getUserPlaylists,
+  addToSelectedPlaylist
 } from '../services/spotifyPlaylistService';
 
 interface PlaylistExportModalProps {
@@ -38,9 +40,12 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
   const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
   const [spotifyUser, setSpotifyUser] = useState<any | null>(null);
   const [weddingPlaylist, setWeddingPlaylist] = useState<any | null>(null);
+  const [userPlaylists, setUserPlaylists] = useState<any[]>([]);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>('');
   const [isAddingToPlaylist, setIsAddingToPlaylist] = useState(false);
   const [addToPlaylistResult, setAddToPlaylistResult] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
 
   // Initialize Spotify auth on component mount
   useEffect(() => {
@@ -64,8 +69,11 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
         setSpotifyUser(user);
         console.log(`✅ Spotify connected as: ${user?.display_name}`);
         
-        // Load wedding playlist details
-        await loadWeddingPlaylist();
+        // Load wedding playlist details and user playlists
+        await Promise.all([
+          loadWeddingPlaylist(),
+          loadUserPlaylists()
+        ]);
       } else {
         setIsSpotifyConnected(false);
         setSpotifyUser(null);
@@ -103,6 +111,20 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
     }
   };
 
+  const loadUserPlaylists = async () => {
+    if (!isSpotifyConnected) return;
+    
+    try {
+      console.log('🎵 Loading user playlists...');
+      const playlists = await getUserPlaylists();
+      setUserPlaylists(playlists);
+      console.log(`✅ Loaded ${playlists.length} user playlists`);
+    } catch (error) {
+      console.error('❌ Error loading user playlists:', error);
+      setUserPlaylists([]);
+    }
+  };
+
   const handleSpotifyConnect = () => {
     console.log('🔐 Starting Spotify connection...');
     initiateAdminSpotifySetup();
@@ -114,6 +136,8 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
       setIsSpotifyConnected(false);
       setSpotifyUser(null);
       setWeddingPlaylist(null);
+      setUserPlaylists([]);
+      setSelectedPlaylistId('');
       console.log('🚪 Spotify disconnected');
     }
   };
@@ -146,6 +170,45 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
       
     } catch (error: any) {
       console.error('❌ Error adding to wedding playlist:', error);
+      setAddToPlaylistResult(`❌ Fehler: ${error.message}`);
+    } finally {
+      setIsAddingToPlaylist(false);
+    }
+  };
+
+  const handleAddToSelectedPlaylist = async () => {
+    if (!selectedPlaylistId) {
+      setAddToPlaylistResult('❌ Bitte wähle eine Playlist aus');
+      return;
+    }
+
+    setIsAddingToPlaylist(true);
+    setAddToPlaylistResult(null);
+
+    try {
+      console.log(`🎯 === ADDING TO SELECTED PLAYLIST ===`);
+      console.log(`📊 Playlist ID: ${selectedPlaylistId}`);
+      console.log(`📊 Total requests: ${approvedRequests.length}`);
+      
+      const spotifyTracks = approvedRequests.filter(request => request.spotifyId);
+      console.log(`🎵 Spotify tracks to add: ${spotifyTracks.length}`);
+      
+      if (spotifyTracks.length === 0) {
+        setAddToPlaylistResult(`❌ Keine Spotify-Songs gefunden.`);
+        return;
+      }
+      
+      const selectedPlaylist = userPlaylists.find(p => p.id === selectedPlaylistId);
+      const result = await addToSelectedPlaylist(selectedPlaylistId, spotifyTracks);
+      
+      if (result.success > 0) {
+        setAddToPlaylistResult(`🎯 ${result.success} Songs erfolgreich zu "${selectedPlaylist?.name}" hinzugefügt!`);
+      } else {
+        setAddToPlaylistResult(`❌ Fehler: ${result.errors.join(', ')}`);
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error adding to selected playlist:', error);
       setAddToPlaylistResult(`❌ Fehler: ${error.message}`);
     } finally {
       setIsAddingToPlaylist(false);
@@ -200,12 +263,12 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
               <h3 className={`text-xl font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                🎯 Hochzeits-Playlist Management
+                🎯 Playlist Management
               </h3>
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Alle Gäste können Songs zur gemeinsamen Playlist hinzufügen
+                Songs zu Spotify-Playlists hinzufügen
               </p>
             </div>
           </div>
@@ -325,14 +388,14 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                     {isSpotifyConnected ? (
                       <>
                         <button
-                          onClick={loadWeddingPlaylist}
+                          onClick={loadUserPlaylists}
                           disabled={isLoading}
                           className={`p-2 rounded-lg transition-colors ${
                             isLoading
                               ? 'bg-gray-400 cursor-not-allowed'
                               : isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
                           } text-white`}
-                          title="Playlist neu laden"
+                          title="Playlists neu laden"
                         >
                           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                         </button>
@@ -359,6 +422,146 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* Playlist Selection */}
+                {isSpotifyConnected && userPlaylists.length > 0 && (
+                  <div className={`p-4 rounded-xl transition-colors duration-300 ${
+                    isDarkMode ? 'bg-purple-900/30 border border-purple-700/30' : 'bg-purple-50 border border-purple-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h5 className={`font-semibold transition-colors duration-300 ${
+                          isDarkMode ? 'text-purple-300' : 'text-purple-800'
+                        }`}>
+                          🎵 Deine Spotify Playlists
+                        </h5>
+                        <p className={`text-sm transition-colors duration-300 ${
+                          isDarkMode ? 'text-purple-200' : 'text-purple-700'
+                        }`}>
+                          Wähle eine Playlist aus ({userPlaylists.length} verfügbar)
+                        </p>
+                      </div>
+                      
+                      <button
+                        onClick={() => setShowPlaylistSelector(!showPlaylistSelector)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                          isDarkMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-purple-500 hover:bg-purple-600'
+                        } text-white`}
+                      >
+                        <List className="w-4 h-4" />
+                        Playlist wählen
+                        <ChevronDown className={`w-4 h-4 transition-transform ${showPlaylistSelector ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+
+                    {/* Playlist Dropdown */}
+                    {showPlaylistSelector && (
+                      <div className={`mb-4 p-3 rounded-lg transition-colors duration-300 ${
+                        isDarkMode ? 'bg-gray-800 border border-gray-600' : 'bg-white border border-gray-200'
+                      }`}>
+                        <div className="max-h-40 overflow-y-auto space-y-2">
+                          {userPlaylists.map((playlist) => (
+                            <button
+                              key={playlist.id}
+                              onClick={() => {
+                                setSelectedPlaylistId(playlist.id);
+                                setShowPlaylistSelector(false);
+                              }}
+                              className={`w-full text-left p-3 rounded-lg transition-colors ${
+                                selectedPlaylistId === playlist.id
+                                  ? isDarkMode ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-800'
+                                  : isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                {playlist.images?.[0] ? (
+                                  <img 
+                                    src={playlist.images[0].url} 
+                                    alt={playlist.name}
+                                    className="w-10 h-10 rounded object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded bg-gray-300 flex items-center justify-center">
+                                    <Music className="w-5 h-5 text-gray-600" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">{playlist.name}</div>
+                                  <div className="text-sm opacity-75">{playlist.tracks.total} Songs</div>
+                                </div>
+                                {selectedPlaylistId === playlist.id && (
+                                  <Check className="w-5 h-5 text-green-500" />
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Selected Playlist Info */}
+                    {selectedPlaylistId && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {(() => {
+                            const selectedPlaylist = userPlaylists.find(p => p.id === selectedPlaylistId);
+                            return selectedPlaylist ? (
+                              <>
+                                {selectedPlaylist.images?.[0] ? (
+                                  <img 
+                                    src={selectedPlaylist.images[0].url} 
+                                    alt={selectedPlaylist.name}
+                                    className="w-8 h-8 rounded object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-8 h-8 rounded bg-gray-300 flex items-center justify-center">
+                                    <Music className="w-4 h-4 text-gray-600" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className={`font-medium transition-colors duration-300 ${
+                                    isDarkMode ? 'text-purple-200' : 'text-purple-800'
+                                  }`}>
+                                    {selectedPlaylist.name}
+                                  </div>
+                                  <div className={`text-sm transition-colors duration-300 ${
+                                    isDarkMode ? 'text-purple-300' : 'text-purple-600'
+                                  }`}>
+                                    {selectedPlaylist.tracks.total} Songs
+                                  </div>
+                                </div>
+                              </>
+                            ) : null;
+                          })()}
+                        </div>
+                        
+                        <button
+                          onClick={handleAddToSelectedPlaylist}
+                          disabled={isAddingToPlaylist || spotifyTracks.length === 0}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                            isAddingToPlaylist || spotifyTracks.length === 0
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : isDarkMode
+                                ? 'bg-purple-600 hover:bg-purple-700'
+                                : 'bg-purple-500 hover:bg-purple-600'
+                          } text-white font-semibold`}
+                        >
+                          {isAddingToPlaylist ? (
+                            <>
+                              <Loader className="w-4 h-4 animate-spin" />
+                              Hinzufügen...
+                            </>
+                          ) : (
+                            <>
+                              <Plus className="w-4 h-4" />
+                              {spotifyTracks.length} Songs hinzufügen
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Wedding Playlist Section */}
                 {isSpotifyConnected && (

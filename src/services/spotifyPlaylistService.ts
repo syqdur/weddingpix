@@ -283,6 +283,45 @@ const getValidAccessToken = async (): Promise<string | null> => {
   return token;
 };
 
+// 🎵 GET USER PLAYLISTS
+export const getUserPlaylists = async () => {
+  const token = await getValidAccessToken();
+  
+  if (!token) {
+    throw new Error('Nicht bei Spotify angemeldet');
+  }
+  
+  try {
+    console.log('🎵 Getting user playlists...');
+    
+    const response = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get playlists: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log(`✅ Loaded ${data.items.length} user playlists`);
+    
+    // Filter out playlists the user can't modify
+    const modifiablePlaylists = data.items.filter((playlist: any) => 
+      playlist.owner.id === getCurrentSpotifyUser()?.id || playlist.collaborative
+    );
+    
+    console.log(`✅ ${modifiablePlaylists.length} modifiable playlists found`);
+    
+    return modifiablePlaylists;
+    
+  } catch (error) {
+    console.error('❌ Error getting user playlists:', error);
+    throw error;
+  }
+};
+
 // 🎵 GET WEDDING PLAYLIST DETAILS
 export const getWeddingPlaylistDetails = async () => {
   const token = await getValidAccessToken();
@@ -317,13 +356,19 @@ export const getWeddingPlaylistDetails = async () => {
 
 // 🎯 ADD SONGS TO WEDDING PLAYLIST
 export const addToWeddingPlaylist = async (musicRequests: MusicRequest[]) => {
+  return addToSelectedPlaylist(WEDDING_PLAYLIST_ID, musicRequests);
+};
+
+// 🎯 ADD SONGS TO SELECTED PLAYLIST
+export const addToSelectedPlaylist = async (playlistId: string, musicRequests: MusicRequest[]) => {
   const token = await getValidAccessToken();
   
   if (!token) {
     throw new Error('Nicht bei Spotify angemeldet');
   }
   
-  console.log(`🎯 === ADDING TO WEDDING PLAYLIST ===`);
+  console.log(`🎯 === ADDING TO PLAYLIST ===`);
+  console.log(`📊 Playlist ID: ${playlistId}`);
   console.log(`📊 Total requests: ${musicRequests.length}`);
   
   const results = {
@@ -342,7 +387,17 @@ export const addToWeddingPlaylist = async (musicRequests: MusicRequest[]) => {
   
   try {
     // Get current playlist to check for duplicates
-    const playlist = await getWeddingPlaylistDetails();
+    const playlistResponse = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    if (!playlistResponse.ok) {
+      throw new Error(`Failed to get playlist: ${playlistResponse.status}`);
+    }
+    
+    const playlist = await playlistResponse.json();
     const existingTrackIds = new Set();
     
     // Get all tracks from playlist (handle pagination)
@@ -351,7 +406,7 @@ export const addToWeddingPlaylist = async (musicRequests: MusicRequest[]) => {
     
     while (offset < playlist.tracks.total) {
       const tracksResponse = await fetch(
-        `https://api.spotify.com/v1/playlists/${WEDDING_PLAYLIST_ID}/tracks?offset=${offset}&limit=${limit}`,
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?offset=${offset}&limit=${limit}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -393,7 +448,7 @@ export const addToWeddingPlaylist = async (musicRequests: MusicRequest[]) => {
       
       console.log(`📤 Adding batch ${Math.floor(i / batchSize) + 1}: ${batch.length} tracks`);
       
-      const addResponse = await fetch(`https://api.spotify.com/v1/playlists/${WEDDING_PLAYLIST_ID}/tracks`, {
+      const addResponse = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -430,7 +485,7 @@ export const addToWeddingPlaylist = async (musicRequests: MusicRequest[]) => {
     return results;
     
   } catch (error) {
-    console.error('❌ Error adding to wedding playlist:', error);
+    console.error('❌ Error adding to playlist:', error);
     results.errors.push(error.message || 'Unbekannter Fehler');
     return results;
   }
