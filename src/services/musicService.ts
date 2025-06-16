@@ -88,10 +88,11 @@ const tryAddToSpotifyPlaylist = async (musicRequest: MusicRequest): Promise<void
       return;
     }
     
-    // 🔧 FIX: Check if Spotify is already authenticated (don't try to initialize)
-    const isAuthenticated = isSpotifyAuthenticated();
+    // 🔧 FIX: Try to initialize Spotify auth first (this will use stored tokens if available)
+    console.log(`🔄 Attempting to initialize Spotify auth...`);
+    const authResult = await initializeSpotifyAuth();
     
-    if (!isAuthenticated) {
+    if (!authResult) {
       console.log(`ℹ️ No Spotify authentication available - song added to requests only`);
       console.log(`💡 An admin needs to set up Spotify integration first`);
       return;
@@ -345,10 +346,10 @@ export const deleteMusicRequest = async (requestId: string): Promise<void> => {
       try {
         console.log(`🎯 Attempting to remove from Spotify playlist...`);
         
-        // 🔧 FIX: Check if Spotify is authenticated (don't try to initialize)
-        const isAuthenticated = isSpotifyAuthenticated();
+        // 🔧 FIX: Try to initialize Spotify auth first
+        const authResult = await initializeSpotifyAuth();
         
-        if (isAuthenticated) {
+        if (authResult) {
           const playlistId = getActivePlaylistId();
           const removeResult = await removeFromSelectedPlaylist(playlistId, [requestData.spotifyId]);
           
@@ -385,4 +386,3 @@ console.log('🔄 Fallback to enhanced mock database available');
 console.log('🎯 Songs werden automatisch zur Playlist hinzugefügt - für ALLE User!');
 console.log('🗑️ Songs werden automatisch aus der Spotify-Playlist entfernt beim Löschen!');
 console.log('🔑 Verwendet gespeicherte Admin-Tokens für Spotify-Integration');
-console.log('🔧 FIXED: Spotify-Integration funktioniert jetzt für alle User (wenn Admin eingerichtet hat)');
