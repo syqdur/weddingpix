@@ -191,9 +191,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <>
+      {/* Main Admin Toggle Button - Smaller */}
       <button
         onClick={handleAdminToggle}
-        className={`fixed bottom-4 left-4 p-3 rounded-full shadow-lg transition-colors duration-300 ${
+        className={`fixed bottom-4 left-4 p-2 rounded-full shadow-lg transition-colors duration-300 ${
           isDarkMode
             ? isAdmin
               ? 'bg-green-600 hover:bg-green-700 text-white'
@@ -204,23 +205,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         }`}
         title={isAdmin ? "Admin-Modus verlassen" : "Admin-Modus"}
       >
-        {isAdmin ? <Unlock className="w-6 h-6" /> : <Lock className="w-6 h-6" />}
+        {isAdmin ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
       </button>
 
-      {/* Admin Controls */}
+      {/* Admin Controls - Smaller buttons in vertical stack */}
       {isAdmin && (
-        <div className="fixed bottom-20 left-4 space-y-2">
+        <div className="fixed bottom-16 left-4 space-y-2">
           {/* Showcase Button */}
           <button
             onClick={() => setShowShowcase(true)}
-            className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
+            className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
               isDarkMode
                 ? 'bg-yellow-600 hover:bg-yellow-700 text-white hover:scale-110'
                 : 'bg-yellow-500 hover:bg-yellow-600 text-white hover:scale-110'
             }`}
             title="🎯 WeddingPix Showcase by Mauro"
           >
-            <Code className="w-6 h-6" />
+            <Code className="w-4 h-4" />
           </button>
 
           {/* Site Status Toggle */}
@@ -228,7 +229,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <button
               onClick={handleToggleSiteStatus}
               disabled={isUpdatingSiteStatus}
-              className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
+              className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
                 isUpdatingSiteStatus
                   ? isDarkMode
                     ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
@@ -244,9 +245,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               title={getSiteStatusInfo()}
             >
               {isUpdatingSiteStatus ? (
-                <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
-                <Globe className="w-6 h-6" />
+                <Globe className="w-4 h-4" />
               )}
             </button>
           )}
@@ -254,21 +255,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           {/* External Services Button */}
           <button
             onClick={() => setShowExternalServices(true)}
-            className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
+            className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
               isDarkMode
                 ? 'bg-purple-600 hover:bg-purple-700 text-white hover:scale-110'
                 : 'bg-purple-500 hover:bg-purple-600 text-white hover:scale-110'
             }`}
             title="Deutsche Fotobuch-Services"
           >
-            <Heart className="w-6 h-6" />
+            <Heart className="w-4 h-4" />
           </button>
           
           {/* ZIP Download Button */}
           <button
             onClick={handleDownloadAll}
             disabled={isDownloading || mediaItems.length === 0}
-            className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
+            className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
               isDownloading || mediaItems.length === 0
                 ? isDarkMode
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
@@ -279,19 +280,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             }`}
             title={getDownloadButtonText()}
           >
-            <Download className={`w-6 h-6 ${isDownloading ? 'animate-bounce' : ''}`} />
+            <Download className={`w-4 h-4 ${isDownloading ? 'animate-bounce' : ''}`} />
           </button>
 
           {/* Settings Button */}
           <button
-            className={`p-3 rounded-full shadow-lg transition-all duration-300 ${
+            className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
               isDarkMode
                 ? 'bg-gray-600 hover:bg-gray-500 text-white hover:scale-110'
                 : 'bg-gray-400 hover:bg-gray-500 text-white hover:scale-110'
             }`}
             title="Weitere Einstellungen"
           >
-            <Settings className="w-6 h-6" />
+            <Settings className="w-4 h-4" />
           </button>
         </div>
       )}
