@@ -4,6 +4,7 @@ import { MusicRequest } from '../types';
 import { loadMusicRequests } from '../services/musicService';
 import { MusicRequestModal } from './MusicRequestModal';
 import { MusicRequestsList } from './MusicRequestsList';
+import { PlaylistExportModal } from './PlaylistExportModal';
 
 interface MusicRequestsSectionProps {
   userName: string;
@@ -20,6 +21,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
 }) => {
   const [requests, setRequests] = useState<MusicRequest[]>([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'played'>('all');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -112,7 +114,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             </div>
           </div>
 
-          {/* 🔧 FIXED: Nur noch der "Wunsch hinzufügen" Button - Playlist Button entfernt */}
+          {/* 🔧 FIXED: Buttons nebeneinander mit besserer Anordnung */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowRequestModal(true)}
@@ -128,6 +130,26 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             </button>
           </div>
         </div>
+
+        {/* 🎯 FIXED: Playlist Button unter dem Header, nur für DJ/Admin sichtbar */}
+        {isDJ && approvedRequests.length > 0 && (
+          <div className="mb-4">
+            <button
+              onClick={() => setShowPlaylistModal(true)}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed transition-all duration-300 hover:scale-[1.02] ${
+                isDarkMode
+                  ? 'border-purple-600 bg-purple-900/20 hover:bg-purple-900/30 text-purple-300'
+                  : 'border-purple-500 bg-purple-50 hover:bg-purple-100 text-purple-700'
+              }`}
+              title="Genehmigte Songs zu Spotify Playlist hinzufügen"
+            >
+              <List className="w-5 h-5" />
+              <span className="font-medium">
+                🎯 {approvedRequests.length} Songs zur Spotify Playlist hinzufügen
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
@@ -259,6 +281,14 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
         onClose={() => setShowRequestModal(false)}
         userName={userName}
         deviceId={deviceId}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Playlist Export Modal */}
+      <PlaylistExportModal
+        isOpen={showPlaylistModal}
+        onClose={() => setShowPlaylistModal(false)}
+        approvedRequests={approvedRequests}
         isDarkMode={isDarkMode}
       />
     </div>
