@@ -44,7 +44,6 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
   const [weddingPlaylist, setWeddingPlaylist] = useState<any | null>(null);
   const [userPlaylists, setUserPlaylists] = useState<any[]>([]);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>('');
-  const [isAddingToPlaylist, setIsAddingToPlaylist] = useState(false);
   const [addToPlaylistResult, setAddToPlaylistResult] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
@@ -176,45 +175,6 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
       setAddToPlaylistResult(`🔒 "${playlist.name}" wurde als Hochzeits-Playlist festgelegt!`);
       
       console.log(`🔒 Playlist permanently selected: ${playlist.name}`);
-    }
-  };
-
-  const handleAddToSelectedPlaylist = async () => {
-    if (!selectedPlaylistId) {
-      setAddToPlaylistResult('❌ Bitte wähle eine Playlist aus');
-      return;
-    }
-
-    setIsAddingToPlaylist(true);
-    setAddToPlaylistResult(null);
-
-    try {
-      console.log(`🎯 === ADDING TO SELECTED PLAYLIST ===`);
-      console.log(`📊 Playlist ID: ${selectedPlaylistId}`);
-      console.log(`📊 Total requests: ${approvedRequests.length}`);
-      
-      const spotifyTracks = approvedRequests.filter(request => request.spotifyId);
-      console.log(`🎵 Spotify tracks to add: ${spotifyTracks.length}`);
-      
-      if (spotifyTracks.length === 0) {
-        setAddToPlaylistResult(`❌ Keine Spotify-Songs gefunden.`);
-        return;
-      }
-      
-      const selectedPlaylist = persistentPlaylist || userPlaylists.find(p => p.id === selectedPlaylistId);
-      const result = await addToSelectedPlaylist(selectedPlaylistId, spotifyTracks);
-      
-      if (result.success > 0) {
-        setAddToPlaylistResult(`🎯 ${result.success} Songs erfolgreich zu "${selectedPlaylist?.name}" hinzugefügt!`);
-      } else {
-        setAddToPlaylistResult(`❌ Fehler: ${result.errors.join(', ')}`);
-      }
-      
-    } catch (error: any) {
-      console.error('❌ Error adding to selected playlist:', error);
-      setAddToPlaylistResult(`❌ Fehler: ${error.message}`);
-    } finally {
-      setIsAddingToPlaylist(false);
     }
   };
 
@@ -473,30 +433,6 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                               </div>
                             </div>
                           </div>
-                          
-                          <button
-                            onClick={handleAddToSelectedPlaylist}
-                            disabled={isAddingToPlaylist || spotifyTracks.length === 0}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                              isAddingToPlaylist || spotifyTracks.length === 0
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : isDarkMode
-                                  ? 'bg-green-600 hover:bg-green-700'
-                                  : 'bg-green-500 hover:bg-green-600'
-                            } text-white font-semibold`}
-                          >
-                            {isAddingToPlaylist ? (
-                              <>
-                                <Loader className="w-4 h-4 animate-spin" />
-                                Hinzufügen...
-                              </>
-                            ) : (
-                              <>
-                                <Plus className="w-4 h-4" />
-                                {spotifyTracks.length} Songs hinzufügen
-                              </>
-                            )}
-                          </button>
                         </div>
                       </div>
                     ) : userPlaylists.length > 0 ? (
