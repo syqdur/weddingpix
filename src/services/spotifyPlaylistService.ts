@@ -76,18 +76,36 @@ const getSharedAccessToken = (): string | null => {
 
 // === ADMIN SETUP FUNCTIONS ===
 
-// 🔧 FIXED: Generiere korrekte Spotify Authorization URL mit richtiger Redirect URI
+// 🔧 FIXED: Automatische Redirect URI Erkennung basierend auf aktueller URL
 export const generateAdminSpotifyAuthUrl = (): string => {
   const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
   
-  // 🎯 FIX: Use the exact redirect URI that's configured in your Spotify app
-  // This must match EXACTLY what you set in the Spotify Developer Dashboard
-  const redirectUri = `${window.location.origin}/`;
+  // 🎯 FIX: Automatische Erkennung der korrekten Redirect URI
+  const currentOrigin = window.location.origin;
+  const currentPath = window.location.pathname;
+  
+  // Bestimme die korrekte Redirect URI basierend auf der aktuellen URL
+  let redirectUri: string;
+  
+  if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
+    // Lokale Entwicklung
+    redirectUri = 'http://localhost:5173/';
+  } else if (currentOrigin.includes('netlify.app')) {
+    // Netlify Deployment
+    redirectUri = `${currentOrigin}/`;
+  } else if (currentOrigin.includes('kristinundmauro.de')) {
+    // Custom Domain
+    redirectUri = 'https://kristinundmauro.de/';
+  } else {
+    // Fallback: Verwende aktuelle Origin
+    redirectUri = `${currentOrigin}/`;
+  }
   
   console.log(`🔗 === GENERATING SPOTIFY AUTH URL ===`);
   console.log(`🔑 Client ID: ${clientId}`);
-  console.log(`🔄 Redirect URI: ${redirectUri}`);
-  console.log(`🌐 Current Origin: ${window.location.origin}`);
+  console.log(`🌐 Current Origin: ${currentOrigin}`);
+  console.log(`📍 Current Path: ${currentPath}`);
+  console.log(`🔄 Selected Redirect URI: ${redirectUri}`);
   
   const params = new URLSearchParams({
     client_id: clientId,
@@ -126,7 +144,14 @@ export const handleAdminSpotifyCallback = (): boolean => {
   
   if (error) {
     console.error(`❌ Spotify OAuth error: ${error}`);
-    alert(`❌ Spotify Anmeldung fehlgeschlagen: ${error}\n\nBitte versuche es erneut.`);
+    
+    if (error === 'invalid_client') {
+      alert(`❌ Spotify App Konfiguration fehlerhaft!\n\n🔧 Lösung:\n1. Prüfe deine Client ID in der .env Datei\n2. Stelle sicher, dass die Redirect URIs korrekt sind\n3. Nutze den "🔗 Spotify URIs" Button im Admin Panel`);
+    } else if (error === 'redirect_uri_mismatch') {
+      alert(`❌ Redirect URI stimmt nicht überein!\n\n🔧 Lösung:\n1. Öffne das Admin Panel\n2. Klicke auf "🔗 Spotify URIs"\n3. Kopiere ALLE URIs in deine Spotify App\n4. Vergiss nicht auf "Save" zu klicken!`);
+    } else {
+      alert(`❌ Spotify Anmeldung fehlgeschlagen: ${error}\n\n💡 Nutze den "🔗 Spotify URIs" Button im Admin Panel für die korrekten Einstellungen.`);
+    }
     return false;
   }
   
@@ -146,7 +171,7 @@ export const handleAdminSpotifyCallback = (): boolean => {
   return false;
 };
 
-// 🔧 FIXED: Verbesserte Admin Spotify Setup Funktion
+// 🔧 FIXED: Verbesserte Admin Spotify Setup Funktion mit URI-Hilfe
 export const initiateAdminSpotifySetup = (): void => {
   console.log(`🔐 === STARTING ADMIN SPOTIFY SETUP ===`);
   
@@ -158,23 +183,28 @@ export const initiateAdminSpotifySetup = (): void => {
 
   // 🎯 WICHTIGE ANWEISUNG für Spotify App Setup
   const currentOrigin = window.location.origin;
-  const redirectUri = `${currentOrigin}/`;
   
-  const setupInstructions = `🔧 === SPOTIFY APP SETUP ERFORDERLICH ===
+  const setupInstructions = `🔧 === SPOTIFY REDIRECT URI PROBLEM ===
 
-Bevor du fortfährst, stelle sicher, dass deine Spotify App korrekt konfiguriert ist:
+Das Problem "accounts.spotify.com haben die Verbindung verweigert" bedeutet, dass deine Spotify App nicht korrekt konfiguriert ist.
 
-📋 Spotify Developer Dashboard:
+📋 LÖSUNG:
 1. Gehe zu: https://developer.spotify.com/dashboard
 2. Öffne deine App "WeddingPix Musikwünsche"
 3. Klicke auf "Edit Settings"
-4. Füge diese Redirect URI hinzu:
-   ${redirectUri}
+4. Nutze den "🔗 Spotify URIs" Button im Admin Panel
+5. Kopiere ALLE URIs und füge sie unter "Redirect URIs" hinzu
+6. Klicke "Save"
 
-⚠️ WICHTIG: Die Redirect URI muss EXAKT so eingetragen sein!
+⚠️ WICHTIG: 
+- Die URIs müssen EXAKT so eingetragen sein (mit / am Ende)
+- Du brauchst ALLE URIs für verschiedene Umgebungen
+- Nach dem Speichern dauert es ~5 Minuten bis aktiv
+
+🔗 Aktuelle URL: ${currentOrigin}
 
 ✅ Wenn das erledigt ist, klicke OK um fortzufahren.
-❌ Wenn nicht konfiguriert, bricht der Login ab.`;
+❌ Wenn nicht konfiguriert, wird der Login wieder fehlschlagen.`;
 
   if (!window.confirm(setupInstructions)) {
     console.log('🔄 User canceled setup to configure Spotify app');
