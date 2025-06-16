@@ -16,7 +16,7 @@ import {
   where,
   getDocs,
   updateDoc
-} from 'firestore/firestore';
+} from 'firebase/firestore';
 import { storage, db } from '../config/firebase';
 import { MediaItem, Comment, Like } from '../types';
 
