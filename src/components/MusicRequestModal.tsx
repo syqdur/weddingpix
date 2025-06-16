@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Music, ExternalLink, Plus, CheckCircle, AlertCircle, Sparkles, Zap } from 'lucide-react';
+import { X, Search, Music, ExternalLink, Plus, CheckCircle, AlertCircle, Sparkles, Zap, Info } from 'lucide-react';
 import { SpotifyTrack } from '../types';
 import { searchSpotifyTracks } from '../services/spotifyService';
 import { addMusicRequest, addMusicRequestFromUrl } from '../services/musicService';
@@ -172,7 +172,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                   <div className="text-sm mt-1">
                     ✅ Song wurde zur Hochzeits-Playlist hinzugefügt
                     <br />
-                    🎯 Falls ein Admin Spotify eingerichtet hat, wird der Song automatisch auch dort hinzugefügt
+                    🎯 Automatisch auch zu Spotify synchronisiert (falls eingerichtet)
                   </div>
                 </div>
               </div>
@@ -196,25 +196,45 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
             </div>
           )}
 
-          {/* Info Banner - NEW: Explain automatic integration */}
+          {/* Enhanced Info Banner */}
           <div className={`mb-6 p-4 rounded-xl transition-colors duration-300 ${
             isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
           }`}>
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 mb-3">
               <Zap className={`w-5 h-5 transition-colors duration-300 ${
                 isDarkMode ? 'text-blue-400' : 'text-blue-600'
               }`} />
               <h4 className={`font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-blue-300' : 'text-blue-800'
               }`}>
-                🎯 Automatische Spotify-Integration
+                🎯 Automatische Spotify-Integration für ALLE
               </h4>
             </div>
-            <p className={`text-sm transition-colors duration-300 ${
+            <div className={`text-sm space-y-2 transition-colors duration-300 ${
               isDarkMode ? 'text-blue-200' : 'text-blue-700'
             }`}>
-              Deine Songs werden automatisch zur Hochzeits-Playlist hinzugefügt und - falls ein Admin Spotify eingerichtet hat - auch direkt zur Spotify-Playlist! Du musst nichts weiter tun.
-            </p>
+              <p>
+                <strong>✨ Neu:</strong> Deine Songs werden automatisch zur Hochzeits-Playlist hinzugefügt und - falls ein Admin Spotify eingerichtet hat - auch direkt zur Spotify-Playlist!
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Sofort zur internen Playlist</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Auto-Sync zu Spotify</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Für alle Benutzer verfügbar</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Keine Admin-Rechte nötig</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Search Section */}
@@ -232,7 +252,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="z.B. Perfect Ed Sheeran, Metallica Enter Sandman..."
+                placeholder="z.B. Perfect Ed Sheeran, Metallica Enter Sandman, Hochzeitslieder..."
                 className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-colors duration-300 ${
                   isDarkMode 
                     ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -252,6 +272,13 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 </span>
               </div>
             )}
+
+            {/* Search Tips */}
+            <div className={`mt-2 text-xs transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-500' : 'text-gray-500'
+            }`}>
+              💡 Tipp: Suche nach "Hochzeit", "Party", "Metallica", "Ed Sheeran", "Beatles" oder deinen Lieblingskünstlern
+            </div>
           </div>
 
           {/* Search Results */}
@@ -386,12 +413,13 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
             <ul className={`text-sm space-y-1 transition-colors duration-300 ${
               isDarkMode ? 'text-purple-200' : 'text-purple-700'
             }`}>
-              <li>🔍 <strong>Suche:</strong> Durchsuche Millionen von Spotify-Songs</li>
+              <li>🔍 <strong>Suche:</strong> Durchsuche Millionen von Spotify-Songs oder 50+ Demo-Songs</li>
               <li>🎯 <strong>Sofort hinzugefügt:</strong> Song wird direkt zur Playlist hinzugefügt</li>
-              <li>🎵 <strong>Spotify-Sync:</strong> Automatisch auch zu Spotify (falls eingerichtet)</li>
+              <li>🎵 <strong>Auto-Spotify-Sync:</strong> Automatisch auch zu Spotify (falls Admin eingerichtet hat)</li>
               <li>👍 <strong>Voting:</strong> Andere Gäste können für Songs voten</li>
               <li>🎶 <strong>Beliebte Songs:</strong> Werden häufiger gespielt</li>
               <li>🔗 <strong>Spotify-Links:</strong> Funktionieren auch direkt</li>
+              <li>🌍 <strong>Für alle:</strong> Jeder Gast kann Songs hinzufügen - keine Admin-Rechte nötig!</li>
             </ul>
           </div>
 
