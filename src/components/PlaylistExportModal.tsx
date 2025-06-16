@@ -466,6 +466,16 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                               </div>
                             </div>
                           </div>
+                          
+                          <div className={`mt-3 p-3 rounded-lg transition-colors duration-300 ${
+                            isDarkMode ? 'bg-green-800/30' : 'bg-green-100'
+                          }`}>
+                            <p className={`text-sm transition-colors duration-300 ${
+                              isDarkMode ? 'text-green-200' : 'text-green-700'
+                            }`}>
+                              ✅ Alle neuen Songs werden automatisch zu dieser Playlist hinzugefügt - auch von normalen Benutzern!
+                            </p>
+                          </div>
                         </div>
                       ) : userPlaylists.length > 0 ? (
                         /* Playlist Selection */
@@ -558,7 +568,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                 </div>
               )}
 
-              {/* 🔒 NON-ADMIN: Info about admin-only features */}
+              {/* 🔒 NON-ADMIN: Info about automatic integration */}
               {!isAdmin && (
                 <div className={`p-6 rounded-xl mb-6 transition-colors duration-300 ${
                   isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
@@ -570,13 +580,13 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                     <h4 className={`font-semibold transition-colors duration-300 ${
                       isDarkMode ? 'text-blue-300' : 'text-blue-800'
                     }`}>
-                      ℹ️ Spotify-Integration
+                      ℹ️ Automatische Spotify-Integration
                     </h4>
                   </div>
                   <p className={`text-sm transition-colors duration-300 ${
                     isDarkMode ? 'text-blue-200' : 'text-blue-700'
                   }`}>
-                    Die Spotify-Verbindung und Playlist-Verwaltung ist nur für Admins verfügbar. Songs werden automatisch zur Hochzeits-Playlist hinzugefügt, wenn ein Admin die Spotify-Integration eingerichtet hat.
+                    Wenn ein Admin die Spotify-Integration eingerichtet hat, werden deine Songs automatisch zur Hochzeits-Playlist hinzugefügt. Du musst nichts weiter tun - einfach Songs hinzufügen und sie erscheinen sowohl hier als auch in Spotify!
                   </p>
                 </div>
               )}

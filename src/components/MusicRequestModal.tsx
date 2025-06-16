@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Music, ExternalLink, Plus } from 'lucide-react';
+import { X, Search, Music, ExternalLink, Plus, CheckCircle, AlertCircle } from 'lucide-react';
 import { SpotifyTrack } from '../types';
 import { searchSpotifyTracks } from '../services/spotifyService';
 import { addMusicRequest, addMusicRequestFromUrl } from '../services/musicService';
@@ -62,7 +62,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
 
     try {
       await addMusicRequest(track, userName, deviceId, message.trim() || undefined);
-      setSuccess(`"${track.name}" wurde zur Playlist hinzugefügt!`);
+      setSuccess(`🎉 "${track.name}" wurde zur Playlist hinzugefügt!`);
       
       // Reset form
       setSearchQuery('');
@@ -75,7 +75,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       // Close modal after short delay
       setTimeout(() => {
         onClose();
-      }, 1500);
+      }, 2000);
       
     } catch (error: any) {
       setError(error.message || 'Fehler beim Hinzufügen des Songs');
@@ -94,7 +94,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
 
     try {
       await addMusicRequestFromUrl(urlInput.trim(), userName, deviceId, message.trim() || undefined);
-      setSuccess('Song wurde zur Playlist hinzugefügt!');
+      setSuccess('🎉 Song wurde zur Playlist hinzugefügt!');
       
       // Reset form
       setSearchQuery('');
@@ -107,7 +107,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       // Close modal after short delay
       setTimeout(() => {
         onClose();
-      }, 1500);
+      }, 2000);
       
     } catch (error: any) {
       setError(error.message || 'Fehler beim Hinzufügen des Songs');
@@ -137,7 +137,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <h3 className={`text-xl font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                Musikwunsch hinzufügen
+                🎵 Musikwunsch hinzufügen
               </h3>
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
@@ -160,28 +160,38 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
         <div className="p-6">
           {/* Success Message */}
           {success && (
-            <div className={`mb-4 p-3 rounded-xl border transition-colors duration-300 ${
+            <div className={`mb-4 p-4 rounded-xl border transition-colors duration-300 ${
               isDarkMode 
                 ? 'bg-green-900/20 border-green-700/30 text-green-300' 
                 : 'bg-green-50 border-green-200 text-green-700'
             }`}>
-              <div className="flex items-center gap-2">
-                <Music className="w-4 h-4" />
-                <div className="font-semibold">🎉 {success}</div>
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-5 h-5" />
+                <div>
+                  <div className="font-semibold">{success}</div>
+                  <div className="text-sm mt-1">
+                    ✅ Song wurde zur Hochzeits-Playlist hinzugefügt
+                    <br />
+                    🎯 Falls ein Admin Spotify eingerichtet hat, wird der Song automatisch auch dort hinzugefügt
+                  </div>
+                </div>
               </div>
             </div>
           )}
 
           {/* Error Message */}
           {error && (
-            <div className={`mb-4 p-3 rounded-xl border transition-colors duration-300 ${
+            <div className={`mb-4 p-4 rounded-xl border transition-colors duration-300 ${
               isDarkMode 
                 ? 'bg-red-900/20 border-red-700/30 text-red-300' 
                 : 'bg-red-50 border-red-200 text-red-700'
             }`}>
-              <div className="flex items-center gap-2">
-                <ExternalLink className="w-4 h-4" />
-                <div className="font-semibold">Fehler: {error}</div>
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5" />
+                <div>
+                  <div className="font-semibold">Fehler beim Hinzufügen</div>
+                  <div className="text-sm mt-1">{error}</div>
+                </div>
               </div>
             </div>
           )}
@@ -349,8 +359,9 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
             }`}>
               <li>• 🔍 Suche nach deinem Lieblingssong</li>
               <li>• 🎯 Song wird sofort zur Playlist hinzugefügt</li>
+              <li>• 🎵 Falls ein Admin Spotify eingerichtet hat, wird der Song automatisch auch zur Spotify-Playlist hinzugefügt</li>
               <li>• 👍 Andere Gäste können für Songs voten</li>
-              <li>• 🎵 Beliebte Songs werden häufiger gespielt</li>
+              <li>• 🎶 Beliebte Songs werden häufiger gespielt</li>
             </ul>
           </div>
 

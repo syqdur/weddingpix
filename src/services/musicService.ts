@@ -23,7 +23,8 @@ import {
   addToWeddingPlaylist, 
   isSpotifyAuthenticated,
   removeFromSelectedPlaylist,
-  getActivePlaylistId
+  getActivePlaylistId,
+  initializeSpotifyAuth
 } from './spotifyPlaylistService';
 
 // 🎵 ENHANCED SEARCH - Uses REAL Spotify API when available
@@ -75,7 +76,48 @@ const checkForDuplicate = async (spotifyId: string): Promise<boolean> => {
   }
 };
 
-// 🎯 SIMPLIFIED SYSTEM: Song wird hinzugefügt → automatisch zur Playlist
+// 🎯 AUTOMATIC SPOTIFY INTEGRATION - Works for ALL users
+const tryAddToSpotifyPlaylist = async (musicRequest: MusicRequest): Promise<void> => {
+  try {
+    console.log(`🎯 === ATTEMPTING SPOTIFY PLAYLIST INTEGRATION ===`);
+    console.log(`🎵 Song: "${musicRequest.songTitle}" by ${musicRequest.artist}`);
+    console.log(`🔗 Spotify ID: ${musicRequest.spotifyId || 'none'}`);
+    
+    // Try to initialize Spotify auth (uses stored tokens if available)
+    const authResult = await initializeSpotifyAuth();
+    
+    if (!authResult) {
+      console.log(`ℹ️ No Spotify authentication available - song added to requests only`);
+      return;
+    }
+    
+    console.log(`✅ Spotify authentication available - attempting playlist add...`);
+    
+    if (!musicRequest.spotifyId) {
+      console.log(`⚠️ Song has no Spotify ID - cannot add to playlist`);
+      return;
+    }
+    
+    // Try to add to the wedding playlist
+    const playlistResult = await addToWeddingPlaylist([musicRequest]);
+    
+    if (playlistResult.success > 0) {
+      console.log(`🎉 SUCCESS: Song automatically added to Spotify playlist!`);
+      console.log(`✅ "${musicRequest.songTitle}" is now in the wedding playlist`);
+    } else if (playlistResult.errors.length > 0) {
+      console.warn(`⚠️ Failed to add to Spotify playlist: ${playlistResult.errors.join(', ')}`);
+      // Song is still in the requests database, just not in Spotify
+    } else {
+      console.log(`ℹ️ Song was not added to Spotify playlist (may already exist)`);
+    }
+    
+  } catch (error) {
+    console.error('❌ Error with Spotify playlist integration:', error);
+    // Don't throw - song should still be added to requests even if Spotify fails
+  }
+};
+
+// 🎯 SIMPLIFIED SYSTEM: Song wird hinzugefügt → automatisch zur Playlist (für ALLE User)
 export const addMusicRequest = async (
   track: SpotifyTrack,
   userName: string,
@@ -83,11 +125,11 @@ export const addMusicRequest = async (
   message?: string
 ): Promise<void> => {
   try {
-    console.log(`🎵 === ADDING MUSIC REQUEST ===`);
+    console.log(`🎵 === ADDING MUSIC REQUEST (ALL USERS) ===`);
     console.log(`🎵 Song: "${track.name}" by ${track.artists[0].name}`);
     console.log(`👤 User: ${userName} (${deviceId})`);
     console.log(`💬 Message: ${message || 'none'}`);
-    console.log(`🎯 Status: added (no DJ needed)`);
+    console.log(`🎯 Status: approved (automatic)`);
 
     // Validate track data
     if (!track.name || !track.artists || track.artists.length === 0) {
@@ -125,29 +167,14 @@ export const addMusicRequest = async (
     const docRef = await addDoc(collection(db, 'music_requests'), musicRequest);
     console.log(`✅ Music request added successfully with ID: ${docRef.id}`);
 
-    // 🎯 AUTOMATICALLY ADD TO SPOTIFY PLAYLIST (if available)
-    if (isSpotifyAuthenticated() && track.id) {
-      try {
-        console.log(`🎯 Auto-adding to Spotify playlist...`);
-        
-        const playlistResult = await addToWeddingPlaylist([{
-          ...musicRequest,
-          id: docRef.id
-        }]);
-        
-        if (playlistResult.success > 0) {
-          console.log(`✅ Song automatically added to Spotify playlist!`);
-        } else {
-          console.warn(`⚠️ Failed to add to Spotify playlist: ${playlistResult.errors.join(', ')}`);
-        }
-        
-      } catch (playlistError) {
-        console.error('❌ Error adding to Spotify playlist:', playlistError);
-        // Continue anyway - song is still added to requests
-      }
-    } else {
-      console.log(`ℹ️ Spotify not authenticated - song still added to requests`);
-    }
+    // 🎯 AUTOMATICALLY TRY TO ADD TO SPOTIFY PLAYLIST (for ALL users)
+    const completeRequest: MusicRequest = {
+      ...musicRequest,
+      id: docRef.id
+    };
+    
+    // This will work if an admin has previously set up Spotify auth
+    await tryAddToSpotifyPlaylist(completeRequest);
     
   } catch (error) {
     console.error('❌ Error adding music request:', error);
@@ -155,7 +182,7 @@ export const addMusicRequest = async (
   }
 };
 
-// 🎯 SIMPLIFIED SYSTEM: Add from URL
+// 🎯 SIMPLIFIED SYSTEM: Add from URL (for ALL users)
 export const addMusicRequestFromUrl = async (
   spotifyUrl: string,
   userName: string,
@@ -163,7 +190,7 @@ export const addMusicRequestFromUrl = async (
   message?: string
 ): Promise<void> => {
   try {
-    console.log(`🔗 === ADDING FROM SPOTIFY URL ===`);
+    console.log(`🔗 === ADDING FROM SPOTIFY URL (ALL USERS) ===`);
     console.log(`🔗 URL: ${spotifyUrl}`);
     
     // Validate URL
@@ -181,7 +208,7 @@ export const addMusicRequestFromUrl = async (
 
     console.log(`✅ Found track: "${track.name}" by ${track.artists[0].name}`);
 
-    // Add the request
+    // Add the request (will automatically try Spotify integration)
     await addMusicRequest(track, userName, deviceId, message);
     
   } catch (error) {
@@ -313,19 +340,26 @@ export const deleteMusicRequest = async (requestId: string): Promise<void> => {
     console.log('✅ Music request deleted from Firestore');
     
     // 🎯 AUTOMATICALLY REMOVE FROM SPOTIFY PLAYLIST (if available and has Spotify ID)
-    if (requestData && requestData.spotifyId && isSpotifyAuthenticated()) {
+    if (requestData && requestData.spotifyId) {
       try {
-        console.log(`🎯 Auto-removing from Spotify playlist...`);
+        console.log(`🎯 Attempting to remove from Spotify playlist...`);
         
-        const playlistId = getActivePlaylistId();
-        const removeResult = await removeFromSelectedPlaylist(playlistId, [requestData.spotifyId]);
+        // Try to initialize Spotify auth
+        const authResult = await initializeSpotifyAuth();
         
-        if (removeResult.success > 0) {
-          console.log(`✅ Song automatically removed from Spotify playlist!`);
-        } else if (removeResult.errors.length > 0) {
-          console.warn(`⚠️ Failed to remove from Spotify playlist: ${removeResult.errors.join(', ')}`);
+        if (authResult) {
+          const playlistId = getActivePlaylistId();
+          const removeResult = await removeFromSelectedPlaylist(playlistId, [requestData.spotifyId]);
+          
+          if (removeResult.success > 0) {
+            console.log(`✅ Song automatically removed from Spotify playlist!`);
+          } else if (removeResult.errors.length > 0) {
+            console.warn(`⚠️ Failed to remove from Spotify playlist: ${removeResult.errors.join(', ')}`);
+          } else {
+            console.log(`ℹ️ Song was not found in Spotify playlist (already removed or not added)`);
+          }
         } else {
-          console.log(`ℹ️ Song was not found in Spotify playlist (already removed or not added)`);
+          console.log(`ℹ️ Spotify not authenticated - only removed from requests`);
         }
         
       } catch (playlistError) {
@@ -334,8 +368,6 @@ export const deleteMusicRequest = async (requestId: string): Promise<void> => {
       }
     } else if (requestData && !requestData.spotifyId) {
       console.log(`ℹ️ Song has no Spotify ID - only removed from requests`);
-    } else if (!isSpotifyAuthenticated()) {
-      console.log(`ℹ️ Spotify not authenticated - only removed from requests`);
     }
     
     console.log(`🗑️ === DELETION COMPLETE ===`);
@@ -349,5 +381,6 @@ export const deleteMusicRequest = async (requestId: string): Promise<void> => {
 console.log('🎵 === MUSIC SERVICE INITIALIZED ===');
 console.log('🌍 Ready to search ALL Spotify tracks (when API is configured)');
 console.log('🔄 Fallback to enhanced mock database available');
-console.log('🎯 Songs werden automatisch zur Playlist hinzugefügt - kein DJ-Eingriff nötig!');
+console.log('🎯 Songs werden automatisch zur Playlist hinzugefügt - für ALLE User!');
 console.log('🗑️ Songs werden automatisch aus der Spotify-Playlist entfernt beim Löschen!');
+console.log('🔑 Verwendet gespeicherte Admin-Tokens für Spotify-Integration');
