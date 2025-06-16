@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw, Heart, Star, Settings } from 'lucide-react';
+import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw, Heart, Star, Settings, User } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { 
   createPlaylistExport, 
@@ -8,13 +8,16 @@ import {
   openSpotifyPlaylist,
   copyTrackListToClipboard,
   PlaylistExport,
+  isSpotifyAuthenticated,
+  getCurrentSpotifyUser,
   initiateAdminSpotifySetup,
   addToWeddingPlaylist,
   getWeddingPlaylistDetails,
   openWeddingPlaylist,
-  getWeddingPlaylistUrl
+  getWeddingPlaylistUrl,
+  logoutSpotify,
+  initializeSpotifyAuth
 } from '../services/spotifyPlaylistService';
-import { isSpotifyAvailable } from '../services/spotifyService';
 
 interface PlaylistExportModalProps {
   isOpen: boolean;
@@ -32,44 +35,61 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
   const [playlistExport, setPlaylistExport] = useState<PlaylistExport | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSpotifyConfigured, setIsSpotifyConfigured] = useState(false);
+  const [isSpotifyConnected, setIsSpotifyConnected] = useState(false);
+  const [spotifyUser, setSpotifyUser] = useState<any | null>(null);
   const [weddingPlaylist, setWeddingPlaylist] = useState<any | null>(null);
   const [isAddingToPlaylist, setIsAddingToPlaylist] = useState(false);
   const [addToPlaylistResult, setAddToPlaylistResult] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
+  // Initialize Spotify auth on component mount
   useEffect(() => {
     if (isOpen) {
-      // Check Spotify availability asynchronously
-      const checkSpotifyConfig = async () => {
-        try {
-          const available = await isSpotifyAvailable();
-          setIsSpotifyConfigured(available);
-        } catch (error) {
-          console.error('Error checking Spotify availability:', error);
-          setIsSpotifyConfigured(false);
-        }
-      };
-      
-      checkSpotifyConfig();
-      
-      if (approvedRequests.length > 0) {
-        setIsLoading(true);
-        setTimeout(() => {
-          const exportData = createPlaylistExport(approvedRequests);
-          setPlaylistExport(exportData);
-          setIsLoading(false);
-        }, 500);
-      }
+      initializeSpotifyConnection();
     }
-  }, [isOpen, approvedRequests]);
+  }, [isOpen]);
 
-  useEffect(() => {
-    if (isSpotifyConfigured && isOpen) {
-      loadWeddingPlaylist();
+  const initializeSpotifyConnection = async () => {
+    setIsInitializing(true);
+    
+    try {
+      console.log('🔄 Initializing Spotify connection...');
+      
+      // Initialize auth (handles callback if present)
+      const authResult = await initializeSpotifyAuth();
+      
+      if (authResult) {
+        const user = getCurrentSpotifyUser();
+        setIsSpotifyConnected(true);
+        setSpotifyUser(user);
+        console.log(`✅ Spotify connected as: ${user?.display_name}`);
+        
+        // Load wedding playlist details
+        await loadWeddingPlaylist();
+      } else {
+        setIsSpotifyConnected(false);
+        setSpotifyUser(null);
+        console.log('❌ Spotify not connected');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error initializing Spotify:', error);
+      setIsSpotifyConnected(false);
+      setSpotifyUser(null);
+    } finally {
+      setIsInitializing(false);
     }
-  }, [isSpotifyConfigured, isOpen]);
+    
+    // Create playlist export
+    if (approvedRequests.length > 0) {
+      const exportData = createPlaylistExport(approvedRequests);
+      setPlaylistExport(exportData);
+    }
+  };
 
   const loadWeddingPlaylist = async () => {
+    if (!isSpotifyConnected) return;
+    
     try {
       setIsLoading(true);
       const playlist = await getWeddingPlaylistDetails();
@@ -83,12 +103,21 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
     }
   };
 
-  const handleSpotifySetup = () => {
-    console.log('🔐 Starting Spotify setup for admin...');
+  const handleSpotifyConnect = () => {
+    console.log('🔐 Starting Spotify connection...');
     initiateAdminSpotifySetup();
   };
 
-  // 🎯 FIXED: Automatisches Hinzufügen zur Hochzeits-Playlist
+  const handleSpotifyDisconnect = () => {
+    if (window.confirm('Spotify-Verbindung trennen?')) {
+      logoutSpotify();
+      setIsSpotifyConnected(false);
+      setSpotifyUser(null);
+      setWeddingPlaylist(null);
+      console.log('🚪 Spotify disconnected');
+    }
+  };
+
   const handleAddToWeddingPlaylist = async () => {
     setIsAddingToPlaylist(true);
     setAddToPlaylistResult(null);
@@ -97,7 +126,6 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
       console.log(`🎯 === AUTO-ADDING TO WEDDING PLAYLIST ===`);
       console.log(`📊 Total requests: ${approvedRequests.length}`);
       
-      // 🔧 FIX: Alle Songs hinzufügen, nicht nur approved (da sie bereits approved sind)
       const spotifyTracks = approvedRequests.filter(request => request.spotifyId);
       console.log(`🎵 Spotify tracks to add: ${spotifyTracks.length}`);
       
@@ -192,13 +220,13 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-          {isLoading ? (
+          {isInitializing ? (
             <div className="text-center py-12">
               <div className="w-8 h-8 mx-auto border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
               <p className={`text-lg font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                {isSpotifyConfigured ? 'Lade Playlist...' : 'Erstelle Export...'}
+                Spotify-Verbindung prüfen...
               </p>
             </div>
           ) : (
@@ -249,62 +277,91 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                 </div>
               </div>
 
-              {/* Spotify Setup Section */}
+              {/* Spotify Connection Section */}
               <div className={`p-6 rounded-xl mb-6 transition-colors duration-300 ${
-                isDarkMode 
-                  ? 'bg-green-900/20 border border-green-700/30' 
-                  : 'bg-green-50 border border-green-200'
+                isSpotifyConnected
+                  ? isDarkMode 
+                    ? 'bg-green-900/20 border border-green-700/30' 
+                    : 'bg-green-50 border border-green-200'
+                  : isDarkMode 
+                    ? 'bg-gray-700/50 border border-gray-600' 
+                    : 'bg-gray-50 border border-gray-200'
               }`}>
                 <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
-                      isDarkMode ? 'text-green-300' : 'text-green-800'
+                  <div className="flex items-center gap-3">
+                    <div className={`p-3 rounded-full transition-colors duration-300 ${
+                      isSpotifyConnected
+                        ? isDarkMode ? 'bg-green-600' : 'bg-green-500'
+                        : isDarkMode ? 'bg-gray-600' : 'bg-gray-400'
                     }`}>
-                      🎯 Gemeinsame Hochzeits-Playlist
-                    </h4>
-                    <p className={`text-sm transition-colors duration-300 ${
-                      isDarkMode ? 'text-green-200' : 'text-green-700'
-                    }`}>
-                      {isSpotifyConfigured 
-                        ? 'Spotify ist konfiguriert! Alle Gäste können Songs zur Playlist hinzufügen.'
-                        : 'Einmalige Spotify-Konfiguration erforderlich (nur für Admin/Mauro).'
-                      }
-                    </p>
+                      <Music className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h4 className={`font-semibold mb-1 transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-gray-900'
+                      }`}>
+                        🎯 Spotify-Verbindung
+                      </h4>
+                      {isSpotifyConnected && spotifyUser ? (
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-green-500" />
+                          <span className={`text-sm font-medium transition-colors duration-300 ${
+                            isDarkMode ? 'text-green-300' : 'text-green-700'
+                          }`}>
+                            Verbunden als: {spotifyUser.display_name}
+                          </span>
+                        </div>
+                      ) : (
+                        <p className={`text-sm transition-colors duration-300 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        }`}>
+                          Nicht verbunden - Einmalige Anmeldung erforderlich
+                        </p>
+                      )}
+                    </div>
                   </div>
                   
-                  {!isSpotifyConfigured ? (
-                    <button
-                      onClick={handleSpotifySetup}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-                        isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
-                      } text-white font-semibold`}
-                    >
-                      <LogIn className="w-5 h-5" />
-                      Spotify Setup (Admin)
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    {isSpotifyConnected ? (
+                      <>
+                        <button
+                          onClick={loadWeddingPlaylist}
+                          disabled={isLoading}
+                          className={`p-2 rounded-lg transition-colors ${
+                            isLoading
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
+                          } text-white`}
+                          title="Playlist neu laden"
+                        >
+                          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                        <button
+                          onClick={handleSpotifyDisconnect}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                            isDarkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'
+                          } text-white text-sm`}
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Trennen
+                        </button>
+                      </>
+                    ) : (
                       <button
-                        onClick={loadWeddingPlaylist}
-                        className={`p-2 rounded-lg transition-colors ${
+                        onClick={handleSpotifyConnect}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                           isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
-                        } text-white`}
-                        title="Playlist neu laden"
+                        } text-white font-semibold`}
                       >
-                        <RefreshCw className="w-4 h-4" />
+                        <LogIn className="w-5 h-5" />
+                        Mit Spotify verbinden
                       </button>
-                      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors duration-300 ${
-                        isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
-                      }`}>
-                        <Check className="w-4 h-4" />
-                        <span className="text-sm font-semibold">Konfiguriert</span>
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {/* Wedding Playlist Section */}
-                {isSpotifyConfigured && (
+                {isSpotifyConnected && (
                   <div className={`p-4 rounded-xl transition-colors duration-300 ${
                     isDarkMode ? 'bg-pink-900/30 border border-pink-700/30' : 'bg-pink-50 border border-pink-200'
                   }`}>
@@ -329,7 +386,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                             <p className={`text-sm transition-colors duration-300 ${
                               isDarkMode ? 'text-pink-200' : 'text-pink-700'
                             }`}>
-                              Lade Playlist-Details...
+                              {isLoading ? 'Lade Playlist-Details...' : 'Playlist nicht gefunden'}
                             </p>
                           )}
                         </div>
@@ -382,27 +439,6 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                       : isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800'
                   }`}>
                     {addToPlaylistResult}
-                  </div>
-                )}
-
-                {/* Setup Instructions */}
-                {!isSpotifyConfigured && (
-                  <div className={`mt-4 p-3 rounded-lg transition-colors duration-300 ${
-                    isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
-                  }`}>
-                    <h5 className={`font-semibold mb-2 transition-colors duration-300 ${
-                      isDarkMode ? 'text-blue-300' : 'text-blue-800'
-                    }`}>
-                      🔧 Einmalige Konfiguration (nur für Mauro):
-                    </h5>
-                    <ol className={`text-sm space-y-1 transition-colors duration-300 ${
-                      isDarkMode ? 'text-blue-200' : 'text-blue-700'
-                    }`}>
-                      <li>1. Klicke auf "Spotify Setup (Admin)"</li>
-                      <li>2. Melde dich mit deinem Spotify-Account an</li>
-                      <li>3. Erlaube der App Zugriff auf deine Playlists</li>
-                      <li>4. ✅ Fertig! Alle Gäste können jetzt Songs hinzufügen</li>
-                    </ol>
                   </div>
                 )}
               </div>

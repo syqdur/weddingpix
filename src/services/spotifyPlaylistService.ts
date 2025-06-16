@@ -1,46 +1,142 @@
 import { MusicRequest } from '../types';
 
-// 🔧 FIXED: Automatische Redirect URI Erkennung basierend auf aktueller URL
-export const generateAdminSpotifyAuthUrl = (): string => {
-  const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
-  
-  // 🎯 FIX: Automatische Erkennung der korrekten Redirect URI
+// Spotify API Configuration
+const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
+
+// Token Storage Keys
+const SPOTIFY_ACCESS_TOKEN_KEY = 'spotify_access_token';
+const SPOTIFY_REFRESH_TOKEN_KEY = 'spotify_refresh_token';
+const SPOTIFY_TOKEN_EXPIRY_KEY = 'spotify_token_expiry';
+const SPOTIFY_USER_INFO_KEY = 'spotify_user_info';
+
+// Wedding Playlist ID (Kristin & Maurizio)
+const WEDDING_PLAYLIST_ID = '5IkTeF1ydIrwQ4VZxkCtdO';
+
+// User Info Interface
+interface SpotifyUserInfo {
+  id: string;
+  display_name: string;
+  email?: string;
+  images?: Array<{ url: string }>;
+}
+
+// Playlist Export Interface
+export interface PlaylistExport {
+  name: string;
+  description: string;
+  tracks: Array<{
+    name: string;
+    artist: string;
+    album: string;
+    duration: number;
+    spotifyUrl: string;
+  }>;
+  createdAt: string;
+  totalTracks: number;
+}
+
+// 🔧 FIXED: Automatische Redirect URI Erkennung
+const getRedirectUri = (): string => {
   const currentOrigin = window.location.origin;
-  const currentPath = window.location.pathname;
-  
-  // Bestimme die korrekte Redirect URI basierend auf der aktuellen URL
-  let redirectUri: string;
   
   if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
-    // Lokale Entwicklung - NICHT VERWENDEN (Spotify blockiert localhost)
-    redirectUri = 'https://kristinundmauro.netlify.app/';
-    console.warn('⚠️ Localhost detected - using production URI instead');
+    return 'https://kristinundmauro.netlify.app/';
   } else if (currentOrigin.includes('netlify.app')) {
-    // Netlify Deployment
-    redirectUri = `${currentOrigin}/`;
+    return `${currentOrigin}/`;
   } else if (currentOrigin.includes('kristinundmauro.de')) {
-    // Custom Domain
-    redirectUri = 'https://kristinundmauro.de/';
+    return 'https://kristinundmauro.de/';
   } else {
-    // Fallback: Verwende Netlify URI
-    redirectUri = 'https://kristinundmauro.netlify.app/';
+    return 'https://kristinundmauro.netlify.app/';
+  }
+};
+
+// 🔑 TOKEN MANAGEMENT
+const getStoredAccessToken = (): string | null => {
+  const token = localStorage.getItem(SPOTIFY_ACCESS_TOKEN_KEY);
+  const expiry = localStorage.getItem(SPOTIFY_TOKEN_EXPIRY_KEY);
+  
+  if (!token || !expiry) return null;
+  
+  const expiryTime = parseInt(expiry);
+  const now = Date.now();
+  
+  if (now >= expiryTime) {
+    console.log('🔑 Stored token expired, clearing...');
+    clearStoredTokens();
+    return null;
   }
   
+  console.log('🔑 Using stored valid token');
+  return token;
+};
+
+const storeTokens = (accessToken: string, expiresIn: number, refreshToken?: string) => {
+  const expiryTime = Date.now() + (expiresIn * 1000) - 60000; // 1 minute buffer
+  
+  localStorage.setItem(SPOTIFY_ACCESS_TOKEN_KEY, accessToken);
+  localStorage.setItem(SPOTIFY_TOKEN_EXPIRY_KEY, expiryTime.toString());
+  
+  if (refreshToken) {
+    localStorage.setItem(SPOTIFY_REFRESH_TOKEN_KEY, refreshToken);
+  }
+  
+  console.log(`🔑 Tokens stored, expires in ${Math.floor(expiresIn / 60)} minutes`);
+};
+
+const clearStoredTokens = () => {
+  localStorage.removeItem(SPOTIFY_ACCESS_TOKEN_KEY);
+  localStorage.removeItem(SPOTIFY_REFRESH_TOKEN_KEY);
+  localStorage.removeItem(SPOTIFY_TOKEN_EXPIRY_KEY);
+  localStorage.removeItem(SPOTIFY_USER_INFO_KEY);
+  console.log('🔑 All tokens cleared');
+};
+
+// 👤 USER INFO MANAGEMENT
+const getStoredUserInfo = (): SpotifyUserInfo | null => {
+  const userInfo = localStorage.getItem(SPOTIFY_USER_INFO_KEY);
+  return userInfo ? JSON.parse(userInfo) : null;
+};
+
+const storeUserInfo = (userInfo: SpotifyUserInfo) => {
+  localStorage.setItem(SPOTIFY_USER_INFO_KEY, JSON.stringify(userInfo));
+  console.log(`👤 User info stored: ${userInfo.display_name}`);
+};
+
+// 🔍 CHECK AUTHENTICATION STATUS
+export const isSpotifyAuthenticated = (): boolean => {
+  const token = getStoredAccessToken();
+  const userInfo = getStoredUserInfo();
+  
+  const isAuthenticated = !!(token && userInfo);
+  console.log(`🔍 Spotify auth status: ${isAuthenticated ? 'AUTHENTICATED' : 'NOT_AUTHENTICATED'}`);
+  
+  return isAuthenticated;
+};
+
+// 👤 GET CURRENT USER INFO
+export const getCurrentSpotifyUser = (): SpotifyUserInfo | null => {
+  return getStoredUserInfo();
+};
+
+// 🔗 GENERATE AUTH URL
+export const generateAdminSpotifyAuthUrl = (): string => {
+  const redirectUri = getRedirectUri();
+  
   console.log(`🔗 === GENERATING SPOTIFY AUTH URL ===`);
-  console.log(`🔑 Client ID: ${clientId}`);
-  console.log(`🌐 Current Origin: ${currentOrigin}`);
-  console.log(`📍 Current Path: ${currentPath}`);
-  console.log(`🔄 Selected Redirect URI: ${redirectUri}`);
+  console.log(`🔑 Client ID: ${SPOTIFY_CLIENT_ID}`);
+  console.log(`🔄 Redirect URI: ${redirectUri}`);
   
   const params = new URLSearchParams({
-    client_id: clientId,
-    response_type: 'token',
+    client_id: SPOTIFY_CLIENT_ID,
+    response_type: 'code', // Use authorization code flow for refresh tokens
     redirect_uri: redirectUri,
     scope: [
       'playlist-modify-public',
       'playlist-modify-private',
       'playlist-read-private',
-      'user-read-private'
+      'playlist-read-collaborative',
+      'user-read-private',
+      'user-read-email'
     ].join(' '),
     show_dialog: 'true'
   });
@@ -51,118 +147,350 @@ export const generateAdminSpotifyAuthUrl = (): string => {
   return authUrl;
 };
 
-// Export missing functions that are imported by PlaylistExportModal
-export const createPlaylistExport = async (requests: MusicRequest[], accessToken: string) => {
+// 🚀 INITIATE SPOTIFY SETUP
+export const initiateAdminSpotifySetup = () => {
+  console.log('🚀 Starting Spotify admin setup...');
+  
+  if (isSpotifyAuthenticated()) {
+    const user = getCurrentSpotifyUser();
+    console.log(`✅ Already authenticated as: ${user?.display_name}`);
+    return;
+  }
+  
+  const authUrl = generateAdminSpotifyAuthUrl();
+  window.location.href = authUrl;
+};
+
+// 🔄 HANDLE AUTH CALLBACK
+export const handleSpotifyCallback = async (): Promise<boolean> => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  const error = urlParams.get('error');
+  
+  if (error) {
+    console.error(`❌ Spotify auth error: ${error}`);
+    return false;
+  }
+  
+  if (!code) {
+    console.log('🔍 No auth code found in URL');
+    return false;
+  }
+  
+  console.log('🔄 Processing Spotify auth callback...');
+  
   try {
-    // Create a new playlist
-    const playlistResponse = await fetch('https://api.spotify.com/v1/me/playlists', {
+    // Exchange code for tokens
+    const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: JSON.stringify({
-        name: `Kristin & Mauro - ${new Date().toLocaleDateString()}`,
-        description: 'Playlist created from music requests',
-        public: false,
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: getRedirectUri(),
+        client_id: SPOTIFY_CLIENT_ID,
+        client_secret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || '',
       }),
     });
-
-    if (!playlistResponse.ok) {
-      throw new Error('Failed to create playlist');
-    }
-
-    const playlist = await playlistResponse.json();
     
-    // Search for tracks and add them to the playlist
-    const trackUris: string[] = [];
+    if (!tokenResponse.ok) {
+      throw new Error(`Token exchange failed: ${tokenResponse.status}`);
+    }
     
-    for (const request of requests) {
-      try {
-        const searchResponse = await fetch(
-          `https://api.spotify.com/v1/search?q=${encodeURIComponent(
-            `${request.song} ${request.artist}`
-          )}&type=track&limit=1`,
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-            },
-          }
-        );
-
-        if (searchResponse.ok) {
-          const searchData = await searchResponse.json();
-          if (searchData.tracks.items.length > 0) {
-            trackUris.push(searchData.tracks.items[0].uri);
-          }
-        }
-      } catch (error) {
-        console.error(`Failed to search for ${request.song} by ${request.artist}:`, error);
-      }
+    const tokenData = await tokenResponse.json();
+    
+    // Store tokens
+    storeTokens(tokenData.access_token, tokenData.expires_in, tokenData.refresh_token);
+    
+    // Get user info
+    const userResponse = await fetch('https://api.spotify.com/v1/me', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+      },
+    });
+    
+    if (userResponse.ok) {
+      const userData = await userResponse.json();
+      storeUserInfo(userData);
     }
-
-    // Add tracks to playlist
-    if (trackUris.length > 0) {
-      await fetch(`https://api.spotify.com/v1/playlists/${playlist.id}/tracks`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          uris: trackUris,
-        }),
-      });
-    }
-
-    return {
-      success: true,
-      playlistUrl: playlist.external_urls.spotify,
-      tracksAdded: trackUris.length,
-    };
+    
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    
+    console.log('✅ Spotify authentication successful!');
+    return true;
+    
   } catch (error) {
-    console.error('Error creating playlist:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    console.error('❌ Spotify callback error:', error);
+    clearStoredTokens();
+    return false;
   }
 };
 
-export const downloadPlaylistAsJson = (requests: MusicRequest[]) => {
-  const data = {
-    playlist: {
-      name: `Kristin & Mauro - ${new Date().toLocaleDateString()}`,
-      created: new Date().toISOString(),
-      tracks: requests.map(request => ({
-        song: request.song,
-        artist: request.artist,
-        requester: request.requester,
-        timestamp: request.timestamp,
-      })),
-    },
-  };
+// 🔄 REFRESH TOKEN
+const refreshAccessToken = async (): Promise<string | null> => {
+  const refreshToken = localStorage.getItem(SPOTIFY_REFRESH_TOKEN_KEY);
+  
+  if (!refreshToken) {
+    console.log('🔄 No refresh token available');
+    return null;
+  }
+  
+  try {
+    console.log('🔄 Refreshing access token...');
+    
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+        client_id: SPOTIFY_CLIENT_ID,
+        client_secret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || '',
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Token refresh failed: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    storeTokens(data.access_token, data.expires_in, data.refresh_token || refreshToken);
+    
+    console.log('✅ Token refreshed successfully');
+    return data.access_token;
+    
+  } catch (error) {
+    console.error('❌ Token refresh failed:', error);
+    clearStoredTokens();
+    return null;
+  }
+};
 
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+// 🔑 GET VALID ACCESS TOKEN
+const getValidAccessToken = async (): Promise<string | null> => {
+  let token = getStoredAccessToken();
+  
+  if (!token) {
+    console.log('🔄 No valid token, trying to refresh...');
+    token = await refreshAccessToken();
+  }
+  
+  return token;
+};
+
+// 🎵 GET WEDDING PLAYLIST DETAILS
+export const getWeddingPlaylistDetails = async () => {
+  const token = await getValidAccessToken();
+  
+  if (!token) {
+    throw new Error('Nicht bei Spotify angemeldet');
+  }
+  
+  try {
+    console.log(`🎵 Getting wedding playlist details: ${WEDDING_PLAYLIST_ID}`);
+    
+    const response = await fetch(`https://api.spotify.com/v1/playlists/${WEDDING_PLAYLIST_ID}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get playlist: ${response.status}`);
+    }
+    
+    const playlist = await response.json();
+    console.log(`✅ Wedding playlist loaded: ${playlist.name} (${playlist.tracks.total} tracks)`);
+    
+    return playlist;
+    
+  } catch (error) {
+    console.error('❌ Error getting wedding playlist:', error);
+    throw error;
+  }
+};
+
+// 🎯 ADD SONGS TO WEDDING PLAYLIST
+export const addToWeddingPlaylist = async (musicRequests: MusicRequest[]) => {
+  const token = await getValidAccessToken();
+  
+  if (!token) {
+    throw new Error('Nicht bei Spotify angemeldet');
+  }
+  
+  console.log(`🎯 === ADDING TO WEDDING PLAYLIST ===`);
+  console.log(`📊 Total requests: ${musicRequests.length}`);
+  
+  const results = {
+    success: 0,
+    errors: [] as string[],
+    details: [] as string[]
+  };
+  
+  // Filter requests that have Spotify IDs
+  const spotifyRequests = musicRequests.filter(request => request.spotifyId);
+  console.log(`🎵 Requests with Spotify IDs: ${spotifyRequests.length}`);
+  
+  if (spotifyRequests.length === 0) {
+    throw new Error('Keine Songs mit Spotify-IDs gefunden');
+  }
+  
+  try {
+    // Get current playlist to check for duplicates
+    const playlist = await getWeddingPlaylistDetails();
+    const existingTrackIds = new Set();
+    
+    // Get all tracks from playlist (handle pagination)
+    let offset = 0;
+    const limit = 100;
+    
+    while (offset < playlist.tracks.total) {
+      const tracksResponse = await fetch(
+        `https://api.spotify.com/v1/playlists/${WEDDING_PLAYLIST_ID}/tracks?offset=${offset}&limit=${limit}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+      
+      if (tracksResponse.ok) {
+        const tracksData = await tracksResponse.json();
+        tracksData.items.forEach((item: any) => {
+          if (item.track && item.track.id) {
+            existingTrackIds.add(item.track.id);
+          }
+        });
+        offset += limit;
+      } else {
+        break;
+      }
+    }
+    
+    console.log(`📋 Existing tracks in playlist: ${existingTrackIds.size}`);
+    
+    // Filter out duplicates
+    const newTracks = spotifyRequests.filter(request => !existingTrackIds.has(request.spotifyId));
+    console.log(`🆕 New tracks to add: ${newTracks.length}`);
+    
+    if (newTracks.length === 0) {
+      results.details.push('Alle Songs sind bereits in der Playlist vorhanden');
+      return results;
+    }
+    
+    // Prepare track URIs
+    const trackUris = newTracks.map(request => `spotify:track:${request.spotifyId}`);
+    
+    // Add tracks in batches (Spotify allows max 100 per request)
+    const batchSize = 100;
+    for (let i = 0; i < trackUris.length; i += batchSize) {
+      const batch = trackUris.slice(i, i + batchSize);
+      
+      console.log(`📤 Adding batch ${Math.floor(i / batchSize) + 1}: ${batch.length} tracks`);
+      
+      const addResponse = await fetch(`https://api.spotify.com/v1/playlists/${WEDDING_PLAYLIST_ID}/tracks`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uris: batch,
+        }),
+      });
+      
+      if (addResponse.ok) {
+        const batchCount = batch.length;
+        results.success += batchCount;
+        results.details.push(`✅ ${batchCount} Songs erfolgreich hinzugefügt`);
+        
+        // Log added tracks
+        const batchRequests = newTracks.slice(i, i + batchSize);
+        batchRequests.forEach(request => {
+          console.log(`  ✅ "${request.songTitle}" by ${request.artist}`);
+        });
+        
+      } else {
+        const errorText = await addResponse.text();
+        const errorMsg = `Batch ${Math.floor(i / batchSize) + 1} failed: ${addResponse.status}`;
+        results.errors.push(errorMsg);
+        console.error(`❌ ${errorMsg} - ${errorText}`);
+      }
+    }
+    
+    console.log(`🎯 === PLAYLIST UPDATE COMPLETE ===`);
+    console.log(`✅ Success: ${results.success} tracks added`);
+    console.log(`❌ Errors: ${results.errors.length}`);
+    
+    return results;
+    
+  } catch (error) {
+    console.error('❌ Error adding to wedding playlist:', error);
+    results.errors.push(error.message || 'Unbekannter Fehler');
+    return results;
+  }
+};
+
+// 🔗 OPEN WEDDING PLAYLIST
+export const openWeddingPlaylist = () => {
+  const playlistUrl = `https://open.spotify.com/playlist/${WEDDING_PLAYLIST_ID}`;
+  window.open(playlistUrl, '_blank');
+};
+
+// 🔗 GET WEDDING PLAYLIST URL
+export const getWeddingPlaylistUrl = (): string => {
+  return `https://open.spotify.com/playlist/${WEDDING_PLAYLIST_ID}`;
+};
+
+// 🚪 LOGOUT
+export const logoutSpotify = () => {
+  console.log('🚪 Logging out from Spotify...');
+  clearStoredTokens();
+};
+
+// 📋 CREATE PLAYLIST EXPORT
+export const createPlaylistExport = (requests: MusicRequest[]): PlaylistExport => {
+  return {
+    name: `Kristin & Maurizio Hochzeits-Playlist`,
+    description: `Musikwünsche von der Hochzeit am ${new Date().toLocaleDateString('de-DE')}`,
+    tracks: requests.map(request => ({
+      name: request.songTitle,
+      artist: request.artist,
+      album: request.album || 'Unknown Album',
+      duration: request.duration || 0,
+      spotifyUrl: request.spotifyUrl || '',
+    })),
+    createdAt: new Date().toISOString(),
+    totalTracks: requests.length,
+  };
+};
+
+// 📥 DOWNLOAD FUNCTIONS
+export const downloadPlaylistAsJson = (playlistExport: PlaylistExport) => {
+  const blob = new Blob([JSON.stringify(playlistExport, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `kristin-mauro-playlist-${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `kristin-maurizio-playlist-${new Date().toISOString().split('T')[0]}.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
 
-export const downloadPlaylistAsM3U = (requests: MusicRequest[]) => {
+export const downloadPlaylistAsM3U = (playlistExport: PlaylistExport) => {
   const m3uContent = [
     '#EXTM3U',
-    `#PLAYLIST:Kristin & Mauro - ${new Date().toLocaleDateString()}`,
+    `#PLAYLIST:${playlistExport.name}`,
     '',
-    ...requests.map(request => [
-      `#EXTINF:-1,${request.artist} - ${request.song}`,
-      `# Requested by: ${request.requester}`,
-      `# Note: This is a placeholder - actual streaming URLs would need to be obtained from music services`,
+    ...playlistExport.tracks.map(track => [
+      `#EXTINF:${Math.floor(track.duration / 1000)},${track.artist} - ${track.name}`,
+      track.spotifyUrl || `# ${track.name} by ${track.artist}`,
       '',
     ]).flat(),
   ].join('\n');
@@ -171,28 +499,46 @@ export const downloadPlaylistAsM3U = (requests: MusicRequest[]) => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `kristin-mauro-playlist-${new Date().toISOString().split('T')[0]}.m3u`;
+  a.download = `kristin-maurizio-playlist-${new Date().toISOString().split('T')[0]}.m3u`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
 
-export const downloadPlaylistAsCSV = (requests: MusicRequest[]) => {
-  const csvContent = [
-    'Song,Artist,Requester,Timestamp',
-    ...requests.map(request => 
-      `"${request.song}","${request.artist}","${request.requester}","${new Date(request.timestamp).toLocaleString()}"`
-    ),
-  ].join('\n');
-
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `kristin-mauro-playlist-${new Date().toISOString().split('T')[0]}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+export const copyTrackListToClipboard = async (requests: MusicRequest[]): Promise<boolean> => {
+  try {
+    const trackList = requests.map((request, index) => 
+      `${index + 1}. ${request.songTitle} - ${request.artist}`
+    ).join('\n');
+    
+    await navigator.clipboard.writeText(trackList);
+    return true;
+  } catch (error) {
+    console.error('Error copying to clipboard:', error);
+    return false;
+  }
 };
+
+export const openSpotifyPlaylist = (requests: MusicRequest[]) => {
+  // For now, just open the wedding playlist
+  openWeddingPlaylist();
+};
+
+// 🔄 INITIALIZE ON PAGE LOAD
+export const initializeSpotifyAuth = async (): Promise<boolean> => {
+  console.log('🔄 Initializing Spotify auth...');
+  
+  // Check for auth callback
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('code')) {
+    return await handleSpotifyCallback();
+  }
+  
+  // Check existing auth
+  return isSpotifyAuthenticated();
+};
+
+console.log('🎵 === SPOTIFY PLAYLIST SERVICE INITIALIZED ===');
+console.log(`🔑 Client ID: ${SPOTIFY_CLIENT_ID ? 'CONFIGURED' : 'MISSING'}`);
+console.log(`🎯 Wedding Playlist: ${WEDDING_PLAYLIST_ID}`);

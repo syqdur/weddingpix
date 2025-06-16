@@ -43,6 +43,7 @@ import {
   LiveUser,
   Story
 } from './services/liveService';
+import { initializeSpotifyAuth } from './services/spotifyPlaylistService';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -63,6 +64,11 @@ function App() {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
+
+  // Initialize Spotify auth on app load
+  useEffect(() => {
+    initializeSpotifyAuth().catch(console.error);
+  }, []);
 
   // Subscribe to site status changes
   useEffect(() => {
