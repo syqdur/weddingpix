@@ -5,7 +5,6 @@ import { loadMusicRequests } from '../services/musicService';
 import { MusicHistoryList } from './MusicHistoryList';
 import { MusicRequestModal } from './MusicRequestModal';
 import { PlaylistExportModal } from './PlaylistExportModal';
-import { NowPlayingWidget } from './NowPlayingWidget';
 import { subscribeToSharedSpotifyStatus } from '../services/spotifyPlaylistService';
 
 interface MusicRequestsSectionProps {
@@ -171,9 +170,6 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 🎵 NEW: Now Playing Widget */}
-      <NowPlayingWidget isDarkMode={isDarkMode} />
-
       {/* 🌍 Shared Spotify Status Banner with Expiry Info */}
       {sharedSpotifyStatus.isAvailable && (
         <div className={`p-4 rounded-xl transition-colors duration-300 ${

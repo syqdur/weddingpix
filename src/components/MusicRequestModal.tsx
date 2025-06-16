@@ -60,7 +60,6 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     setSuccess(null);
 
     try {
-      // 🗑️ REMOVED: No message parameter anymore
       await addMusicRequest(track, userName, deviceId);
       setSuccess(`🎉 "${track.name}" wurde zur Playlist hinzugefügt!`);
       
@@ -92,7 +91,6 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     setSuccess(null);
 
     try {
-      // 🗑️ REMOVED: No message parameter anymore
       await addMusicRequestFromUrl(urlInput.trim(), userName, deviceId);
       setSuccess('🎉 Song wurde zur Playlist hinzugefügt!');
       
@@ -194,47 +192,6 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               </div>
             </div>
           )}
-
-          {/* Enhanced Info Banner */}
-          <div className={`mb-6 p-4 rounded-xl transition-colors duration-300 ${
-            isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
-          }`}>
-            <div className="flex items-center gap-3 mb-3">
-              <Zap className={`w-5 h-5 transition-colors duration-300 ${
-                isDarkMode ? 'text-blue-400' : 'text-blue-600'
-              }`} />
-              <h4 className={`font-semibold transition-colors duration-300 ${
-                isDarkMode ? 'text-blue-300' : 'text-blue-800'
-              }`}>
-                🎯 Einfach Song hinzufügen - fertig!
-              </h4>
-            </div>
-            <div className={`text-sm space-y-2 transition-colors duration-300 ${
-              isDarkMode ? 'text-blue-200' : 'text-blue-700'
-            }`}>
-              <p>
-                <strong>✨ Neu:</strong> Songs werden sofort zur Playlist hinzugefügt - ohne Nachricht oder Wartezeit!
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>Sofort zur internen Playlist</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>Auto-Sync zu Spotify</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>Für alle Benutzer verfügbar</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>Keine Wartezeit</span>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Search Section */}
           <div className="mb-6">
@@ -366,33 +323,6 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 {isSubmitting ? 'Wird hinzugefügt...' : '🎯 Song zur Playlist hinzufügen'}
               </button>
             </form>
-          </div>
-
-          {/* Enhanced Info */}
-          <div className={`p-4 rounded-xl transition-colors duration-300 ${
-            isDarkMode ? 'bg-purple-900/20 border border-purple-700/30' : 'bg-purple-50 border border-purple-200'
-          }`}>
-            <div className="flex items-center gap-3 mb-3">
-              <Sparkles className={`w-5 h-5 transition-colors duration-300 ${
-                isDarkMode ? 'text-purple-400' : 'text-purple-600'
-              }`} />
-              <h4 className={`font-semibold transition-colors duration-300 ${
-                isDarkMode ? 'text-purple-300' : 'text-purple-800'
-              }`}>
-                ✨ So einfach geht's:
-              </h4>
-            </div>
-            <ul className={`text-sm space-y-1 transition-colors duration-300 ${
-              isDarkMode ? 'text-purple-200' : 'text-purple-700'
-            }`}>
-              <li>🔍 <strong>Suche:</strong> Durchsuche Millionen von Spotify-Songs oder 50+ Demo-Songs</li>
-              <li>🎯 <strong>Sofort hinzugefügt:</strong> Song wird direkt zur Playlist hinzugefügt</li>
-              <li>🎵 <strong>Auto-Spotify-Sync:</strong> Automatisch auch zu Spotify (falls Admin eingerichtet hat)</li>
-              <li>👍 <strong>Voting:</strong> Andere Gäste können für Songs voten</li>
-              <li>🎶 <strong>Beliebte Songs:</strong> Werden häufiger gespielt</li>
-              <li>🔗 <strong>Spotify-Links:</strong> Funktionieren auch direkt</li>
-              <li>🌍 <strong>Für alle:</strong> Jeder Gast kann Songs hinzufügen - keine Admin-Rechte nötig!</li>
-            </ul>
           </div>
 
           {/* Close Button */}

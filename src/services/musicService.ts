@@ -126,8 +126,7 @@ const tryAddToSpotifyPlaylist = async (musicRequest: MusicRequest): Promise<void
 export const addMusicRequest = async (
   track: SpotifyTrack,
   userName: string,
-  deviceId: string,
-  message?: string // 🗑️ REMOVED: Message parameter is now optional and ignored
+  deviceId: string
 ): Promise<void> => {
   try {
     console.log(`🎵 === ADDING MUSIC REQUEST (ALL USERS WITH SHARED AUTH) ===`);
@@ -190,8 +189,7 @@ export const addMusicRequest = async (
 export const addMusicRequestFromUrl = async (
   spotifyUrl: string,
   userName: string,
-  deviceId: string,
-  message?: string // 🗑️ REMOVED: Message parameter is now optional and ignored
+  deviceId: string
 ): Promise<void> => {
   try {
     console.log(`🔗 === ADDING FROM SPOTIFY URL (ALL USERS WITH SHARED AUTH) ===`);
@@ -213,7 +211,7 @@ export const addMusicRequestFromUrl = async (
     console.log(`✅ Found track: "${track.name}" by ${track.artists[0].name}`);
 
     // Add the request (will automatically try Spotify integration)
-    await addMusicRequest(track, userName, deviceId); // 🗑️ REMOVED: No message parameter
+    await addMusicRequest(track, userName, deviceId);
     
   } catch (error) {
     console.error('❌ Error adding music request from URL:', error);
