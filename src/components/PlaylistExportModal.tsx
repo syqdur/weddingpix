@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw, Heart, Star, Settings, User, ChevronDown, Lock, Shield } from 'lucide-react';
+import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw, Heart, Star, Settings, User, ChevronDown, Lock, Shield, Eye, Info } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { 
   createPlaylistExport,
@@ -49,6 +49,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
   const [addToPlaylistResult, setAddToPlaylistResult] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
+  const [showConnectionStatus, setShowConnectionStatus] = useState(false);
 
   // 🎯 NEW: Persistent playlist state
   const [persistentPlaylist, setPersistentPlaylist] = useState<any | null>(null);
@@ -61,9 +62,8 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
         console.log('🔒 Admin detected - initializing Spotify connection...');
         initializeSpotifyConnection();
       } else {
-        console.log('👤 Regular user - Spotify features disabled');
-        setIsInitializing(false);
-        setIsSpotifyConnected(false);
+        console.log('👤 Regular user - checking Spotify status...');
+        checkSpotifyStatus();
         
         // Still create playlist export for download features
         if (approvedRequests.length > 0) {
@@ -73,6 +73,41 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
       }
     }
   }, [isOpen, isAdmin]);
+
+  const checkSpotifyStatus = async () => {
+    setIsInitializing(true);
+    
+    try {
+      // Check for persistent playlist selection
+      const savedPlaylist = getSelectedPlaylist();
+      if (savedPlaylist) {
+        setPersistentPlaylist(savedPlaylist);
+        setSelectedPlaylistId(savedPlaylist.id);
+        setPlaylistLocked(savedPlaylist.isLocked);
+        console.log(`🔒 Found persistent playlist: "${savedPlaylist.name}"`);
+      }
+      
+      // Check if Spotify is authenticated (without initializing)
+      const authenticated = isSpotifyAuthenticated();
+      if (authenticated) {
+        const user = getCurrentSpotifyUser();
+        setIsSpotifyConnected(true);
+        setSpotifyUser(user);
+        console.log(`✅ Spotify connected as: ${user?.display_name}`);
+      } else {
+        setIsSpotifyConnected(false);
+        setSpotifyUser(null);
+        console.log('❌ Spotify not connected');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error checking Spotify status:', error);
+      setIsSpotifyConnected(false);
+      setSpotifyUser(null);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
 
   const initializeSpotifyConnection = async () => {
     setIsInitializing(true);
@@ -266,17 +301,178 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className={`p-2 rounded-full transition-colors duration-300 ${
-              isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
-            }`}
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* 🆕 NEW: Connection Status Button */}
+            <button
+              onClick={() => setShowConnectionStatus(!showConnectionStatus)}
+              className={`p-2 rounded-full transition-colors duration-300 ${
+                isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+              }`}
+              title="Spotify-Verbindungsstatus anzeigen"
+            >
+              <Info className="w-5 h-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className={`p-2 rounded-full transition-colors duration-300 ${
+                isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+              }`}
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+          {/* 🆕 NEW: Connection Status Panel */}
+          {showConnectionStatus && (
+            <div className={`mb-6 p-6 rounded-xl transition-colors duration-300 ${
+              isSpotifyConnected
+                ? isDarkMode 
+                  ? 'bg-green-900/20 border border-green-700/30' 
+                  : 'bg-green-50 border border-green-200'
+                : isDarkMode 
+                  ? 'bg-gray-700/50 border border-gray-600' 
+                  : 'bg-gray-50 border border-gray-200'
+            }`}>
+              <div className="flex items-center gap-3 mb-4">
+                <Eye className={`w-6 h-6 transition-colors duration-300 ${
+                  isSpotifyConnected
+                    ? isDarkMode ? 'text-green-400' : 'text-green-600'
+                    : isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                }`} />
+                <h4 className={`text-lg font-semibold transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  🔍 Spotify-Verbindungsstatus
+                </h4>
+              </div>
+
+              {isSpotifyConnected && spotifyUser ? (
+                <div className="space-y-4">
+                  {/* Connected User Info */}
+                  <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                    isDarkMode ? 'bg-green-800/30' : 'bg-green-100'
+                  }`}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <User className="w-5 h-5 text-green-500" />
+                      <span className={`font-semibold transition-colors duration-300 ${
+                        isDarkMode ? 'text-green-300' : 'text-green-800'
+                      }`}>
+                        ✅ Verbunden mit Spotify
+                      </span>
+                    </div>
+                    <div className={`text-sm space-y-1 transition-colors duration-300 ${
+                      isDarkMode ? 'text-green-200' : 'text-green-700'
+                    }`}>
+                      <div><strong>Account:</strong> {spotifyUser.display_name}</div>
+                      {spotifyUser.email && <div><strong>E-Mail:</strong> {spotifyUser.email}</div>}
+                      <div><strong>Spotify ID:</strong> {spotifyUser.id}</div>
+                    </div>
+                  </div>
+
+                  {/* Selected Playlist Info */}
+                  {persistentPlaylist && (
+                    <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                      isDarkMode ? 'bg-blue-800/30' : 'bg-blue-100'
+                    }`}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <Lock className="w-5 h-5 text-blue-500" />
+                        <span className={`font-semibold transition-colors duration-300 ${
+                          isDarkMode ? 'text-blue-300' : 'text-blue-800'
+                        }`}>
+                          🎯 Ausgewählte Hochzeits-Playlist
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {persistentPlaylist.images?.[0] ? (
+                          <img 
+                            src={persistentPlaylist.images[0].url} 
+                            alt={persistentPlaylist.name}
+                            className="w-12 h-12 rounded object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded bg-gray-300 flex items-center justify-center">
+                            <Music className="w-6 h-6 text-gray-600" />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className={`font-semibold transition-colors duration-300 ${
+                            isDarkMode ? 'text-blue-200' : 'text-blue-800'
+                          }`}>
+                            {persistentPlaylist.name}
+                          </div>
+                          <div className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? 'text-blue-300' : 'text-blue-600'
+                          }`}>
+                            {persistentPlaylist.tracks.total} Songs • Ausgewählt am {new Date(persistentPlaylist.selectedAt).toLocaleDateString('de-DE')}
+                          </div>
+                        </div>
+                        <a
+                          href={`https://open.spotify.com/playlist/${persistentPlaylist.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`p-2 rounded-lg transition-colors duration-300 ${
+                            isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
+                          } text-white`}
+                          title="Playlist in Spotify öffnen"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Integration Status */}
+                  <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                    isDarkMode ? 'bg-purple-800/30' : 'bg-purple-100'
+                  }`}>
+                    <div className="flex items-center gap-3 mb-2">
+                      <Settings className="w-5 h-5 text-purple-500" />
+                      <span className={`font-semibold transition-colors duration-300 ${
+                        isDarkMode ? 'text-purple-300' : 'text-purple-800'
+                      }`}>
+                        🔧 Integration Status
+                      </span>
+                    </div>
+                    <div className={`text-sm space-y-1 transition-colors duration-300 ${
+                      isDarkMode ? 'text-purple-200' : 'text-purple-700'
+                    }`}>
+                      <div>✅ Automatisches Hinzufügen: <strong>Aktiv</strong></div>
+                      <div>✅ Automatisches Entfernen: <strong>Aktiv</strong></div>
+                      <div>✅ Für alle Benutzer: <strong>Verfügbar</strong></div>
+                      <div>🎯 Songs werden automatisch zur ausgewählten Playlist hinzugefügt</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                  isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+                }`}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <User className="w-5 h-5 text-gray-500" />
+                    <span className={`font-semibold transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      ❌ Nicht mit Spotify verbunden
+                    </span>
+                  </div>
+                  <div className={`text-sm space-y-1 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    <div>• Songs werden nur zur internen Playlist hinzugefügt</div>
+                    <div>• Keine automatische Spotify-Integration</div>
+                    {isAdmin ? (
+                      <div>• Als Admin kannst du die Verbindung einrichten</div>
+                    ) : (
+                      <div>• Ein Admin muss die Spotify-Verbindung einrichten</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {isInitializing ? (
             <div className="text-center py-12">
               <div className="w-8 h-8 mx-auto border-4 border-green-500 border-t-transparent rounded-full animate-spin mb-4"></div>
