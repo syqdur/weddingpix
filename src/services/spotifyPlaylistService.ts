@@ -1,7 +1,7 @@
 import { MusicRequest } from '../types';
 
 // Enhanced Spotify Playlist Integration Service
-// Unterstützt sowohl das Hinzufügen zu bestehenden Playlists als auch Export-Funktionen
+// ALLE GÄSTE NUTZEN EINEN SPOTIFY-ACCOUNT für die Hochzeits-Playlist
 
 export interface PlaylistExport {
   name: string;
@@ -16,36 +16,89 @@ export interface PlaylistExport {
   exportedAt: string;
 }
 
-export interface SpotifyAuthConfig {
-  clientId: string;
-  redirectUri: string;
-  scopes: string[];
-}
-
 // 🎯 DEINE HOCHZEITS-PLAYLIST
 const WEDDING_PLAYLIST_ID = '5IkTeF1ydIrwQ4VZxkCtdO'; // Aus der URL extrahiert
 const WEDDING_PLAYLIST_URL = 'https://open.spotify.com/playlist/5IkTeF1ydIrwQ4VZxkCtdO';
 
-// Spotify OAuth Configuration für Playlist-Management
-const SPOTIFY_AUTH_CONFIG: SpotifyAuthConfig = {
-  clientId: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '',
-  redirectUri: window.location.origin + '/spotify-callback',
-  scopes: [
-    'playlist-modify-public',
-    'playlist-modify-private',
-    'playlist-read-private',
-    'user-read-private'
-  ]
+// 🔐 SHARED SPOTIFY ACCESS - Alle Gäste nutzen deinen Account
+// Diese Tokens werden einmalig von dir gesetzt und von allen Gästen verwendet
+let sharedAccessToken: string | null = null;
+let sharedTokenExpiry: number | null = null;
+
+// === SHARED SPOTIFY AUTHENTICATION (Admin Setup) ===
+
+// Setze den geteilten Access Token (nur für Admin/Mauro)
+export const setSharedSpotifyToken = (accessToken: string, expiresIn: number): void => {
+  console.log(`🔐 === SETTING SHARED SPOTIFY TOKEN ===`);
+  console.log(`⏰ Token expires in: ${Math.floor(expiresIn / 3600)} hours`);
+  
+  sharedAccessToken = accessToken;
+  sharedTokenExpiry = Date.now() + (expiresIn * 1000) - 60000; // 1 minute safety margin
+  
+  // Store in localStorage for persistence across page reloads
+  localStorage.setItem('shared_spotify_token', accessToken);
+  localStorage.setItem('shared_spotify_token_expiry', sharedTokenExpiry.toString());
+  
+  console.log(`✅ Shared Spotify token configured successfully`);
+  console.log(`🎵 All guests can now add songs to the wedding playlist!`);
 };
 
-// Token Management für User Authentication
-let userAccessToken: string | null = null;
-let userTokenExpiry: number | null = null;
+// Prüfe ob geteilter Token verfügbar ist
+export const isSharedTokenAvailable = (): boolean => {
+  // Check memory first
+  if (sharedAccessToken && sharedTokenExpiry && Date.now() < sharedTokenExpiry) {
+    return true;
+  }
+  
+  // Check localStorage
+  const storedToken = localStorage.getItem('shared_spotify_token');
+  const storedExpiry = localStorage.getItem('shared_spotify_token_expiry');
+  
+  if (storedToken && storedExpiry && Date.now() < parseInt(storedExpiry)) {
+    sharedAccessToken = storedToken;
+    sharedTokenExpiry = parseInt(storedExpiry);
+    console.log('🔐 Restored shared Spotify token from storage');
+    return true;
+  }
+  
+  return false;
+};
 
-// === SPOTIFY USER AUTHENTICATION ===
+// Hole geteilten Access Token
+const getSharedAccessToken = (): string | null => {
+  if (!isSharedTokenAvailable()) {
+    console.warn('⚠️ No shared Spotify token available');
+    return null;
+  }
+  
+  return sharedAccessToken;
+};
 
-// Handle OAuth callback (call this when page loads)
-export const handleSpotifyCallback = (): boolean => {
+// === ADMIN SETUP FUNCTIONS ===
+
+// Generiere Spotify Authorization URL für Admin Setup
+export const generateAdminSpotifyAuthUrl = (): string => {
+  const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
+  const redirectUri = window.location.origin;
+  
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: 'token',
+    redirect_uri: redirectUri,
+    scope: [
+      'playlist-modify-public',
+      'playlist-modify-private',
+      'playlist-read-private',
+      'user-read-private'
+    ].join(' '),
+    show_dialog: 'true'
+  });
+
+  return `https://accounts.spotify.com/authorize?${params.toString()}`;
+};
+
+// Handle OAuth callback für Admin Setup
+export const handleAdminSpotifyCallback = (): boolean => {
   const hash = window.location.hash.substring(1);
   const params = new URLSearchParams(hash);
   
@@ -53,14 +106,9 @@ export const handleSpotifyCallback = (): boolean => {
   const expiresIn = params.get('expires_in');
   
   if (accessToken && expiresIn) {
-    console.log('✅ Spotify OAuth successful');
+    console.log('✅ Admin Spotify OAuth successful');
     
-    userAccessToken = accessToken;
-    userTokenExpiry = Date.now() + (parseInt(expiresIn) * 1000);
-    
-    // Store in localStorage for persistence
-    localStorage.setItem('spotify_user_token', accessToken);
-    localStorage.setItem('spotify_user_token_expiry', userTokenExpiry.toString());
+    setSharedSpotifyToken(accessToken, parseInt(expiresIn));
     
     // Clean up URL
     window.history.replaceState({}, document.title, window.location.pathname);
@@ -71,164 +119,36 @@ export const handleSpotifyCallback = (): boolean => {
   return false;
 };
 
-// Initialize on page load
-if (typeof window !== 'undefined') {
-  // Check for OAuth callback
-  if (window.location.hash.includes('access_token')) {
-    handleSpotifyCallback();
-  }
+// Starte Admin Spotify Setup
+export const initiateAdminSpotifySetup = (): void => {
+  console.log(`🔐 === STARTING ADMIN SPOTIFY SETUP ===`);
   
-  // Restore token from localStorage
-  const storedToken = localStorage.getItem('spotify_user_token');
-  const storedExpiry = localStorage.getItem('spotify_user_token_expiry');
-  
-  if (storedToken && storedExpiry && Date.now() < parseInt(storedExpiry)) {
-    userAccessToken = storedToken;
-    userTokenExpiry = parseInt(storedExpiry);
-    console.log('🔐 Restored Spotify session');
-  }
-}
-
-// Generiere Spotify Authorization URL
-export const generateSpotifyAuthUrl = (): string => {
-  const params = new URLSearchParams({
-    client_id: SPOTIFY_AUTH_CONFIG.clientId,
-    response_type: 'token',
-    redirect_uri: SPOTIFY_AUTH_CONFIG.redirectUri,
-    scope: SPOTIFY_AUTH_CONFIG.scopes.join(' '),
-    show_dialog: 'true'
-  });
-
-  return `https://accounts.spotify.com/authorize?${params.toString()}`;
-};
-
-// Starte Spotify Anmeldung
-export const initiateSpotifyLogin = (): void => {
-  console.log(`🔐 === STARTING SPOTIFY LOGIN ===`);
-  
-  if (!SPOTIFY_AUTH_CONFIG.clientId) {
+  const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
+  if (!clientId || clientId === 'your_spotify_client_id') {
     alert('❌ Spotify Client ID nicht konfiguriert. Bitte .env Datei prüfen.');
     return;
   }
 
-  const authUrl = generateSpotifyAuthUrl();
-  console.log(`🔗 Redirecting to Spotify auth...`);
+  const authUrl = generateAdminSpotifyAuthUrl();
+  console.log(`🔗 Redirecting to Spotify admin auth...`);
   
   // Redirect to Spotify OAuth
   window.location.href = authUrl;
 };
 
-// Prüfe ob User eingeloggt ist
-export const isUserLoggedIn = (): boolean => {
-  const token = localStorage.getItem('spotify_user_token');
-  const expiry = localStorage.getItem('spotify_user_token_expiry');
+// === PLAYLIST MANAGEMENT (Für alle Gäste) ===
+
+// Füge Tracks zu Playlist hinzu (verwendet geteilten Token)
+export const addTracksToWeddingPlaylist = async (trackUris: string[]): Promise<boolean> => {
+  const token = getSharedAccessToken();
   
-  if (token && expiry && Date.now() < parseInt(expiry)) {
-    userAccessToken = token;
-    userTokenExpiry = parseInt(expiry);
-    return true;
-  }
-  
-  return false;
-};
-
-// Logout User
-export const logoutSpotifyUser = (): void => {
-  localStorage.removeItem('spotify_user_token');
-  localStorage.removeItem('spotify_user_token_expiry');
-  userAccessToken = null;
-  userTokenExpiry = null;
-  console.log('🔐 User logged out from Spotify');
-};
-
-// === PLAYLIST MANAGEMENT ===
-
-// Hole User's Playlists
-export const getUserPlaylists = async (): Promise<any[]> => {
-  if (!userAccessToken) {
-    throw new Error('Nicht bei Spotify angemeldet');
+  if (!token) {
+    throw new Error('Spotify nicht konfiguriert. Admin muss sich zuerst anmelden.');
   }
 
   try {
-    console.log(`📋 === FETCHING USER PLAYLISTS ===`);
-    
-    const response = await fetch('https://api.spotify.com/v1/me/playlists?limit=50', {
-      headers: {
-        'Authorization': `Bearer ${userAccessToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        logoutSpotifyUser();
-        throw new Error('Spotify-Anmeldung abgelaufen. Bitte erneut anmelden.');
-      }
-      throw new Error(`Fehler beim Laden der Playlists: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log(`✅ Found ${data.items.length} user playlists`);
-    
-    return data.items;
-    
-  } catch (error) {
-    console.error('❌ Error fetching user playlists:', error);
-    throw error;
-  }
-};
-
-// 🎯 NEUE FUNKTION: Hole spezifische Hochzeits-Playlist Details
-export const getWeddingPlaylistDetails = async (): Promise<any | null> => {
-  if (!userAccessToken) {
-    throw new Error('Nicht bei Spotify angemeldet');
-  }
-
-  try {
-    console.log(`🎯 === FETCHING WEDDING PLAYLIST DETAILS ===`);
+    console.log(`➕ === ADDING TRACKS TO WEDDING PLAYLIST ===`);
     console.log(`📋 Playlist ID: ${WEDDING_PLAYLIST_ID}`);
-    
-    const response = await fetch(`https://api.spotify.com/v1/playlists/${WEDDING_PLAYLIST_ID}`, {
-      headers: {
-        'Authorization': `Bearer ${userAccessToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        logoutSpotifyUser();
-        throw new Error('Spotify-Anmeldung abgelaufen. Bitte erneut anmelden.');
-      }
-      if (response.status === 404) {
-        throw new Error('Hochzeits-Playlist nicht gefunden oder nicht zugänglich.');
-      }
-      throw new Error(`Fehler beim Laden der Playlist: ${response.status}`);
-    }
-
-    const playlist = await response.json();
-    console.log(`✅ Wedding playlist loaded: "${playlist.name}" (${playlist.tracks.total} tracks)`);
-    
-    return playlist;
-    
-  } catch (error) {
-    console.error('❌ Error fetching wedding playlist:', error);
-    throw error;
-  }
-};
-
-// Füge Tracks zu bestehender Playlist hinzu
-export const addTracksToPlaylist = async (
-  playlistId: string, 
-  trackUris: string[]
-): Promise<boolean> => {
-  if (!userAccessToken) {
-    throw new Error('Nicht bei Spotify angemeldet');
-  }
-
-  try {
-    console.log(`➕ === ADDING TRACKS TO PLAYLIST ===`);
-    console.log(`📋 Playlist ID: ${playlistId}`);
     console.log(`🎵 Tracks: ${trackUris.length}`);
     
     // Spotify API erlaubt max 100 Tracks pro Request
@@ -238,10 +158,10 @@ export const addTracksToPlaylist = async (
     }
 
     for (const chunk of chunks) {
-      const response = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+      const response = await fetch(`https://api.spotify.com/v1/playlists/${WEDDING_PLAYLIST_ID}/tracks`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${userAccessToken}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -251,32 +171,36 @@ export const addTracksToPlaylist = async (
 
       if (!response.ok) {
         if (response.status === 401) {
-          logoutSpotifyUser();
-          throw new Error('Spotify-Anmeldung abgelaufen. Bitte erneut anmelden.');
+          // Token expired
+          localStorage.removeItem('shared_spotify_token');
+          localStorage.removeItem('shared_spotify_token_expiry');
+          sharedAccessToken = null;
+          sharedTokenExpiry = null;
+          throw new Error('Spotify-Token abgelaufen. Admin muss sich erneut anmelden.');
         }
         if (response.status === 403) {
-          throw new Error('Keine Berechtigung zum Bearbeiten dieser Playlist. Bist du der Besitzer?');
+          throw new Error('Keine Berechtigung zum Bearbeiten der Playlist.');
         }
         throw new Error(`Fehler beim Hinzufügen der Tracks: ${response.status}`);
       }
 
-      console.log(`✅ Added ${chunk.length} tracks to playlist`);
+      console.log(`✅ Added ${chunk.length} tracks to wedding playlist`);
     }
 
-    console.log(`🎉 Successfully added all ${trackUris.length} tracks to playlist`);
+    console.log(`🎉 Successfully added all ${trackUris.length} tracks to wedding playlist`);
     return true;
     
   } catch (error) {
-    console.error('❌ Error adding tracks to playlist:', error);
+    console.error('❌ Error adding tracks to wedding playlist:', error);
     throw error;
   }
 };
 
-// 🎯 NEUE FUNKTION: Füge Songs direkt zur Hochzeits-Playlist hinzu
+// 🎯 HAUPTFUNKTION: Füge Songs direkt zur Hochzeits-Playlist hinzu (für alle Gäste)
 export const addToWeddingPlaylist = async (
   approvedRequests: MusicRequest[]
 ): Promise<{ success: number; failed: number; errors: string[] }> => {
-  console.log(`🎯 === ADDING TO WEDDING PLAYLIST ===`);
+  console.log(`🎯 === ADDING TO WEDDING PLAYLIST (SHARED ACCESS) ===`);
   console.log(`📋 Wedding Playlist ID: ${WEDDING_PLAYLIST_ID}`);
   console.log(`🎵 Approved Requests: ${approvedRequests.length}`);
 
@@ -295,7 +219,7 @@ export const addToWeddingPlaylist = async (
   const trackUris = spotifyTracks.map(track => `spotify:track:${track.spotifyId}`);
 
   try {
-    await addTracksToPlaylist(WEDDING_PLAYLIST_ID, trackUris);
+    await addTracksToWeddingPlaylist(trackUris);
     
     return {
       success: spotifyTracks.length,
@@ -303,7 +227,7 @@ export const addToWeddingPlaylist = async (
       errors: []
     };
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Failed to add tracks to wedding playlist:', error);
     
     return {
@@ -314,88 +238,63 @@ export const addToWeddingPlaylist = async (
   }
 };
 
-// Füge genehmigte Musikwünsche zu Playlist hinzu
-export const addApprovedRequestsToPlaylist = async (
-  playlistId: string,
-  approvedRequests: MusicRequest[]
-): Promise<{ success: number; failed: number; errors: string[] }> => {
-  console.log(`🎵 === ADDING APPROVED REQUESTS TO PLAYLIST ===`);
-  console.log(`📋 Playlist: ${playlistId}`);
-  console.log(`🎯 Requests: ${approvedRequests.length}`);
-
-  // Filter nur Songs mit Spotify IDs
-  const spotifyTracks = approvedRequests.filter(request => 
-    request.spotifyId && request.status === 'approved'
-  );
-
-  if (spotifyTracks.length === 0) {
-    throw new Error('Keine genehmigten Spotify-Tracks gefunden');
+// Hole Wedding Playlist Details (verwendet geteilten Token)
+export const getWeddingPlaylistDetails = async (): Promise<any | null> => {
+  const token = getSharedAccessToken();
+  
+  if (!token) {
+    throw new Error('Spotify nicht konfiguriert. Admin muss sich zuerst anmelden.');
   }
 
-  console.log(`🎵 Found ${spotifyTracks.length} Spotify tracks to add`);
-
-  // Erstelle Spotify URIs
-  const trackUris = spotifyTracks.map(track => `spotify:track:${track.spotifyId}`);
-
   try {
-    await addTracksToPlaylist(playlistId, trackUris);
+    console.log(`🎯 === FETCHING WEDDING PLAYLIST DETAILS ===`);
+    console.log(`📋 Playlist ID: ${WEDDING_PLAYLIST_ID}`);
     
-    return {
-      success: spotifyTracks.length,
-      failed: 0,
-      errors: []
-    };
+    const response = await fetch(`https://api.spotify.com/v1/playlists/${WEDDING_PLAYLIST_ID}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Token expired
+        localStorage.removeItem('shared_spotify_token');
+        localStorage.removeItem('shared_spotify_token_expiry');
+        sharedAccessToken = null;
+        sharedTokenExpiry = null;
+        throw new Error('Spotify-Token abgelaufen. Admin muss sich erneut anmelden.');
+      }
+      if (response.status === 404) {
+        throw new Error('Hochzeits-Playlist nicht gefunden oder nicht zugänglich.');
+      }
+      throw new Error(`Fehler beim Laden der Playlist: ${response.status}`);
+    }
+
+    const playlist = await response.json();
+    console.log(`✅ Wedding playlist loaded: "${playlist.name}" (${playlist.tracks.total} tracks)`);
+    
+    return playlist;
     
   } catch (error) {
-    console.error('❌ Failed to add tracks to playlist:', error);
-    
-    return {
-      success: 0,
-      failed: spotifyTracks.length,
-      errors: [error.message || 'Unbekannter Fehler']
-    };
+    console.error('❌ Error fetching wedding playlist:', error);
+    throw error;
   }
 };
 
-// 🎯 NEUE FUNKTION: Öffne die Hochzeits-Playlist direkt
+// 🎯 Öffne die Hochzeits-Playlist direkt
 export const openWeddingPlaylist = (): void => {
   console.log(`🎯 Opening wedding playlist: ${WEDDING_PLAYLIST_URL}`);
   window.open(WEDDING_PLAYLIST_URL, '_blank');
 };
 
-// 🎯 NEUE FUNKTION: Hole Wedding Playlist ID
-export const getWeddingPlaylistId = (): string => {
-  return WEDDING_PLAYLIST_ID;
-};
-
-// 🎯 NEUE FUNKTION: Hole Wedding Playlist URL
+// 🎯 Hole Wedding Playlist URL
 export const getWeddingPlaylistUrl = (): string => {
   return WEDDING_PLAYLIST_URL;
 };
 
-// === EXISTING EXPORT FUNCTIONS (unchanged) ===
-
-export const generateSpotifyPlaylistUrl = (approvedRequests: MusicRequest[]): string => {
-  console.log(`🎵 === GENERATING SPOTIFY PLAYLIST URL ===`);
-  console.log(`📊 Approved requests: ${approvedRequests.length}`);
-  
-  const spotifyTracks = approvedRequests.filter(request => 
-    request.spotifyId && request.spotifyUrl
-  );
-  
-  console.log(`🎯 Songs with Spotify IDs: ${spotifyTracks.length}`);
-  
-  if (spotifyTracks.length === 0) {
-    console.warn('⚠️ No Spotify tracks found');
-    return '';
-  }
-  
-  const spotifyUris = spotifyTracks.map(track => `spotify:track:${track.spotifyId}`);
-  const playlistUrl = `https://open.spotify.com/playlist/create?uris=${spotifyUris.join(',')}`;
-  
-  console.log(`✅ Generated playlist URL with ${spotifyUris.length} tracks`);
-  return playlistUrl;
-};
+// === LEGACY EXPORT FUNCTIONS (für Kompatibilität) ===
 
 export const createPlaylistExport = (approvedRequests: MusicRequest[]): PlaylistExport => {
   console.log(`📋 === CREATING PLAYLIST EXPORT ===`);
@@ -416,7 +315,7 @@ export const createPlaylistExport = (approvedRequests: MusicRequest[]): Playlist
     name: playlistName,
     description: `Genehmigte Musikwünsche für die Hochzeit von Kristin & Maurizio am 12.07.2025. Erstellt am ${today} mit ${tracks.length} Songs.`,
     tracks,
-    spotifyPlaylistUrl: generateSpotifyPlaylistUrl(approvedRequests),
+    spotifyPlaylistUrl: WEDDING_PLAYLIST_URL,
     exportedAt: new Date().toISOString()
   };
   
@@ -471,16 +370,7 @@ export const downloadPlaylistAsM3U = (playlistExport: PlaylistExport): void => {
 
 export const openSpotifyPlaylist = (approvedRequests: MusicRequest[]): void => {
   console.log(`🎵 === OPENING SPOTIFY PLAYLIST ===`);
-  
-  const playlistUrl = generateSpotifyPlaylistUrl(approvedRequests);
-  
-  if (!playlistUrl) {
-    alert('❌ Keine Spotify-Songs zum Erstellen einer Playlist gefunden.');
-    return;
-  }
-  
-  window.open(playlistUrl, '_blank');
-  console.log(`✅ Opened Spotify playlist with ${approvedRequests.length} tracks`);
+  openWeddingPlaylist();
 };
 
 export const generateTrackList = (approvedRequests: MusicRequest[]): string => {
@@ -521,8 +411,28 @@ export const copyTrackListToClipboard = async (approvedRequests: MusicRequest[])
   }
 };
 
-console.log('🎯 === ENHANCED SPOTIFY PLAYLIST SERVICE INITIALIZED ===');
+// === INITIALIZATION ===
+
+// Initialize on page load
+if (typeof window !== 'undefined') {
+  // Check for OAuth callback (Admin setup)
+  if (window.location.hash.includes('access_token')) {
+    handleAdminSpotifyCallback();
+  }
+  
+  // Restore shared token from localStorage
+  const storedToken = localStorage.getItem('shared_spotify_token');
+  const storedExpiry = localStorage.getItem('shared_spotify_token_expiry');
+  
+  if (storedToken && storedExpiry && Date.now() < parseInt(storedExpiry)) {
+    sharedAccessToken = storedToken;
+    sharedTokenExpiry = parseInt(storedExpiry);
+    console.log('🔐 Restored shared Spotify session');
+  }
+}
+
+console.log('🎯 === SHARED SPOTIFY PLAYLIST SERVICE INITIALIZED ===');
 console.log(`📋 Wedding Playlist ID: ${WEDDING_PLAYLIST_ID}`);
 console.log(`🔗 Wedding Playlist URL: ${WEDDING_PLAYLIST_URL}`);
-console.log('🎯 Ready to add tracks to your wedding playlist');
-console.log('📋 Supports secure OAuth authentication');
+console.log('🎵 All guests can add songs using shared Spotify access');
+console.log('🔐 Admin setup required once, then all guests can use it');
