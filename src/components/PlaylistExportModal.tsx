@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw, Heart, Star, Settings, User, ChevronDown, Lock } from 'lucide-react';
+import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw, Heart, Star, Settings, User, ChevronDown, Lock, Shield } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { 
   createPlaylistExport,
@@ -28,13 +28,15 @@ interface PlaylistExportModalProps {
   onClose: () => void;
   approvedRequests: MusicRequest[];
   isDarkMode: boolean;
+  isAdmin?: boolean; // 🔒 NEW: Admin check
 }
 
 export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
   isOpen,
   onClose,
   approvedRequests,
-  isDarkMode
+  isDarkMode,
+  isAdmin = false // 🔒 Default: not admin
 }) => {
   const [playlistExport, setPlaylistExport] = useState<PlaylistExport | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -52,18 +54,31 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
   const [persistentPlaylist, setPersistentPlaylist] = useState<any | null>(null);
   const [playlistLocked, setPlaylistLocked] = useState(false);
 
-  // Initialize Spotify auth on component mount
+  // 🔒 ADMIN-ONLY: Initialize Spotify auth only for admins
   useEffect(() => {
     if (isOpen) {
-      initializeSpotifyConnection();
+      if (isAdmin) {
+        console.log('🔒 Admin detected - initializing Spotify connection...');
+        initializeSpotifyConnection();
+      } else {
+        console.log('👤 Regular user - Spotify features disabled');
+        setIsInitializing(false);
+        setIsSpotifyConnected(false);
+        
+        // Still create playlist export for download features
+        if (approvedRequests.length > 0) {
+          const exportData = createPlaylistExport(approvedRequests);
+          setPlaylistExport(exportData);
+        }
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, isAdmin]);
 
   const initializeSpotifyConnection = async () => {
     setIsInitializing(true);
     
     try {
-      console.log('🔄 Initializing Spotify connection...');
+      console.log('🔄 Initializing Spotify connection (Admin only)...');
       
       // Check for persistent playlist selection
       const savedPlaylist = getSelectedPlaylist();
@@ -139,12 +154,23 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
     }
   };
 
+  // 🔒 ADMIN-ONLY: Spotify connection functions
   const handleSpotifyConnect = () => {
-    console.log('🔐 Starting Spotify connection...');
+    if (!isAdmin) {
+      setAddToPlaylistResult('🔒 Nur Admins können sich mit Spotify verbinden');
+      return;
+    }
+    
+    console.log('🔐 Starting Spotify connection (Admin only)...');
     initiateAdminSpotifySetup();
   };
 
   const handleSpotifyDisconnect = () => {
+    if (!isAdmin) {
+      setAddToPlaylistResult('🔒 Nur Admins können die Spotify-Verbindung trennen');
+      return;
+    }
+    
     if (window.confirm('Spotify-Verbindung trennen?')) {
       logoutSpotify();
       setIsSpotifyConnected(false);
@@ -156,8 +182,13 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
     }
   };
 
-  // 🎯 NEW: Handle playlist selection with persistence
+  // 🔒 ADMIN-ONLY: Playlist selection
   const handlePlaylistSelection = (playlist: any) => {
+    if (!isAdmin) {
+      setAddToPlaylistResult('🔒 Nur Admins können Playlists auswählen');
+      return;
+    }
+    
     if (playlistLocked) {
       setAddToPlaylistResult('🔒 Playlist bereits ausgewählt und gesperrt');
       return;
@@ -231,7 +262,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Verlauf der hinzugefügten Songs
+                {isAdmin ? 'Admin: Verlauf und Spotify-Integration' : 'Verlauf der hinzugefügten Songs'}
               </p>
             </div>
           </div>
@@ -252,7 +283,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
               <p className={`text-lg font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                Spotify-Verbindung prüfen...
+                {isAdmin ? 'Spotify-Verbindung prüfen...' : 'Lade Playlist-Verlauf...'}
               </p>
             </div>
           ) : (
@@ -303,227 +334,252 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                 </div>
               </div>
 
-              {/* Spotify Connection Section */}
-              <div className={`p-6 rounded-xl mb-6 transition-colors duration-300 ${
-                isSpotifyConnected
-                  ? isDarkMode 
-                    ? 'bg-green-900/20 border border-green-700/30' 
-                    : 'bg-green-50 border border-green-200'
-                  : isDarkMode 
-                    ? 'bg-gray-700/50 border border-gray-600' 
-                    : 'bg-gray-50 border border-gray-200'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-full transition-colors duration-300 ${
-                      isSpotifyConnected
-                        ? isDarkMode ? 'bg-green-600' : 'bg-green-500'
-                        : isDarkMode ? 'bg-gray-600' : 'bg-gray-400'
-                    }`}>
-                      <Music className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h4 className={`font-semibold mb-1 transition-colors duration-300 ${
-                        isDarkMode ? 'text-white' : 'text-gray-900'
+              {/* 🔒 ADMIN-ONLY: Spotify Connection Section */}
+              {isAdmin && (
+                <div className={`p-6 rounded-xl mb-6 transition-colors duration-300 ${
+                  isSpotifyConnected
+                    ? isDarkMode 
+                      ? 'bg-green-900/20 border border-green-700/30' 
+                      : 'bg-green-50 border border-green-200'
+                    : isDarkMode 
+                      ? 'bg-gray-700/50 border border-gray-600' 
+                      : 'bg-gray-50 border border-gray-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-3 rounded-full transition-colors duration-300 ${
+                        isSpotifyConnected
+                          ? isDarkMode ? 'bg-green-600' : 'bg-green-500'
+                          : isDarkMode ? 'bg-gray-600' : 'bg-gray-400'
                       }`}>
-                        🎯 Spotify-Verbindung
-                      </h4>
-                      {isSpotifyConnected && spotifyUser ? (
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-green-500" />
-                          <span className={`text-sm font-medium transition-colors duration-300 ${
-                            isDarkMode ? 'text-green-300' : 'text-green-700'
-                          }`}>
-                            Verbunden als: {spotifyUser.display_name}
-                          </span>
-                        </div>
-                      ) : (
-                        <p className={`text-sm transition-colors duration-300 ${
-                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                        <Shield className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h4 className={`font-semibold mb-1 transition-colors duration-300 ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
                         }`}>
-                          Nicht verbunden - Einmalige Anmeldung erforderlich
-                        </p>
+                          🔒 Admin: Spotify-Verbindung
+                        </h4>
+                        {isSpotifyConnected && spotifyUser ? (
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-green-500" />
+                            <span className={`text-sm font-medium transition-colors duration-300 ${
+                              isDarkMode ? 'text-green-300' : 'text-green-700'
+                            }`}>
+                              Verbunden als: {spotifyUser.display_name}
+                            </span>
+                          </div>
+                        ) : (
+                          <p className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                          }`}>
+                            Nicht verbunden - Nur Admins können sich verbinden
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {isSpotifyConnected ? (
+                        <>
+                          <button
+                            onClick={loadUserPlaylists}
+                            disabled={isLoading}
+                            className={`p-2 rounded-lg transition-colors ${
+                              isLoading
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
+                            } text-white`}
+                            title="Playlists neu laden"
+                          >
+                            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                          </button>
+                          <button
+                            onClick={handleSpotifyDisconnect}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                              isDarkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'
+                            } text-white text-sm`}
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Trennen
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={handleSpotifyConnect}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                            isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
+                          } text-white font-semibold`}
+                        >
+                          <LogIn className="w-5 h-5" />
+                          Admin: Mit Spotify verbinden
+                        </button>
                       )}
                     </div>
                   </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {isSpotifyConnected ? (
-                      <>
-                        <button
-                          onClick={loadUserPlaylists}
-                          disabled={isLoading}
-                          className={`p-2 rounded-lg transition-colors ${
-                            isLoading
-                              ? 'bg-gray-400 cursor-not-allowed'
-                              : isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
-                          } text-white`}
-                          title="Playlists neu laden"
-                        >
-                          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                        </button>
-                        <button
-                          onClick={handleSpotifyDisconnect}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                            isDarkMode ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'
-                          } text-white text-sm`}
-                        >
-                          <LogOut className="w-4 h-4" />
-                          Trennen
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={handleSpotifyConnect}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-                          isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
-                        } text-white font-semibold`}
-                      >
-                        <LogIn className="w-5 h-5" />
-                        Mit Spotify verbinden
-                      </button>
-                    )}
-                  </div>
-                </div>
 
-                {/* 🎯 PERSISTENT PLAYLIST SELECTION */}
-                {isSpotifyConnected && (
-                  <div className={`p-4 rounded-xl transition-colors duration-300 ${
-                    playlistLocked
-                      ? isDarkMode ? 'bg-green-900/30 border border-green-700/30' : 'bg-green-50 border border-green-200'
-                      : isDarkMode ? 'bg-purple-900/30 border border-purple-700/30' : 'bg-purple-50 border border-purple-200'
-                  }`}>
-                    {playlistLocked && persistentPlaylist ? (
-                      /* Locked Playlist Display */
-                      <div>
-                        <div className="flex items-center gap-3 mb-3">
-                          <Lock className={`w-5 h-5 transition-colors duration-300 ${
-                            isDarkMode ? 'text-green-400' : 'text-green-600'
-                          }`} />
-                          <h5 className={`font-semibold transition-colors duration-300 ${
-                            isDarkMode ? 'text-green-300' : 'text-green-800'
-                          }`}>
-                            🔒 Ausgewählte Hochzeits-Playlist
-                          </h5>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {persistentPlaylist.images?.[0] ? (
-                              <img 
-                                src={persistentPlaylist.images[0].url} 
-                                alt={persistentPlaylist.name}
-                                className="w-12 h-12 rounded object-cover"
-                              />
-                            ) : (
-                              <div className="w-12 h-12 rounded bg-gray-300 flex items-center justify-center">
-                                <Music className="w-6 h-6 text-gray-600" />
-                              </div>
-                            )}
-                            <div>
-                              <div className={`font-semibold transition-colors duration-300 ${
-                                isDarkMode ? 'text-green-200' : 'text-green-800'
-                              }`}>
-                                {persistentPlaylist.name}
-                              </div>
-                              <div className={`text-sm transition-colors duration-300 ${
-                                isDarkMode ? 'text-green-300' : 'text-green-600'
-                              }`}>
-                                {persistentPlaylist.tracks.total} Songs • Ausgewählt am {new Date(persistentPlaylist.selectedAt).toLocaleDateString('de-DE')}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : userPlaylists.length > 0 ? (
-                      /* Playlist Selection */
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
+                  {/* 🎯 ADMIN-ONLY: Persistent Playlist Selection */}
+                  {isSpotifyConnected && (
+                    <div className={`p-4 rounded-xl transition-colors duration-300 ${
+                      playlistLocked && persistentPlaylist
+                        ? isDarkMode ? 'bg-green-900/30 border border-green-700/30' : 'bg-green-50 border border-green-200'
+                        : isDarkMode ? 'bg-purple-900/30 border border-purple-700/30' : 'bg-purple-50 border border-purple-200'
+                    }`}>
+                      {playlistLocked && persistentPlaylist ? (
+                        /* Locked Playlist Display */
+                        <div>
+                          <div className="flex items-center gap-3 mb-3">
+                            <Lock className={`w-5 h-5 transition-colors duration-300 ${
+                              isDarkMode ? 'text-green-400' : 'text-green-600'
+                            }`} />
                             <h5 className={`font-semibold transition-colors duration-300 ${
-                              isDarkMode ? 'text-purple-300' : 'text-purple-800'
+                              isDarkMode ? 'text-green-300' : 'text-green-800'
                             }`}>
-                              🎵 Hochzeits-Playlist auswählen
+                              🔒 Ausgewählte Hochzeits-Playlist
                             </h5>
-                            <p className={`text-sm transition-colors duration-300 ${
-                              isDarkMode ? 'text-purple-200' : 'text-purple-700'
-                            }`}>
-                              ⚠️ Einmalige Auswahl - kann nicht mehr geändert werden!
-                            </p>
                           </div>
                           
-                          <button
-                            onClick={() => setShowPlaylistSelector(!showPlaylistSelector)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                              isDarkMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-purple-500 hover:bg-purple-600'
-                            } text-white`}
-                          >
-                            <List className="w-4 h-4" />
-                            Playlist wählen
-                            <ChevronDown className={`w-4 h-4 transition-transform ${showPlaylistSelector ? 'rotate-180' : ''}`} />
-                          </button>
-                        </div>
-
-                        {/* Playlist Dropdown */}
-                        {showPlaylistSelector && (
-                          <div className={`p-3 rounded-lg transition-colors duration-300 ${
-                            isDarkMode ? 'bg-gray-800 border border-gray-600' : 'bg-white border border-gray-200'
-                          }`}>
-                            <div className="max-h-40 overflow-y-auto space-y-2">
-                              {userPlaylists.map((playlist) => (
-                                <button
-                                  key={playlist.id}
-                                  onClick={() => handlePlaylistSelection(playlist)}
-                                  className={`w-full text-left p-3 rounded-lg transition-colors ${
-                                    isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    {playlist.images?.[0] ? (
-                                      <img 
-                                        src={playlist.images[0].url} 
-                                        alt={playlist.name}
-                                        className="w-10 h-10 rounded object-cover"
-                                      />
-                                    ) : (
-                                      <div className="w-10 h-10 rounded bg-gray-300 flex items-center justify-center">
-                                        <Music className="w-5 h-5 text-gray-600" />
-                                      </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-medium truncate">{playlist.name}</div>
-                                      <div className="text-sm opacity-75">{playlist.tracks.total} Songs</div>
-                                    </div>
-                                  </div>
-                                </button>
-                              ))}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {persistentPlaylist.images?.[0] ? (
+                                <img 
+                                  src={persistentPlaylist.images[0].url} 
+                                  alt={persistentPlaylist.name}
+                                  className="w-12 h-12 rounded object-cover"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded bg-gray-300 flex items-center justify-center">
+                                  <Music className="w-6 h-6 text-gray-600" />
+                                </div>
+                              )}
+                              <div>
+                                <div className={`font-semibold transition-colors duration-300 ${
+                                  isDarkMode ? 'text-green-200' : 'text-green-800'
+                                }`}>
+                                  {persistentPlaylist.name}
+                                </div>
+                                <div className={`text-sm transition-colors duration-300 ${
+                                  isDarkMode ? 'text-green-300' : 'text-green-600'
+                                }`}>
+                                  {persistentPlaylist.tracks.total} Songs • Ausgewählt am {new Date(persistentPlaylist.selectedAt).toLocaleDateString('de-DE')}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4">
-                        <p className={`transition-colors duration-300 ${
-                          isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                        }`}>
-                          Keine Playlists gefunden. Erstelle zuerst eine Playlist in Spotify.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
+                        </div>
+                      ) : userPlaylists.length > 0 ? (
+                        /* Playlist Selection */
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <h5 className={`font-semibold transition-colors duration-300 ${
+                                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+                              }`}>
+                                🎵 Hochzeits-Playlist auswählen
+                              </h5>
+                              <p className={`text-sm transition-colors duration-300 ${
+                                isDarkMode ? 'text-purple-200' : 'text-purple-700'
+                              }`}>
+                                ⚠️ Einmalige Auswahl - kann nicht mehr geändert werden!
+                              </p>
+                            </div>
+                            
+                            <button
+                              onClick={() => setShowPlaylistSelector(!showPlaylistSelector)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                                isDarkMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-purple-500 hover:bg-purple-600'
+                              } text-white`}
+                            >
+                              <List className="w-4 h-4" />
+                              Playlist wählen
+                              <ChevronDown className={`w-4 h-4 transition-transform ${showPlaylistSelector ? 'rotate-180' : ''}`} />
+                            </button>
+                          </div>
 
-                {/* Add to Playlist Result */}
-                {addToPlaylistResult && (
-                  <div className={`mt-4 p-3 rounded-lg ${
-                    addToPlaylistResult.includes('✅') || addToPlaylistResult.includes('🎯') || addToPlaylistResult.includes('🔒')
-                      ? isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800'
-                      : isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {addToPlaylistResult}
+                          {/* Playlist Dropdown */}
+                          {showPlaylistSelector && (
+                            <div className={`p-3 rounded-lg transition-colors duration-300 ${
+                              isDarkMode ? 'bg-gray-800 border border-gray-600' : 'bg-white border border-gray-200'
+                            }`}>
+                              <div className="max-h-40 overflow-y-auto space-y-2">
+                                {userPlaylists.map((playlist) => (
+                                  <button
+                                    key={playlist.id}
+                                    onClick={() => handlePlaylistSelection(playlist)}
+                                    className={`w-full text-left p-3 rounded-lg transition-colors ${
+                                      isDarkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-50 text-gray-700'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      {playlist.images?.[0] ? (
+                                        <img 
+                                          src={playlist.images[0].url} 
+                                          alt={playlist.name}
+                                          className="w-10 h-10 rounded object-cover"
+                                        />
+                                      ) : (
+                                        <div className="w-10 h-10 rounded bg-gray-300 flex items-center justify-center">
+                                          <Music className="w-5 h-5 text-gray-600" />
+                                        </div>
+                                      )}
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium truncate">{playlist.name}</div>
+                                        <div className="text-sm opacity-75">{playlist.tracks.total} Songs</div>
+                                      </div>
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4">
+                          <p className={`transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                          }`}>
+                            Keine Playlists gefunden. Erstelle zuerst eine Playlist in Spotify.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Add to Playlist Result */}
+                  {addToPlaylistResult && (
+                    <div className={`mt-4 p-3 rounded-lg ${
+                      addToPlaylistResult.includes('✅') || addToPlaylistResult.includes('🎯') || addToPlaylistResult.includes('🔒')
+                        ? isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800'
+                        : isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {addToPlaylistResult}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 🔒 NON-ADMIN: Info about admin-only features */}
+              {!isAdmin && (
+                <div className={`p-6 rounded-xl mb-6 transition-colors duration-300 ${
+                  isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
+                }`}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <Shield className={`w-6 h-6 transition-colors duration-300 ${
+                      isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                    }`} />
+                    <h4 className={`font-semibold transition-colors duration-300 ${
+                      isDarkMode ? 'text-blue-300' : 'text-blue-800'
+                    }`}>
+                      ℹ️ Spotify-Integration
+                    </h4>
                   </div>
-                )}
-              </div>
+                  <p className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? 'text-blue-200' : 'text-blue-700'
+                  }`}>
+                    Die Spotify-Verbindung und Playlist-Verwaltung ist nur für Admins verfügbar. Songs werden automatisch zur Hochzeits-Playlist hinzugefügt, wenn ein Admin die Spotify-Integration eingerichtet hat.
+                  </p>
+                </div>
+              )}
 
               {/* Export Options */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

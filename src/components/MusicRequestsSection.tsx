@@ -79,8 +79,8 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
-            {/* Playlist Management Button (Admin only) */}
-            {isAdmin && allRequests.length > 0 && (
+            {/* Playlist Management Button - Show for all users but with different access levels */}
+            {allRequests.length > 0 && (
               <button
                 onClick={() => setShowPlaylistModal(true)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-300 hover:scale-105 ${
@@ -88,10 +88,12 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
                     ? 'bg-purple-600 hover:bg-purple-700 text-white'
                     : 'bg-purple-500 hover:bg-purple-600 text-white'
                 }`}
-                title="Playlist verwalten"
+                title={isAdmin ? "Playlist verwalten (Admin)" : "Playlist-Verlauf anzeigen"}
               >
                 <History className="w-4 h-4" />
-                <span className="hidden sm:inline">Playlist</span>
+                <span className="hidden sm:inline">
+                  {isAdmin ? 'Playlist' : 'Verlauf'}
+                </span>
               </button>
             )}
 
@@ -129,6 +131,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             isDarkMode ? 'text-blue-200' : 'text-blue-700'
           }`}>
             Alle Songs die für die Hochzeit gewünscht wurden ({allRequests.length} Songs)
+            {isAdmin && ' • Als Admin hast du Zugriff auf die Spotify-Integration'}
           </p>
         </div>
 
@@ -233,12 +236,13 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
         isDarkMode={isDarkMode}
       />
 
-      {/* Playlist Export Modal */}
+      {/* 🔒 ADMIN-AWARE: Playlist Export Modal with admin check */}
       <PlaylistExportModal
         isOpen={showPlaylistModal}
         onClose={() => setShowPlaylistModal(false)}
         approvedRequests={allRequests}
         isDarkMode={isDarkMode}
+        isAdmin={isAdmin} // 🔒 Pass admin status
       />
     </div>
   );

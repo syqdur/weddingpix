@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Music, User, LogOut, LogIn, RefreshCw, Check, AlertCircle, Lock, Unlock, List, Settings, ExternalLink, Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Music, User, LogOut, LogIn, RefreshCw, Check, AlertCircle, Lock, Unlock, List, Settings, ExternalLink, Trash2, Plus, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 import { 
   isSpotifyAuthenticated,
   getCurrentSpotifyUser,
@@ -17,12 +17,14 @@ interface SpotifyAdminModalProps {
   isOpen: boolean;
   onClose: () => void;
   isDarkMode: boolean;
+  isAdmin?: boolean; // 🔒 NEW: Admin check
 }
 
 export const SpotifyAdminModal: React.FC<SpotifyAdminModalProps> = ({
   isOpen,
   onClose,
-  isDarkMode
+  isDarkMode,
+  isAdmin = false // 🔒 Default: not admin
 }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [currentUser, setCurrentUser] = useState<any | null>(null);
@@ -35,12 +37,19 @@ export const SpotifyAdminModal: React.FC<SpotifyAdminModalProps> = ({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Initialize on modal open
+  // 🔒 ADMIN-ONLY: Initialize on modal open only for admins
   useEffect(() => {
     if (isOpen) {
-      initializeConnection();
+      if (isAdmin) {
+        console.log('🔒 Admin detected - initializing Spotify admin connection...');
+        initializeConnection();
+      } else {
+        console.log('🚫 Non-admin user - Spotify admin features disabled');
+        setIsInitializing(false);
+        setStatusMessage('🔒 Nur Admins haben Zugriff auf Spotify-Einstellungen');
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, isAdmin]);
 
   const initializeConnection = async () => {
     setIsInitializing(true);
@@ -84,7 +93,7 @@ export const SpotifyAdminModal: React.FC<SpotifyAdminModalProps> = ({
   };
 
   const loadUserPlaylists = async () => {
-    if (!isConnected) return;
+    if (!isConnected || !isAdmin) return;
     
     setIsLoadingPlaylists(true);
     try {
@@ -104,13 +113,26 @@ export const SpotifyAdminModal: React.FC<SpotifyAdminModalProps> = ({
     }
   };
 
+  // 🔒 ADMIN-ONLY: Connection functions
   const handleConnect = () => {
-    console.log('🔐 Starting Spotify connection...');
+    if (!isAdmin) {
+      setStatusMessage('🔒 Nur Admins können sich mit Spotify verbinden');
+      setTimeout(() => setStatusMessage(null), 3000);
+      return;
+    }
+    
+    console.log('🔐 Starting Spotify connection (Admin only)...');
     setStatusMessage('🔄 Weiterleitung zu Spotify...');
     initiateAdminSpotifySetup();
   };
 
   const handleDisconnect = () => {
+    if (!isAdmin) {
+      setStatusMessage('🔒 Nur Admins können die Spotify-Verbindung trennen');
+      setTimeout(() => setStatusMessage(null), 3000);
+      return;
+    }
+    
     if (window.confirm('🚪 Spotify-Verbindung wirklich trennen?\n\n⚠️ Die ausgewählte Playlist bleibt gespeichert.')) {
       logoutSpotify();
       setIsConnected(false);
@@ -122,7 +144,14 @@ export const SpotifyAdminModal: React.FC<SpotifyAdminModalProps> = ({
     }
   };
 
+  // 🔒 ADMIN-ONLY: Playlist selection
   const handlePlaylistSelection = (playlist: any) => {
+    if (!isAdmin) {
+      setStatusMessage('🔒 Nur Admins können Playlists auswählen');
+      setTimeout(() => setStatusMessage(null), 3000);
+      return;
+    }
+    
     if (playlistLocked) {
       setStatusMessage('🔒 Playlist bereits ausgewählt und gesperrt');
       setTimeout(() => setStatusMessage(null), 3000);
@@ -144,7 +173,14 @@ export const SpotifyAdminModal: React.FC<SpotifyAdminModalProps> = ({
     }
   };
 
+  // 🔒 ADMIN-ONLY: Unlock playlist
   const handleUnlockPlaylist = () => {
+    if (!isAdmin) {
+      setStatusMessage('🔒 Nur Admins können die Playlist-Sperre aufheben');
+      setTimeout(() => setStatusMessage(null), 3000);
+      return;
+    }
+    
     const confirmMessage = `⚠️ WARNUNG: Playlist-Sperre aufheben?\n\n🔓 Dies ermöglicht es, eine andere Playlist auszuwählen.\n\n❌ Dies sollte nur in Notfällen gemacht werden!\n\nFortfahren?`;
     
     if (window.confirm(confirmMessage)) {
@@ -173,11 +209,11 @@ export const SpotifyAdminModal: React.FC<SpotifyAdminModalProps> = ({
         }`}>
           <div className="flex items-center gap-3">
             <div className={`p-3 rounded-full transition-colors duration-300 ${
-              isConnected
+              isAdmin
                 ? isDarkMode ? 'bg-green-600' : 'bg-green-500'
                 : isDarkMode ? 'bg-gray-600' : 'bg-gray-400'
             }`}>
-              <Music className="w-6 h-6 text-white" />
+              <Shield className="w-6 h-6 text-white" />
             </div>
             <div>
               <h3 className={`text-xl font-semibold transition-colors duration-300 ${
@@ -188,7 +224,7 @@ export const SpotifyAdminModal: React.FC<SpotifyAdminModalProps> = ({
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Account verwalten und Playlist auswählen
+                {isAdmin ? 'Admin: Account verwalten und Playlist auswählen' : 'Nur für Admins verfügbar'}
               </p>
             </div>
           </div>
@@ -211,6 +247,44 @@ export const SpotifyAdminModal: React.FC<SpotifyAdminModalProps> = ({
               }`}>
                 Spotify-Verbindung prüfen...
               </p>
+            </div>
+          ) : !isAdmin ? (
+            // 🔒 NON-ADMIN: Access denied message
+            <div className={`p-6 rounded-xl transition-colors duration-300 ${
+              isDarkMode ? 'bg-red-900/20 border border-red-700/30' : 'bg-red-50 border border-red-200'
+            }`}>
+              <div className="flex items-center gap-3 mb-4">
+                <Shield className={`w-8 h-8 transition-colors duration-300 ${
+                  isDarkMode ? 'text-red-400' : 'text-red-600'
+                }`} />
+                <div>
+                  <h4 className={`text-lg font-semibold transition-colors duration-300 ${
+                    isDarkMode ? 'text-red-300' : 'text-red-800'
+                  }`}>
+                    🔒 Zugriff verweigert
+                  </h4>
+                  <p className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? 'text-red-200' : 'text-red-700'
+                  }`}>
+                    Spotify-Einstellungen sind nur für Admins verfügbar
+                  </p>
+                </div>
+              </div>
+              
+              <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                isDarkMode ? 'bg-gray-800/50' : 'bg-white/50'
+              }`}>
+                <p className={`text-sm transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Die Spotify-Integration ermöglicht es, dass Songs automatisch zur Hochzeits-Playlist hinzugefügt werden. Nur Admins können diese Funktion einrichten und verwalten.
+                </p>
+                <p className={`text-sm mt-3 transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Als normaler Benutzer kannst du trotzdem Songs hinzufügen, die automatisch in der Playlist erscheinen, wenn ein Admin die Integration eingerichtet hat.
+                </p>
+              </div>
             </div>
           ) : (
             <>
@@ -575,6 +649,7 @@ export const SpotifyAdminModal: React.FC<SpotifyAdminModalProps> = ({
                   <li>• Alle Gäste können Songs hinzufügen, die automatisch zur Playlist hinzugefügt werden</li>
                   <li>• Songs werden auch automatisch entfernt, wenn sie gelöscht werden</li>
                   <li>• Die Verbindung bleibt bestehen, auch wenn du dich abmeldest</li>
+                  <li>• 🔒 Nur Admins können sich mit Spotify verbinden und Playlists verwalten</li>
                 </ul>
               </div>
             </>
