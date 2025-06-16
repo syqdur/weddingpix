@@ -195,7 +195,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   return (
     <>
-      {/* Main Admin Toggle Button - Smaller */}
+      {/* Main Admin Toggle Button */}
       <button
         onClick={handleAdminToggle}
         className={`fixed bottom-4 left-4 p-2 rounded-full shadow-lg transition-colors duration-300 ${
@@ -215,17 +215,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Admin Controls - Alle Buttons in einer horizontalen Reihe */}
       {isAdmin && (
         <div className="fixed bottom-16 left-4 flex gap-2">
-          {/* Spotify Admin Button */}
+          {/* 🎵 SPOTIFY ADMIN BUTTON - Prominenter platziert */}
           <button
             onClick={() => setShowSpotifyAdmin(true)}
-            className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
+            className={`p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
               isDarkMode
-                ? 'bg-green-600 hover:bg-green-700 text-white hover:scale-110'
-                : 'bg-green-500 hover:bg-green-600 text-white hover:scale-110'
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-green-500 hover:bg-green-600 text-white'
             }`}
-            title="🎵 Spotify Einstellungen"
+            title="🎵 Spotify Admin - Account verbinden und Playlist verwalten"
           >
-            <Music className="w-4 h-4" />
+            <Music className="w-5 h-5" />
           </button>
 
           {/* Spotify URIs Button */}
@@ -315,11 +315,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* Spotify Admin Modal */}
+      {/* 🎵 SPOTIFY ADMIN MODAL - Jetzt mit isAdmin prop */}
       <SpotifyAdminModal 
         isOpen={showSpotifyAdmin}
         onClose={() => setShowSpotifyAdmin(false)}
         isDarkMode={isDarkMode}
+        isAdmin={isAdmin} // 🔒 Pass admin status
       />
 
       {/* Spotify URIs Modal */}
@@ -573,7 +574,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <ul className={`text-sm space-y-1 transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-300' : 'text-gray-600'
               }`}>
-                <li>• Spotify-Einstellungen verwalten</li>
+                <li>• 🎵 Spotify-Account verbinden und Playlist verwalten</li>
                 <li>• Website für alle freischalten/sperren</li>
                 <li>• Medien und Kommentare löschen</li>
                 <li>• Deutsche Fotobuch-Services</li>
