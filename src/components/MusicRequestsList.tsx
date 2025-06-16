@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Music, Heart, Clock, ExternalLink, MessageSquare, Users, Play, Check, X, Trash2, Crown, Headphones } from 'lucide-react';
 import { MusicRequest } from '../types';
-import { voteMusicRequest, updateMusicRequestStatus, deleteMusicRequest } from '../services/musicService';
+import { voteMusicRequest, deleteMusicRequest } from '../services/musicService';
 
 interface MusicRequestsListProps {
   requests: MusicRequest[];
@@ -20,18 +20,6 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
 }) => {
   const [votingRequests, setVotingRequests] = useState<Set<string>>(new Set());
   const [deletingRequests, setDeletingRequests] = useState<Set<string>>(new Set());
-  const [updatingRequests, setUpdatingRequests] = useState<Set<string>>(new Set());
-
-  // 🎧 DJ SYSTEM: Check if current user is DJ, Mauro, or Admin
-  const isDJ = currentUser.toLowerCase() === 'dj' || 
-              currentUser.toLowerCase() === 'mauro' || 
-              currentUser.toLowerCase() === 'maurizio' || 
-              isAdmin;
-
-  console.log(`🎧 === DJ SYSTEM CHECK ===`);
-  console.log(`👤 Current User: ${currentUser}`);
-  console.log(`🎧 Is DJ: ${isDJ}`);
-  console.log(`👑 Is Admin: ${isAdmin}`);
 
   const handleVote = async (requestId: string) => {
     if (votingRequests.has(requestId)) return;
@@ -43,25 +31,6 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
       console.error('Error voting:', error);
     } finally {
       setVotingRequests(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(requestId);
-        return newSet;
-      });
-    }
-  };
-
-  const handleStatusUpdate = async (requestId: string, status: MusicRequest['status']) => {
-    if (updatingRequests.has(requestId)) return;
-
-    setUpdatingRequests(prev => new Set(prev).add(requestId));
-    try {
-      console.log(`🎧 DJ updating status: ${requestId} -> ${status}`);
-      await updateMusicRequestStatus(requestId, status);
-    } catch (error) {
-      console.error('Error updating status:', error);
-      alert('Fehler beim Aktualisieren des Status. Bitte versuche es erneut.');
-    } finally {
-      setUpdatingRequests(prev => {
         const newSet = new Set(prev);
         newSet.delete(requestId);
         return newSet;
@@ -155,7 +124,7 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
         <p className={`text-sm transition-colors duration-300 ${
           isDarkMode ? 'text-gray-400' : 'text-gray-500'
         }`}>
-          Sei der Erste und wünsche dir einen Song für die Hochzeit!
+          Sei der Erste und wähle einen Song für die Hochzeit!
         </p>
       </div>
     );
@@ -163,41 +132,11 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* DJ Info Banner */}
-      {isDJ && (
-        <div className={`p-4 rounded-xl border transition-colors duration-300 ${
-          isDarkMode 
-            ? 'bg-purple-900/20 border-purple-700/30' 
-            : 'bg-purple-50 border-purple-200'
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-full transition-colors duration-300 ${
-              isDarkMode ? 'bg-purple-600' : 'bg-purple-500'
-            }`}>
-              <Headphones className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h4 className={`font-semibold transition-colors duration-300 ${
-                isDarkMode ? 'text-purple-300' : 'text-purple-800'
-              }`}>
-                🎧 DJ-Modus aktiv
-              </h4>
-              <p className={`text-sm transition-colors duration-300 ${
-                isDarkMode ? 'text-purple-200' : 'text-purple-700'
-              }`}>
-                Du kannst Songs als gespielt markieren
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {requests.map((request) => {
         const hasVoted = request.votedBy.includes(deviceId);
         const canDelete = isAdmin || request.requestedBy === currentUser;
         const isVoting = votingRequests.has(request.id);
         const isDeleting = deletingRequests.has(request.id);
-        const isUpdating = updatingRequests.has(request.id);
 
         return (
           <div key={request.id} className={`p-4 rounded-xl border transition-all duration-300 ${
@@ -307,11 +246,7 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                   </div>
 
                   <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs border ${getStatusColor(request.status)}`}>
-                    {isUpdating ? (
-                      <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      getStatusIcon(request.status)
-                    )}
+                    {getStatusIcon(request.status)}
                     {getStatusText(request.status)}
                   </div>
 
@@ -374,35 +309,17 @@ export const MusicRequestsList: React.FC<MusicRequestsListProps> = ({
                     </span>
                   </button>
 
-                  {/* 🎧 DJ CONTROLS - Only visible to DJ and Admin */}
-                  {isDJ && !isDeleting && request.status === 'approved' && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleStatusUpdate(request.id, 'played')}
-                        disabled={isUpdating}
-                        className={`p-2 rounded-full transition-colors ${
-                          isUpdating
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700'
-                        } text-white`}
-                        title="Als gespielt markieren"
-                      >
-                        {isUpdating ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Play className="w-4 h-4" />
-                        )}
-                      </button>
-
-                      {/* DJ Badge */}
+                  {/* Status Info */}
+                  <div className="flex items-center gap-2">
+                    {request.status === 'played' && (
                       <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-colors duration-300 ${
-                        isDarkMode ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-800'
+                        isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
                       }`}>
-                        <Headphones className="w-3 h-3" />
-                        DJ
+                        <Play className="w-3 h-3" />
+                        Gespielt
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

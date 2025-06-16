@@ -73,7 +73,7 @@ const checkForDuplicate = async (spotifyId: string): Promise<boolean> => {
   }
 };
 
-// 🎯 AUTOMATIC PLAYLIST MANAGEMENT: Add song and immediately add to Spotify playlist
+// 🎯 FULLY AUTOMATIC SYSTEM: Song wird hinzugefügt → Spotify Playlist → Automatisch als gespielt markiert
 export const addMusicRequest = async (
   track: SpotifyTrack,
   userName: string,
@@ -81,11 +81,11 @@ export const addMusicRequest = async (
   message?: string
 ): Promise<void> => {
   try {
-    console.log(`🎵 === ADDING MUSIC REQUEST WITH AUTO-PLAYLIST ===`);
+    console.log(`🎵 === FULLY AUTOMATIC MUSIC SYSTEM ===`);
     console.log(`🎵 Song: "${track.name}" by ${track.artists[0].name}`);
     console.log(`👤 User: ${userName} (${deviceId})`);
     console.log(`💬 Message: ${message || 'none'}`);
-    console.log(`🔗 Spotify URL: ${track.external_urls.spotify}`);
+    console.log(`🤖 AUTOMATIC: Song → Spotify → Gespielt`);
 
     // Validate track data
     if (!track.name || !track.artists || track.artists.length === 0) {
@@ -110,7 +110,7 @@ export const addMusicRequest = async (
       deviceId: deviceId,
       requestedAt: new Date().toISOString(),
       message: message || '',
-      status: 'approved', // 🎯 DIREKT GENEHMIGT
+      status: 'played', // 🎯 DIREKT ALS GESPIELT MARKIERT
       votes: 1, // User automatically votes for their own request
       votedBy: [deviceId],
       albumArt: track.album?.images?.[0]?.url || '',
@@ -119,11 +119,11 @@ export const addMusicRequest = async (
       popularity: track.popularity || 0
     };
 
-    console.log(`💾 Saving to Firestore as APPROVED...`);
+    console.log(`💾 Saving to Firestore as PLAYED...`);
     const docRef = await addDoc(collection(db, 'music_requests'), musicRequest);
     console.log(`✅ Music request added successfully with ID: ${docRef.id}`);
 
-    // 🎯 AUTOMATICALLY ADD TO SPOTIFY PLAYLIST
+    // 🎯 AUTOMATICALLY ADD TO SPOTIFY PLAYLIST (if available)
     if (isSpotifyAuthenticated() && track.id) {
       try {
         console.log(`🎯 Auto-adding to Spotify playlist...`);
@@ -135,23 +135,16 @@ export const addMusicRequest = async (
         
         if (playlistResult.success > 0) {
           console.log(`✅ Song automatically added to Spotify playlist!`);
-          
-          // 🗑️ REMOVE FROM LOCAL QUEUE AFTER SUCCESSFUL SPOTIFY ADD
-          console.log(`🗑️ Removing from local queue...`);
-          await deleteDoc(doc(db, 'music_requests', docRef.id));
-          console.log(`✅ Song removed from local queue - now only in Spotify playlist!`);
-          
         } else {
           console.warn(`⚠️ Failed to add to Spotify playlist: ${playlistResult.errors.join(', ')}`);
-          // Keep in local queue if Spotify add failed
         }
         
       } catch (playlistError) {
         console.error('❌ Error adding to Spotify playlist:', playlistError);
-        // Keep in local queue if Spotify add failed
+        // Continue anyway - song is still marked as played
       }
     } else {
-      console.log(`ℹ️ Spotify not authenticated or no track ID - keeping in local queue`);
+      console.log(`ℹ️ Spotify not authenticated - song still marked as played`);
     }
     
   } catch (error) {
@@ -160,7 +153,7 @@ export const addMusicRequest = async (
   }
 };
 
-// 🎯 AUTOMATIC PLAYLIST MANAGEMENT: Add from URL and immediately add to Spotify playlist
+// 🎯 FULLY AUTOMATIC SYSTEM: Add from URL and immediately mark as played
 export const addMusicRequestFromUrl = async (
   spotifyUrl: string,
   userName: string,
@@ -168,7 +161,7 @@ export const addMusicRequestFromUrl = async (
   message?: string
 ): Promise<void> => {
   try {
-    console.log(`🔗 === ADDING FROM SPOTIFY URL WITH AUTO-PLAYLIST ===`);
+    console.log(`🔗 === ADDING FROM SPOTIFY URL (FULLY AUTOMATIC) ===`);
     console.log(`🔗 URL: ${spotifyUrl}`);
     
     // Validate URL
@@ -186,7 +179,7 @@ export const addMusicRequestFromUrl = async (
 
     console.log(`✅ Found track: "${track.name}" by ${track.artists[0].name}`);
 
-    // Add the request (automatically approved and added to Spotify playlist)
+    // Add the request (automatically marked as played)
     await addMusicRequest(track, userName, deviceId, message);
     
   } catch (error) {
@@ -289,7 +282,7 @@ export const voteMusicRequest = async (
   }
 };
 
-// Update music request status (DJ/Admin only)
+// Update music request status (DJ/Admin only) - DEPRECATED: Not needed anymore
 export const updateMusicRequestStatus = async (
   requestId: string,
   status: MusicRequest['status']
@@ -323,13 +316,13 @@ export const deleteMusicRequest = async (requestId: string): Promise<void> => {
   }
 };
 
-// Get popular requests for DJ dashboard
+// Get popular requests for DJ dashboard - DEPRECATED: Not needed anymore
 export const getPopularRequests = async (): Promise<MusicRequest[]> => {
   try {
     // Use simple query and sort in memory
     const q = query(
       collection(db, 'music_requests'),
-      where('status', '==', 'approved') // 🎯 CHANGED: Nur genehmigte Songs anzeigen
+      where('status', '==', 'played') // 🎯 CHANGED: Show played songs
     );
     
     const snapshot = await getDocs(q);
@@ -354,4 +347,4 @@ export const getPopularRequests = async (): Promise<MusicRequest[]> => {
 console.log('🎵 === MUSIC SERVICE INITIALIZED ===');
 console.log('🌍 Ready to search ALL Spotify tracks (when API is configured)');
 console.log('🔄 Fallback to enhanced mock database available');
-console.log('🎯 Songs werden automatisch zur Spotify-Playlist hinzugefügt und aus der Warteschlange entfernt');
+console.log('🤖 FULLY AUTOMATIC: Songs werden direkt als gespielt markiert - kein DJ-Eingriff nötig!');
