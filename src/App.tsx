@@ -39,6 +39,7 @@ import {
   cleanupExpiredStories,
   Story
 } from './services/liveService';
+import { initializeSpotifyAuth } from './services/spotifyPlaylistService';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -58,6 +59,14 @@ function App() {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
+
+  // 🔧 FIX: Initialize Spotify auth for ALL users (not just admins)
+  useEffect(() => {
+    if (userName) {
+      console.log('🎵 User logged in - initializing Spotify auth for music functionality...');
+      initializeSpotifyAuth().catch(console.error);
+    }
+  }, [userName]);
 
   // Subscribe to site status changes
   useEffect(() => {
