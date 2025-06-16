@@ -12,6 +12,7 @@ import { StoriesViewer } from './components/StoriesViewer';
 import { StoryUploadModal } from './components/StoryUploadModal';
 import { MusicRequestsSection } from './components/MusicRequestsSection';
 import { TabNavigation } from './components/TabNavigation';
+import { LiveUserIndicator } from './components/LiveUserIndicator';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -358,6 +359,12 @@ function App() {
               👰🤵‍♂️ kristinundmauro
             </h1>
             <div className="flex items-center gap-4">
+              {/* Live User Indicator */}
+              <LiveUserIndicator 
+                currentUser={userName || ''}
+                isDarkMode={isDarkMode}
+              />
+              
               <button
                 onClick={toggleDarkMode}
                 className={`p-2 rounded-full transition-colors duration-300 ${
