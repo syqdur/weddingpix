@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Copy, Check, ExternalLink, Settings } from 'lucide-react';
 
 interface SpotifyUriModalProps {
@@ -13,6 +13,7 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
   isDarkMode
 }) => {
   const [copiedUri, setCopiedUri] = useState<string | null>(null);
+  const textRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const uris = [
     {
@@ -48,6 +49,18 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
       document.body.removeChild(textArea);
       setCopiedUri(uri);
       setTimeout(() => setCopiedUri(null), 2000);
+    }
+  };
+
+  const handleTextClick = (uri: string) => {
+    const textElement = textRefs.current[uri];
+    if (textElement) {
+      // Select all text in the element
+      const range = document.createRange();
+      range.selectNodeContents(textElement);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
     }
   };
 
@@ -149,16 +162,21 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
                   </button>
                 </div>
                 
-                <div className={`p-3 rounded-lg font-mono text-sm break-all transition-colors duration-300 ${
-                  isDarkMode ? 'bg-gray-800 text-green-400' : 'bg-white text-green-700'
-                }`}>
+                <div 
+                  ref={(el) => textRefs.current[item.uri] = el}
+                  onClick={() => handleTextClick(item.uri)}
+                  className={`p-3 rounded-lg font-mono text-sm break-all cursor-pointer select-all transition-all duration-300 hover:ring-2 hover:ring-blue-500 ${
+                    isDarkMode ? 'bg-gray-800 text-green-400 hover:bg-gray-750' : 'bg-white text-green-700 hover:bg-gray-50'
+                  }`}
+                  title="Klicken zum Auswählen des Textes"
+                >
                   {item.uri}
                 </div>
                 
                 <p className={`text-xs mt-2 transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  {item.description}
+                  {item.description} • <span className="italic">Klicke auf die URI um sie auszuwählen</span>
                 </p>
               </div>
             ))}
@@ -175,17 +193,23 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
             </h4>
             
             <div className="flex items-center justify-between">
-              <div className={`font-mono text-sm transition-colors duration-300 ${
-                isDarkMode ? 'text-pink-200' : 'text-pink-700'
-              }`}>
+              <div 
+                ref={(el) => textRefs.current['playlist'] = el}
+                onClick={() => handleTextClick('playlist')}
+                className={`font-mono text-sm cursor-pointer select-all p-2 rounded transition-all duration-300 hover:ring-2 hover:ring-pink-500 ${
+                  isDarkMode ? 'text-pink-200 hover:bg-pink-900/30' : 'text-pink-700 hover:bg-pink-100'
+                }`}
+                title="Klicken zum Auswählen"
+              >
                 https://open.spotify.com/playlist/5IkTeF1ydIrwQ4VZxkCtdO
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 ml-2">
                 <button
                   onClick={() => handleCopy('https://open.spotify.com/playlist/5IkTeF1ydIrwQ4VZxkCtdO')}
                   className={`p-2 rounded-lg transition-colors ${
                     isDarkMode ? 'bg-pink-600 hover:bg-pink-700' : 'bg-pink-500 hover:bg-pink-600'
                   } text-white`}
+                  title="Playlist URL kopieren"
                 >
                   <Copy className="w-4 h-4" />
                 </button>
@@ -196,11 +220,31 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
                   className={`p-2 rounded-lg transition-colors ${
                     isDarkMode ? 'bg-pink-600 hover:bg-pink-700' : 'bg-pink-500 hover:bg-pink-600'
                   } text-white`}
+                  title="Playlist in Spotify öffnen"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </div>
             </div>
+          </div>
+
+          {/* Copy Tips */}
+          <div className={`mt-6 p-4 rounded-xl transition-colors duration-300 ${
+            isDarkMode ? 'bg-green-900/20 border border-green-700/30' : 'bg-green-50 border border-green-200'
+          }`}>
+            <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-green-300' : 'text-green-800'
+            }`}>
+              💡 Kopier-Tipps:
+            </h4>
+            <ul className={`text-sm space-y-1 transition-colors duration-300 ${
+              isDarkMode ? 'text-green-200' : 'text-green-700'
+            }`}>
+              <li>• <strong>Klicke auf die URI</strong> um sie automatisch auszuwählen</li>
+              <li>• <strong>Strg+C</strong> (Windows) oder <strong>Cmd+C</strong> (Mac) zum Kopieren</li>
+              <li>• Oder nutze den <strong>"Kopieren" Button</strong></li>
+              <li>• Der Text ist bereits vorausgewählt beim Klicken</li>
+            </ul>
           </div>
 
           {/* Important Notes */}
