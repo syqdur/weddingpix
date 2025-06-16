@@ -22,11 +22,11 @@ import {
   setSelectedPlaylist,
   isPlaylistLocked
 } from '../services/spotifyPlaylistService';
+import { loadMusicRequests } from '../services/musicService';
 
 interface PlaylistExportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  approvedRequests: MusicRequest[];
   isDarkMode: boolean;
   isAdmin?: boolean; // 🔒 NEW: Admin check
 }
@@ -34,7 +34,6 @@ interface PlaylistExportModalProps {
 export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
   isOpen,
   onClose,
-  approvedRequests,
   isDarkMode,
   isAdmin = false // 🔒 Default: not admin
 }) => {
@@ -50,10 +49,31 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
   const [isInitializing, setIsInitializing] = useState(true);
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
   const [showConnectionStatus, setShowConnectionStatus] = useState(false);
+  const [approvedRequests, setApprovedRequests] = useState<MusicRequest[]>([]);
 
   // 🎯 NEW: Persistent playlist state
   const [persistentPlaylist, setPersistentPlaylist] = useState<any | null>(null);
   const [playlistLocked, setPlaylistLocked] = useState(false);
+
+  // 🔒 Load music requests for all users
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🎵 Loading music requests for playlist management...');
+      
+      const unsubscribe = loadMusicRequests((requests) => {
+        const approved = requests.filter(r => r.status === 'approved');
+        setApprovedRequests(approved);
+        console.log(`📊 Loaded ${approved.length} approved music requests`);
+        
+        if (approved.length > 0) {
+          const exportData = createPlaylistExport(approved);
+          setPlaylistExport(exportData);
+        }
+      });
+
+      return unsubscribe;
+    }
+  }, [isOpen]);
 
   // 🔒 ADMIN-ONLY: Initialize Spotify auth only for admins
   useEffect(() => {
@@ -64,12 +84,6 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
       } else {
         console.log('👤 Regular user - checking Spotify status...');
         checkSpotifyStatus();
-        
-        // Still create playlist export for download features
-        if (approvedRequests.length > 0) {
-          const exportData = createPlaylistExport(approvedRequests);
-          setPlaylistExport(exportData);
-        }
       }
     }
   }, [isOpen, isAdmin]);
@@ -150,12 +164,6 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
       setSpotifyUser(null);
     } finally {
       setIsInitializing(false);
-    }
-    
-    // Create playlist export
-    if (approvedRequests.length > 0) {
-      const exportData = createPlaylistExport(approvedRequests);
-      setPlaylistExport(exportData);
     }
   };
 
