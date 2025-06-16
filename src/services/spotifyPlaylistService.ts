@@ -76,10 +76,18 @@ const getSharedAccessToken = (): string | null => {
 
 // === ADMIN SETUP FUNCTIONS ===
 
-// Generiere Spotify Authorization URL für Admin Setup
+// 🔧 FIXED: Generiere korrekte Spotify Authorization URL mit richtiger Redirect URI
 export const generateAdminSpotifyAuthUrl = (): string => {
   const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
-  const redirectUri = window.location.origin;
+  
+  // 🎯 FIX: Use the exact redirect URI that's configured in your Spotify app
+  // This must match EXACTLY what you set in the Spotify Developer Dashboard
+  const redirectUri = `${window.location.origin}/`;
+  
+  console.log(`🔗 === GENERATING SPOTIFY AUTH URL ===`);
+  console.log(`🔑 Client ID: ${clientId}`);
+  console.log(`🔄 Redirect URI: ${redirectUri}`);
+  console.log(`🌐 Current Origin: ${window.location.origin}`);
   
   const params = new URLSearchParams({
     client_id: clientId,
@@ -94,7 +102,10 @@ export const generateAdminSpotifyAuthUrl = (): string => {
     show_dialog: 'true'
   });
 
-  return `https://accounts.spotify.com/authorize?${params.toString()}`;
+  const authUrl = `https://accounts.spotify.com/authorize?${params.toString()}`;
+  console.log(`🔗 Generated auth URL: ${authUrl}`);
+  
+  return authUrl;
 };
 
 // Handle OAuth callback für Admin Setup
@@ -104,6 +115,20 @@ export const handleAdminSpotifyCallback = (): boolean => {
   
   const accessToken = params.get('access_token');
   const expiresIn = params.get('expires_in');
+  const error = params.get('error');
+  
+  console.log(`🔐 === HANDLING SPOTIFY CALLBACK ===`);
+  console.log(`🔗 Current URL: ${window.location.href}`);
+  console.log(`📋 Hash: ${hash}`);
+  console.log(`🔑 Access Token: ${accessToken ? 'RECEIVED' : 'MISSING'}`);
+  console.log(`⏰ Expires In: ${expiresIn || 'MISSING'}`);
+  console.log(`❌ Error: ${error || 'NONE'}`);
+  
+  if (error) {
+    console.error(`❌ Spotify OAuth error: ${error}`);
+    alert(`❌ Spotify Anmeldung fehlgeschlagen: ${error}\n\nBitte versuche es erneut.`);
+    return false;
+  }
   
   if (accessToken && expiresIn) {
     console.log('✅ Admin Spotify OAuth successful');
@@ -113,19 +138,46 @@ export const handleAdminSpotifyCallback = (): boolean => {
     // Clean up URL
     window.history.replaceState({}, document.title, window.location.pathname);
     
+    alert('✅ Spotify erfolgreich konfiguriert!\n\n🎵 Alle Gäste können jetzt Songs zur Hochzeits-Playlist hinzufügen.');
+    
     return true;
   }
   
   return false;
 };
 
-// Starte Admin Spotify Setup
+// 🔧 FIXED: Verbesserte Admin Spotify Setup Funktion
 export const initiateAdminSpotifySetup = (): void => {
   console.log(`🔐 === STARTING ADMIN SPOTIFY SETUP ===`);
   
   const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
   if (!clientId || clientId === 'your_spotify_client_id') {
-    alert('❌ Spotify Client ID nicht konfiguriert. Bitte .env Datei prüfen.');
+    alert(`❌ Spotify Client ID nicht konfiguriert!\n\n🔧 Lösung:\n1. Erstelle eine Spotify App auf https://developer.spotify.com/dashboard\n2. Kopiere die Client ID\n3. Füge sie zur .env Datei hinzu:\n   VITE_SPOTIFY_CLIENT_ID=deine_client_id\n4. Starte den Server neu`);
+    return;
+  }
+
+  // 🎯 WICHTIGE ANWEISUNG für Spotify App Setup
+  const currentOrigin = window.location.origin;
+  const redirectUri = `${currentOrigin}/`;
+  
+  const setupInstructions = `🔧 === SPOTIFY APP SETUP ERFORDERLICH ===
+
+Bevor du fortfährst, stelle sicher, dass deine Spotify App korrekt konfiguriert ist:
+
+📋 Spotify Developer Dashboard:
+1. Gehe zu: https://developer.spotify.com/dashboard
+2. Öffne deine App "WeddingPix Musikwünsche"
+3. Klicke auf "Edit Settings"
+4. Füge diese Redirect URI hinzu:
+   ${redirectUri}
+
+⚠️ WICHTIG: Die Redirect URI muss EXAKT so eingetragen sein!
+
+✅ Wenn das erledigt ist, klicke OK um fortzufahren.
+❌ Wenn nicht konfiguriert, bricht der Login ab.`;
+
+  if (!window.confirm(setupInstructions)) {
+    console.log('🔄 User canceled setup to configure Spotify app');
     return;
   }
 
@@ -417,6 +469,7 @@ export const copyTrackListToClipboard = async (approvedRequests: MusicRequest[])
 if (typeof window !== 'undefined') {
   // Check for OAuth callback (Admin setup)
   if (window.location.hash.includes('access_token')) {
+    console.log('🔐 Detected Spotify OAuth callback, processing...');
     handleAdminSpotifyCallback();
   }
   
