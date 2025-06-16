@@ -303,11 +303,11 @@ export const InstagramGallery: React.FC<InstagramGalleryProps> = ({
                             
                             {/* Actions */}
                             <div className="flex items-center gap-1">
-                              {canEdit && (
+                              {canEdit && onEditNote && (
                                 <button
                                   onClick={() => {
                                     const newText = prompt('Notiz bearbeiten:', item.noteText);
-                                    if (newText && newText.trim() && onEditNote) {
+                                    if (newText && newText.trim()) {
                                       onEditNote(item, newText.trim());
                                     }
                                   }}
@@ -319,9 +319,9 @@ export const InstagramGallery: React.FC<InstagramGalleryProps> = ({
                                   <Edit3 className="w-4 h-4" />
                                 </button>
                               )}
-                              {canDelete && (
+                              {canDelete && onDelete && (
                                 <button
-                                  onClick={() => onDelete && onDelete(item)}
+                                  onClick={() => onDelete(item)}
                                   className={`p-2 rounded transition-colors duration-300 ${
                                     isDarkMode ? 'text-red-400 hover:bg-gray-700' : 'text-red-500 hover:bg-red-50'
                                   }`}
