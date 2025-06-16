@@ -8,8 +8,9 @@ const SPOTIFY_ACCESS_TOKEN_KEY = 'spotify_access_token';
 const SPOTIFY_REFRESH_TOKEN_KEY = 'spotify_refresh_token';
 const SPOTIFY_TOKEN_EXPIRY_KEY = 'spotify_token_expiry';
 const SPOTIFY_USER_INFO_KEY = 'spotify_user_info';
+const SELECTED_PLAYLIST_KEY = 'selected_wedding_playlist'; // 🎯 NEW: Persistent playlist selection
 
-// Wedding Playlist ID (Kristin & Maurizio)
+// Wedding Playlist ID (Kristin & Maurizio) - Default fallback
 const WEDDING_PLAYLIST_ID = '5IkTeF1ydIrwQ4VZxkCtdO';
 
 // User Info Interface
@@ -18,6 +19,16 @@ interface SpotifyUserInfo {
   display_name: string;
   email?: string;
   images?: Array<{ url: string }>;
+}
+
+// 🎯 NEW: Selected Playlist Interface
+interface SelectedPlaylist {
+  id: string;
+  name: string;
+  images?: Array<{ url: string }>;
+  tracks: { total: number };
+  selectedAt: string;
+  isLocked: boolean; // Once selected, cannot be changed
 }
 
 // Playlist Export Interface
@@ -48,6 +59,36 @@ const getRedirectUri = (): string => {
   } else {
     return 'https://kristinundmauro.netlify.app/';
   }
+};
+
+// 🎯 PERSISTENT PLAYLIST SELECTION
+export const getSelectedPlaylist = (): SelectedPlaylist | null => {
+  const stored = localStorage.getItem(SELECTED_PLAYLIST_KEY);
+  return stored ? JSON.parse(stored) : null;
+};
+
+export const setSelectedPlaylist = (playlist: any): void => {
+  const selectedPlaylist: SelectedPlaylist = {
+    id: playlist.id,
+    name: playlist.name,
+    images: playlist.images,
+    tracks: playlist.tracks,
+    selectedAt: new Date().toISOString(),
+    isLocked: true // 🔒 Once selected, it's locked
+  };
+  
+  localStorage.setItem(SELECTED_PLAYLIST_KEY, JSON.stringify(selectedPlaylist));
+  console.log(`🎯 Playlist permanently selected: ${playlist.name}`);
+};
+
+export const isPlaylistLocked = (): boolean => {
+  const selected = getSelectedPlaylist();
+  return selected?.isLocked || false;
+};
+
+export const getActivePlaylistId = (): string => {
+  const selected = getSelectedPlaylist();
+  return selected?.id || WEDDING_PLAYLIST_ID;
 };
 
 // 🔑 TOKEN MANAGEMENT
@@ -88,7 +129,8 @@ const clearStoredTokens = () => {
   localStorage.removeItem(SPOTIFY_REFRESH_TOKEN_KEY);
   localStorage.removeItem(SPOTIFY_TOKEN_EXPIRY_KEY);
   localStorage.removeItem(SPOTIFY_USER_INFO_KEY);
-  console.log('🔑 All tokens cleared');
+  // 🎯 DON'T clear selected playlist - it should persist even after logout
+  console.log('🔑 All tokens cleared (playlist selection preserved)');
 };
 
 // 👤 USER INFO MANAGEMENT
@@ -330,10 +372,12 @@ export const getWeddingPlaylistDetails = async () => {
     throw new Error('Nicht bei Spotify angemeldet');
   }
   
+  const playlistId = getActivePlaylistId();
+  
   try {
-    console.log(`🎵 Getting wedding playlist details: ${WEDDING_PLAYLIST_ID}`);
+    console.log(`🎵 Getting playlist details: ${playlistId}`);
     
-    const response = await fetch(`https://api.spotify.com/v1/playlists/${WEDDING_PLAYLIST_ID}`, {
+    const response = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -344,19 +388,20 @@ export const getWeddingPlaylistDetails = async () => {
     }
     
     const playlist = await response.json();
-    console.log(`✅ Wedding playlist loaded: ${playlist.name} (${playlist.tracks.total} tracks)`);
+    console.log(`✅ Playlist loaded: ${playlist.name} (${playlist.tracks.total} tracks)`);
     
     return playlist;
     
   } catch (error) {
-    console.error('❌ Error getting wedding playlist:', error);
+    console.error('❌ Error getting playlist:', error);
     throw error;
   }
 };
 
 // 🎯 ADD SONGS TO WEDDING PLAYLIST
 export const addToWeddingPlaylist = async (musicRequests: MusicRequest[]) => {
-  return addToSelectedPlaylist(WEDDING_PLAYLIST_ID, musicRequests);
+  const activePlaylistId = getActivePlaylistId();
+  return addToSelectedPlaylist(activePlaylistId, musicRequests);
 };
 
 // 🎯 ADD SONGS TO SELECTED PLAYLIST
@@ -493,19 +538,22 @@ export const addToSelectedPlaylist = async (playlistId: string, musicRequests: M
 
 // 🔗 OPEN WEDDING PLAYLIST
 export const openWeddingPlaylist = () => {
-  const playlistUrl = `https://open.spotify.com/playlist/${WEDDING_PLAYLIST_ID}`;
+  const playlistId = getActivePlaylistId();
+  const playlistUrl = `https://open.spotify.com/playlist/${playlistId}`;
   window.open(playlistUrl, '_blank');
 };
 
 // 🔗 GET WEDDING PLAYLIST URL
 export const getWeddingPlaylistUrl = (): string => {
-  return `https://open.spotify.com/playlist/${WEDDING_PLAYLIST_ID}`;
+  const playlistId = getActivePlaylistId();
+  return `https://open.spotify.com/playlist/${playlistId}`;
 };
 
 // 🚪 LOGOUT
 export const logoutSpotify = () => {
   console.log('🚪 Logging out from Spotify...');
   clearStoredTokens();
+  // 🎯 Playlist selection remains persistent even after logout
 };
 
 // 📋 CREATE PLAYLIST EXPORT
@@ -576,7 +624,7 @@ export const copyTrackListToClipboard = async (requests: MusicRequest[]): Promis
 };
 
 export const openSpotifyPlaylist = (requests: MusicRequest[]) => {
-  // For now, just open the wedding playlist
+  // Open the active playlist
   openWeddingPlaylist();
 };
 
@@ -596,4 +644,8 @@ export const initializeSpotifyAuth = async (): Promise<boolean> => {
 
 console.log('🎵 === SPOTIFY PLAYLIST SERVICE INITIALIZED ===');
 console.log(`🔑 Client ID: ${SPOTIFY_CLIENT_ID ? 'CONFIGURED' : 'MISSING'}`);
-console.log(`🎯 Wedding Playlist: ${WEDDING_PLAYLIST_ID}`);
+console.log(`🎯 Active Playlist: ${getActivePlaylistId()}`);
+const selectedPlaylist = getSelectedPlaylist();
+if (selectedPlaylist) {
+  console.log(`🔒 Playlist locked: "${selectedPlaylist.name}" (selected ${new Date(selectedPlaylist.selectedAt).toLocaleString()})`);
+}
