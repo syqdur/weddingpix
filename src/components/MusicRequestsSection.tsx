@@ -5,6 +5,7 @@ import { loadMusicRequests } from '../services/musicService';
 import { MusicHistoryList } from './MusicHistoryList';
 import { MusicRequestModal } from './MusicRequestModal';
 import { PlaylistExportModal } from './PlaylistExportModal';
+import { NowPlayingWidget } from './NowPlayingWidget';
 import { subscribeToSharedSpotifyStatus } from '../services/spotifyPlaylistService';
 
 interface MusicRequestsSectionProps {
@@ -29,7 +30,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
   const [searchFilter, setSearchFilter] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'alphabetical'>('popular');
   
-  // 🌍 NEW: Shared Spotify status for all users
+  // 🌍 Shared Spotify status for all users
   const [sharedSpotifyStatus, setSharedSpotifyStatus] = useState<{
     isAvailable: boolean;
     authenticatedBy: string | null;
@@ -58,7 +59,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
     };
   }, []);
 
-  // 🌍 NEW: Subscribe to shared Spotify status
+  // 🌍 Subscribe to shared Spotify status
   useEffect(() => {
     console.log('🌍 Setting up shared Spotify status subscription...');
     
@@ -150,7 +151,10 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 🌍 NEW: Shared Spotify Status Banner */}
+      {/* 🎵 NEW: Now Playing Widget */}
+      <NowPlayingWidget isDarkMode={isDarkMode} />
+
+      {/* 🌍 Shared Spotify Status Banner */}
       {sharedSpotifyStatus.isAvailable && (
         <div className={`p-4 rounded-xl transition-colors duration-300 ${
           isDarkMode 
@@ -355,7 +359,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
         </div>
       )}
 
-      {/* 🌍 NEW: No Spotify Integration Warning */}
+      {/* 🌍 No Spotify Integration Warning */}
       {!sharedSpotifyStatus.isAvailable && (
         <div className={`p-4 rounded-xl border transition-colors duration-300 ${
           isDarkMode 
