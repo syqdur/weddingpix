@@ -17,19 +17,21 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
 
   const uris = [
     {
-      name: 'Lokale Entwicklung',
-      uri: 'http://localhost:5173/',
-      description: 'Für Tests auf deinem Computer'
-    },
-    {
       name: 'Production (Netlify)',
       uri: 'https://kristinundmauro.netlify.app/',
-      description: 'Für die Live-Website'
+      description: 'Für die Live-Website (EMPFOHLEN)',
+      recommended: true
     },
     {
       name: 'Production (Custom Domain)',
       uri: 'https://kristinundmauro.de/',
       description: 'Falls du eine eigene Domain hast'
+    },
+    {
+      name: 'Lokale Entwicklung (NICHT SICHER)',
+      uri: 'http://localhost:5173/',
+      description: 'Funktioniert NICHT - Spotify blockiert localhost',
+      disabled: true
     }
   ];
 
@@ -105,6 +107,22 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
         </div>
 
         <div className="p-6">
+          {/* Problem Explanation */}
+          <div className={`p-4 rounded-xl mb-6 transition-colors duration-300 ${
+            isDarkMode ? 'bg-red-900/20 border border-red-700/30' : 'bg-red-50 border border-red-200'
+          }`}>
+            <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-red-300' : 'text-red-800'
+            }`}>
+              ❌ Problem: "accounts.spotify.com haben die Verbindung verweigert"
+            </h4>
+            <p className={`text-sm transition-colors duration-300 ${
+              isDarkMode ? 'text-red-200' : 'text-red-700'
+            }`}>
+              Spotify blockiert localhost aus Sicherheitsgründen. Du musst die Production-URIs verwenden!
+            </p>
+          </div>
+
           {/* Instructions */}
           <div className={`p-4 rounded-xl mb-6 transition-colors duration-300 ${
             isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
@@ -112,7 +130,7 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
             <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
               isDarkMode ? 'text-blue-300' : 'text-blue-800'
             }`}>
-              📋 Anleitung:
+              📋 Lösung - Schritt für Schritt:
             </h4>
             <ol className={`text-sm space-y-1 transition-colors duration-300 ${
               isDarkMode ? 'text-blue-200' : 'text-blue-700'
@@ -121,8 +139,10 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
               <li>2. Öffne deine App "WeddingPix Musikwünsche"</li>
               <li>3. Klicke auf "Edit Settings"</li>
               <li>4. Scrolle zu "Redirect URIs"</li>
-              <li>5. Kopiere die URIs unten und füge sie hinzu</li>
-              <li>6. Klicke "Save"</li>
+              <li>5. <strong>LÖSCHE die localhost URI</strong> (falls vorhanden)</li>
+              <li>6. Füge nur die Production URIs unten hinzu</li>
+              <li>7. Klicke "Save"</li>
+              <li>8. Warte 5 Minuten und teste erneut</li>
             </ol>
           </div>
 
@@ -130,53 +150,88 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
           <div className="space-y-4">
             {uris.map((item, index) => (
               <div key={index} className={`p-4 rounded-xl border transition-colors duration-300 ${
-                isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+                item.disabled 
+                  ? isDarkMode ? 'bg-red-900/20 border-red-700/30' : 'bg-red-50 border-red-200'
+                  : item.recommended
+                    ? isDarkMode ? 'bg-green-900/20 border-green-700/30' : 'bg-green-50 border-green-200'
+                    : isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
               }`}>
                 <div className="flex items-center justify-between mb-2">
-                  <h5 className={`font-semibold transition-colors duration-300 ${
-                    isDarkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    {item.name}
-                  </h5>
-                  <button
-                    onClick={() => handleCopy(item.uri)}
-                    className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm transition-all duration-300 ${
-                      copiedUri === item.uri
-                        ? 'bg-green-600 text-white'
-                        : isDarkMode
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                          : 'bg-blue-500 hover:bg-blue-600 text-white'
-                    }`}
-                  >
-                    {copiedUri === item.uri ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        Kopiert!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" />
-                        Kopieren
-                      </>
+                  <div className="flex items-center gap-2">
+                    <h5 className={`font-semibold transition-colors duration-300 ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      {item.name}
+                    </h5>
+                    {item.recommended && (
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold transition-colors duration-300 ${
+                        isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
+                      }`}>
+                        EMPFOHLEN
+                      </span>
                     )}
-                  </button>
+                    {item.disabled && (
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold transition-colors duration-300 ${
+                        isDarkMode ? 'bg-red-600 text-white' : 'bg-red-100 text-red-800'
+                      }`}>
+                        NICHT VERWENDEN
+                      </span>
+                    )}
+                  </div>
+                  {!item.disabled && (
+                    <button
+                      onClick={() => handleCopy(item.uri)}
+                      className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm transition-all duration-300 ${
+                        copiedUri === item.uri
+                          ? 'bg-green-600 text-white'
+                          : isDarkMode
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-blue-500 hover:bg-blue-600 text-white'
+                      }`}
+                    >
+                      {copiedUri === item.uri ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Kopiert!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          Kopieren
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
                 
                 <div 
                   ref={(el) => textRefs.current[item.uri] = el}
-                  onClick={() => handleTextClick(item.uri)}
-                  className={`p-3 rounded-lg font-mono text-sm break-all cursor-pointer select-all transition-all duration-300 hover:ring-2 hover:ring-blue-500 ${
-                    isDarkMode ? 'bg-gray-800 text-green-400 hover:bg-gray-750' : 'bg-white text-green-700 hover:bg-gray-50'
+                  onClick={() => !item.disabled && handleTextClick(item.uri)}
+                  className={`p-3 rounded-lg font-mono text-sm break-all transition-all duration-300 ${
+                    item.disabled
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'cursor-pointer select-all hover:ring-2 hover:ring-blue-500'
+                  } ${
+                    isDarkMode 
+                      ? item.disabled
+                        ? 'bg-gray-800 text-red-400'
+                        : 'bg-gray-800 text-green-400 hover:bg-gray-750'
+                      : item.disabled
+                        ? 'bg-white text-red-700'
+                        : 'bg-white text-green-700 hover:bg-gray-50'
                   }`}
-                  title="Klicken zum Auswählen des Textes"
+                  title={item.disabled ? "Diese URI nicht verwenden!" : "Klicken zum Auswählen des Textes"}
                 >
                   {item.uri}
                 </div>
                 
                 <p className={`text-xs mt-2 transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  item.disabled
+                    ? isDarkMode ? 'text-red-400' : 'text-red-600'
+                    : isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  {item.description} • <span className="italic">Klicke auf die URI um sie auszuwählen</span>
+                  {item.description}
+                  {!item.disabled && <span className="italic"> • Klicke auf die URI um sie auszuwählen</span>}
                 </p>
               </div>
             ))}
@@ -259,10 +314,11 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
             <ul className={`text-sm space-y-1 transition-colors duration-300 ${
               isDarkMode ? 'text-yellow-200' : 'text-yellow-700'
             }`}>
+              <li>• <strong>LÖSCHE localhost URIs</strong> - sie funktionieren nicht!</li>
+              <li>• Verwende nur die Production URIs (https://)</li>
               <li>• Die URIs müssen EXAKT so eingetragen werden (mit / am Ende)</li>
-              <li>• Du kannst alle URIs gleichzeitig hinzufügen</li>
               <li>• Nach dem Speichern dauert es ~5 Minuten bis die Änderungen aktiv sind</li>
-              <li>• Teste zuerst mit der localhost URI</li>
+              <li>• Teste die Spotify-Anmeldung erst nach der Wartezeit</li>
             </ul>
           </div>
 

@@ -88,8 +88,9 @@ export const generateAdminSpotifyAuthUrl = (): string => {
   let redirectUri: string;
   
   if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
-    // Lokale Entwicklung
-    redirectUri = 'http://localhost:5173/';
+    // Lokale Entwicklung - NICHT VERWENDEN (Spotify blockiert localhost)
+    redirectUri = 'https://kristinundmauro.netlify.app/';
+    console.warn('⚠️ Localhost detected - using production URI instead');
   } else if (currentOrigin.includes('netlify.app')) {
     // Netlify Deployment
     redirectUri = `${currentOrigin}/`;
@@ -97,8 +98,8 @@ export const generateAdminSpotifyAuthUrl = (): string => {
     // Custom Domain
     redirectUri = 'https://kristinundmauro.de/';
   } else {
-    // Fallback: Verwende aktuelle Origin
-    redirectUri = `${currentOrigin}/`;
+    // Fallback: Verwende Netlify URI
+    redirectUri = 'https://kristinundmauro.netlify.app/';
   }
   
   console.log(`🔗 === GENERATING SPOTIFY AUTH URL ===`);
@@ -148,7 +149,7 @@ export const handleAdminSpotifyCallback = (): boolean => {
     if (error === 'invalid_client') {
       alert(`❌ Spotify App Konfiguration fehlerhaft!\n\n🔧 Lösung:\n1. Prüfe deine Client ID in der .env Datei\n2. Stelle sicher, dass die Redirect URIs korrekt sind\n3. Nutze den "🔗 Spotify URIs" Button im Admin Panel`);
     } else if (error === 'redirect_uri_mismatch') {
-      alert(`❌ Redirect URI stimmt nicht überein!\n\n🔧 Lösung:\n1. Öffne das Admin Panel\n2. Klicke auf "🔗 Spotify URIs"\n3. Kopiere ALLE URIs in deine Spotify App\n4. Vergiss nicht auf "Save" zu klicken!`);
+      alert(`❌ Redirect URI stimmt nicht überein!\n\n🔧 Lösung:\n1. Öffne das Admin Panel\n2. Klicke auf "🔗 Spotify URIs"\n3. Kopiere ALLE URIs in deine Spotify App\n4. Vergiss nicht auf "Save" zu klicken!\n5. LÖSCHE localhost URIs - sie funktionieren nicht!`);
     } else {
       alert(`❌ Spotify Anmeldung fehlgeschlagen: ${error}\n\n💡 Nutze den "🔗 Spotify URIs" Button im Admin Panel für die korrekten Einstellungen.`);
     }
@@ -193,12 +194,12 @@ Das Problem "accounts.spotify.com haben die Verbindung verweigert" bedeutet, das
 2. Öffne deine App "WeddingPix Musikwünsche"
 3. Klicke auf "Edit Settings"
 4. Nutze den "🔗 Spotify URIs" Button im Admin Panel
-5. Kopiere ALLE URIs und füge sie unter "Redirect URIs" hinzu
+5. Kopiere NUR die Production URIs (https://) - KEINE localhost URIs!
 6. Klicke "Save"
 
 ⚠️ WICHTIG: 
-- Die URIs müssen EXAKT so eingetragen sein (mit / am Ende)
-- Du brauchst ALLE URIs für verschiedene Umgebungen
+- Localhost URIs funktionieren NICHT (Spotify blockiert sie)
+- Du brauchst nur die Production URIs (https://)
 - Nach dem Speichern dauert es ~5 Minuten bis aktiv
 
 🔗 Aktuelle URL: ${currentOrigin}
