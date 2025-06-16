@@ -206,14 +206,14 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <h4 className={`font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-blue-300' : 'text-blue-800'
               }`}>
-                🎯 Automatische Spotify-Integration für ALLE
+                🎯 Einfach Song hinzufügen - fertig!
               </h4>
             </div>
             <div className={`text-sm space-y-2 transition-colors duration-300 ${
               isDarkMode ? 'text-blue-200' : 'text-blue-700'
             }`}>
               <p>
-                <strong>✨ Neu:</strong> Deine Songs werden automatisch zur Hochzeits-Playlist hinzugefügt und - falls ein Admin Spotify eingerichtet hat - auch direkt zur Spotify-Playlist!
+                <strong>✨ Neu:</strong> Songs werden sofort zur Playlist hinzugefügt - ohne Nachricht oder Wartezeit!
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
                 <div className="flex items-center gap-2">
@@ -230,7 +230,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>Keine Admin-Rechte nötig</span>
+                  <span>Keine Wartezeit</span>
                 </div>
               </div>
             </div>
@@ -379,7 +379,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <h4 className={`font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-purple-300' : 'text-purple-800'
               }`}>
-                ✨ So funktioniert's:
+                ✨ So einfach geht's:
               </h4>
             </div>
             <ul className={`text-sm space-y-1 transition-colors duration-300 ${
