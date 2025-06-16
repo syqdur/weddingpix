@@ -4,7 +4,6 @@ import { MusicRequest } from '../types';
 import { loadMusicRequests } from '../services/musicService';
 import { MusicRequestModal } from './MusicRequestModal';
 import { MusicRequestsList } from './MusicRequestsList';
-import { PlaylistExportModal } from './PlaylistExportModal';
 
 interface MusicRequestsSectionProps {
   userName: string;
@@ -21,7 +20,6 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
 }) => {
   const [requests, setRequests] = useState<MusicRequest[]>([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'played'>('all');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -114,23 +112,8 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             </div>
           </div>
 
+          {/* 🔧 FIXED: Nur noch der "Wunsch hinzufügen" Button - Playlist Button entfernt */}
           <div className="flex items-center gap-2">
-            {/* Playlist Export Button - Only for DJ/Admin */}
-            {isDJ && approvedRequests.length > 0 && (
-              <button
-                onClick={() => setShowPlaylistModal(true)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-300 hover:scale-105 ${
-                  isDarkMode
-                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                    : 'bg-purple-500 hover:bg-purple-600 text-white'
-                }`}
-                title="Genehmigte Songs zu Spotify Playlist hinzufügen"
-              >
-                <List className="w-4 h-4" />
-                <span className="hidden sm:inline">Playlist</span>
-              </button>
-            )}
-
             <button
               onClick={() => setShowRequestModal(true)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 ${
@@ -276,14 +259,6 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
         onClose={() => setShowRequestModal(false)}
         userName={userName}
         deviceId={deviceId}
-        isDarkMode={isDarkMode}
-      />
-
-      {/* Playlist Export Modal */}
-      <PlaylistExportModal
-        isOpen={showPlaylistModal}
-        onClose={() => setShowPlaylistModal(false)}
-        approvedRequests={approvedRequests}
         isDarkMode={isDarkMode}
       />
     </div>

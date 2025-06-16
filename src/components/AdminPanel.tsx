@@ -210,10 +210,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         {isAdmin ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
       </button>
 
-      {/* Admin Controls - Smaller buttons in vertical stack */}
+      {/* 🔧 FIXED: Admin Controls - Alle Buttons in einer horizontalen Reihe */}
       {isAdmin && (
-        <div className="fixed bottom-16 left-4 space-y-2">
-          {/* Spotify URIs Button - NEUER BUTTON GANZ OBEN */}
+        <div className="fixed bottom-16 left-4 flex gap-2">
+          {/* Spotify URIs Button */}
           <button
             onClick={() => setShowSpotifyUris(true)}
             className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
@@ -312,7 +312,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* Spotify URIs Modal - NEUE MODAL */}
+      {/* Spotify URIs Modal */}
       <SpotifyUriModal 
         isOpen={showSpotifyUris}
         onClose={() => setShowSpotifyUris(false)}
