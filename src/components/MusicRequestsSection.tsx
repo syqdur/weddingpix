@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Plus, Filter, TrendingUp, Clock, Check, Play, List } from 'lucide-react';
+import { Music, Plus, Filter, TrendingUp, Clock, Check, Play, List, History } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { loadMusicRequests } from '../services/musicService';
 import { MusicRequestModal } from './MusicRequestModal';
 import { MusicRequestsList } from './MusicRequestsList';
 import { PlaylistExportModal } from './PlaylistExportModal';
+import { MusicHistoryList } from './MusicHistoryList';
 
 interface MusicRequestsSectionProps {
   userName: string;
@@ -22,7 +23,8 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
   const [requests, setRequests] = useState<MusicRequest[]>([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'approved' | 'played'>('all'); // 🎯 REMOVED: pending, rejected
+  const [filter, setFilter] = useState<'all' | 'approved' | 'played'>('all');
+  const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [isLoading, setIsLoading] = useState(true);
 
   // 🎧 DJ SYSTEM: Check if current user is DJ, Mauro, or Admin
@@ -61,6 +63,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
   });
 
   const approvedRequests = requests.filter(request => request.status === 'approved');
+  const playedRequests = requests.filter(request => request.status === 'played');
 
   const getFilterCount = (status: MusicRequest['status'] | 'all') => {
     if (status === 'all') return requests.length;
@@ -149,82 +152,142 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
           </div>
         )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-          <div className={`p-3 rounded-lg transition-colors duration-300 ${
-            isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-          }`}>
-            <div className={`text-2xl font-bold transition-colors duration-300 ${
-              isDarkMode ? 'text-green-400' : 'text-green-600'
-            }`}>
-              {requests.length}
-            </div>
-            <div className={`text-xs transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Gesamt
-            </div>
-          </div>
-          <div className={`p-3 rounded-lg transition-colors duration-300 ${
-            isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-          }`}>
-            <div className={`text-2xl font-bold transition-colors duration-300 ${
-              isDarkMode ? 'text-green-400' : 'text-green-600'
-            }`}>
-              {getFilterCount('approved')}
-            </div>
-            <div className={`text-xs transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              In Playlist
-            </div>
-          </div>
-          <div className={`p-3 rounded-lg transition-colors duration-300 ${
-            isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-          }`}>
-            <div className={`text-2xl font-bold transition-colors duration-300 ${
-              isDarkMode ? 'text-blue-400' : 'text-blue-600'
-            }`}>
-              {getFilterCount('played')}
-            </div>
-            <div className={`text-xs transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Gespielt
-            </div>
-          </div>
+        {/* Tab Navigation */}
+        <div className="flex mb-4">
+          <button
+            onClick={() => setActiveTab('current')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all duration-300 ${
+              activeTab === 'current'
+                ? isDarkMode
+                  ? 'text-green-400 border-b-2 border-green-400 bg-gray-700/30'
+                  : 'text-green-600 border-b-2 border-green-600 bg-green-50'
+                : isDarkMode
+                  ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/20'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <Music className="w-4 h-4" />
+            Aktuelle Playlist
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 font-medium transition-all duration-300 ${
+              activeTab === 'history'
+                ? isDarkMode
+                  ? 'text-green-400 border-b-2 border-green-400 bg-gray-700/30'
+                  : 'text-green-600 border-b-2 border-green-600 bg-green-50'
+                : isDarkMode
+                  ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/20'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <History className="w-4 h-4" />
+            Verlauf ({playedRequests.length})
+          </button>
         </div>
 
-        {/* Filter Tabs - 🎯 SIMPLIFIED: Nur noch 3 Filter */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {(['all', 'approved', 'played'] as const).map((status) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 whitespace-nowrap ${
-                filter === status
-                  ? isDarkMode
-                    ? 'bg-green-600 text-white'
-                    : 'bg-green-500 text-white'
-                  : isDarkMode
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-              }`}
-            >
-              {getFilterIcon(status)}
-              {getFilterLabel(status)}
-              <span className={`px-2 py-0.5 rounded-full text-xs ${
-                filter === status
-                  ? 'bg-white/20 text-white'
-                  : isDarkMode
-                    ? 'bg-gray-600 text-gray-300'
-                    : 'bg-gray-200 text-gray-600'
+        {/* Tab Content */}
+        {activeTab === 'current' ? (
+          <>
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+              <div className={`p-3 rounded-lg transition-colors duration-300 ${
+                isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
               }`}>
-                {getFilterCount(status)}
-              </span>
-            </button>
-          ))}
-        </div>
+                <div className={`text-2xl font-bold transition-colors duration-300 ${
+                  isDarkMode ? 'text-green-400' : 'text-green-600'
+                }`}>
+                  {requests.length}
+                </div>
+                <div className={`text-xs transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  Gesamt
+                </div>
+              </div>
+              <div className={`p-3 rounded-lg transition-colors duration-300 ${
+                isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+              }`}>
+                <div className={`text-2xl font-bold transition-colors duration-300 ${
+                  isDarkMode ? 'text-green-400' : 'text-green-600'
+                }`}>
+                  {getFilterCount('approved')}
+                </div>
+                <div className={`text-xs transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  In Playlist
+                </div>
+              </div>
+              <div className={`p-3 rounded-lg transition-colors duration-300 ${
+                isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
+              }`}>
+                <div className={`text-2xl font-bold transition-colors duration-300 ${
+                  isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                }`}>
+                  {getFilterCount('played')}
+                </div>
+                <div className={`text-xs transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  Gespielt
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Tabs - 🎯 SIMPLIFIED: Nur noch 3 Filter */}
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {(['all', 'approved', 'played'] as const).map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setFilter(status)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 whitespace-nowrap ${
+                    filter === status
+                      ? isDarkMode
+                        ? 'bg-green-600 text-white'
+                        : 'bg-green-500 text-white'
+                      : isDarkMode
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  {getFilterIcon(status)}
+                  {getFilterLabel(status)}
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${
+                    filter === status
+                      ? 'bg-white/20 text-white'
+                      : isDarkMode
+                        ? 'bg-gray-600 text-gray-300'
+                        : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {getFilterCount(status)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          /* History Tab Header */
+          <div className={`p-4 rounded-xl mb-4 transition-colors duration-300 ${
+            isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
+          }`}>
+            <div className="flex items-center gap-3 mb-2">
+              <History className={`w-5 h-5 transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-400' : 'text-blue-600'
+              }`} />
+              <h3 className={`font-semibold transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-300' : 'text-blue-800'
+              }`}>
+                🎵 Gespielte Songs
+              </h3>
+            </div>
+            <p className={`text-sm transition-colors duration-300 ${
+              isDarkMode ? 'text-blue-200' : 'text-blue-700'
+            }`}>
+              Alle Songs die bereits auf der Hochzeit gespielt wurden ({playedRequests.length} Songs)
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Loading State */}
@@ -246,16 +309,24 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
         </div>
       )}
 
-      {/* Requests List */}
+      {/* Content */}
       {!isLoading && (
         <div className="px-4 pb-4">
-          <MusicRequestsList
-            requests={filteredRequests}
-            currentUser={userName}
-            deviceId={deviceId}
-            isAdmin={isAdmin}
-            isDarkMode={isDarkMode}
-          />
+          {activeTab === 'current' ? (
+            <MusicRequestsList
+              requests={filteredRequests}
+              currentUser={userName}
+              deviceId={deviceId}
+              isAdmin={isAdmin}
+              isDarkMode={isDarkMode}
+            />
+          ) : (
+            <MusicHistoryList
+              requests={playedRequests}
+              currentUser={userName}
+              isDarkMode={isDarkMode}
+            />
+          )}
         </div>
       )}
 
