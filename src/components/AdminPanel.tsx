@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code, Link } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
 import { ShowcaseModal } from './ShowcaseModal';
+import { SpotifyUriModal } from './SpotifyUriModal';
 
 interface AdminPanelProps {
   isDarkMode: boolean;
@@ -27,6 +28,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isUpdatingSiteStatus, setIsUpdatingSiteStatus] = useState(false);
   const [showExternalServices, setShowExternalServices] = useState(false);
   const [showShowcase, setShowShowcase] = useState(false);
+  const [showSpotifyUris, setShowSpotifyUris] = useState(false);
 
   const correctPIN = "2407";
 
@@ -211,6 +213,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Admin Controls - Smaller buttons in vertical stack */}
       {isAdmin && (
         <div className="fixed bottom-16 left-4 space-y-2">
+          {/* Spotify URIs Button */}
+          <button
+            onClick={() => setShowSpotifyUris(true)}
+            className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
+              isDarkMode
+                ? 'bg-green-600 hover:bg-green-700 text-white hover:scale-110'
+                : 'bg-green-500 hover:bg-green-600 text-white hover:scale-110'
+            }`}
+            title="🔗 Spotify Redirect URIs anzeigen"
+          >
+            <Link className="w-4 h-4" />
+          </button>
+
           {/* Showcase Button */}
           <button
             onClick={() => setShowShowcase(true)}
@@ -296,6 +311,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </button>
         </div>
       )}
+
+      {/* Spotify URIs Modal */}
+      <SpotifyUriModal 
+        isOpen={showSpotifyUris}
+        onClose={() => setShowSpotifyUris(false)}
+        isDarkMode={isDarkMode}
+      />
 
       {/* Showcase Modal */}
       <ShowcaseModal 
@@ -546,6 +568,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <li>• Deutsche Fotobuch-Services</li>
                 <li>• Alle Inhalte herunterladen</li>
                 <li>• WeddingPix Showcase by Mauro</li>
+                <li>• Spotify Redirect URIs anzeigen</li>
               </ul>
             </div>
 
