@@ -10,7 +10,7 @@ import {
   where,
   getDocs,
   increment
-} from 'firestore/firestore';
+} from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { MusicRequest, SpotifyTrack } from '../types';
 import { 
