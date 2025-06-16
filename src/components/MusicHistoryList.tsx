@@ -6,12 +6,14 @@ import { deleteMusicRequest } from '../services/musicService';
 interface MusicHistoryListProps {
   requests: MusicRequest[];
   currentUser: string;
+  isAdmin: boolean;
   isDarkMode: boolean;
 }
 
 export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
   requests,
   currentUser,
+  isAdmin,
   isDarkMode
 }) => {
   const [deletingRequests, setDeletingRequests] = React.useState<Set<string>>(new Set());
@@ -45,15 +47,19 @@ export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
   };
 
   const handleDelete = async (request: MusicRequest) => {
-    // Only allow deletion of own requests
-    if (request.requestedBy !== currentUser) {
+    // Check permissions: Admin can delete all, users can only delete their own
+    const canDelete = isAdmin || request.requestedBy === currentUser;
+    
+    if (!canDelete) {
       alert('Du kannst nur deine eigenen Musikwünsche löschen.');
       return;
     }
 
     if (deletingRequests.has(request.id)) return;
 
-    const confirmMessage = `Deinen Musikwunsch "${request.songTitle}" wirklich löschen?`;
+    const confirmMessage = isAdmin && request.requestedBy !== currentUser
+      ? `Musikwunsch "${request.songTitle}" von ${request.requestedBy} wirklich löschen?`
+      : `Deinen Musikwunsch "${request.songTitle}" wirklich löschen?`;
 
     if (window.confirm(confirmMessage)) {
       setDeletingRequests(prev => new Set(prev).add(request.id));
@@ -175,7 +181,7 @@ export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
 
       {/* History List */}
       {sortedRequests.map((request, index) => {
-        const canDelete = request.requestedBy === currentUser;
+        const canDelete = isAdmin || request.requestedBy === currentUser;
         const isDeleting = deletingRequests.has(request.id);
 
         return (
@@ -241,7 +247,7 @@ export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
                       </a>
                     )}
 
-                    {/* Delete Button - Only for own requests */}
+                    {/* Delete Button - Show for own requests or admin */}
                     {canDelete && (
                       <button
                         onClick={() => handleDelete(request)}
@@ -253,7 +259,11 @@ export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
                               ? 'text-red-400 hover:bg-gray-600' 
                               : 'text-red-500 hover:bg-red-50'
                         }`}
-                        title="Deinen Musikwunsch löschen"
+                        title={
+                          isAdmin && request.requestedBy !== currentUser
+                            ? `Musikwunsch von ${request.requestedBy} löschen`
+                            : "Deinen Musikwunsch löschen"
+                        }
                       >
                         {isDeleting ? (
                           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />

@@ -218,6 +218,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
           <MusicHistoryList
             requests={allRequests}
             currentUser={userName}
+            isAdmin={isAdmin}
             isDarkMode={isDarkMode}
           />
         </div>
