@@ -21,7 +21,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
     },
     {
       id: 'music' as const,
-      label: 'Musik',
+      label: 'Musikwünsche',
       icon: <Music className="w-5 h-5" />,
       emoji: '🎵'
     }

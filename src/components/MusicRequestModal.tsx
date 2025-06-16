@@ -111,7 +111,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       // 🎯 AUTOMATIC: Song wird hinzugefügt und automatisch zur Spotify-Playlist hinzugefügt
       await addMusicRequest(track, userName, deviceId, '');
       
-      setSuccessMessage(`🎵 "${track.name}" wurde zur Spotify-Playlist hinzugefügt!`);
+      setSuccessMessage(`🎵 Dein Song ist in der Musikwunschliste eingetragen!`);
       
       // Close modal immediately
       setTimeout(() => {
@@ -143,7 +143,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       // 🎯 AUTOMATIC: Song wird hinzugefügt und automatisch zur Spotify-Playlist hinzugefügt
       await addMusicRequestFromUrl(spotifyUrl, userName, deviceId, '');
       
-      setSuccessMessage('🎵 Song wurde zur Spotify-Playlist hinzugefügt!');
+      setSuccessMessage('🎵 Dein Song ist in der Musikwunschliste eingetragen!');
       
       // Reset form
       setSpotifyUrl('');
@@ -204,7 +204,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <h3 className={`text-xl font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                🎵 Song zur Spotify-Playlist hinzufügen
+                🎵 Song zur Musikwunschliste hinzufügen
               </h3>
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
@@ -334,7 +334,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 <p className={`text-xs mt-2 transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  💡 Songs werden automatisch zur Spotify-Playlist hinzugefügt!
+                  💡 Songs werden automatisch zur Musikwunschliste hinzugefügt!
                 </p>
               </div>
 
@@ -550,7 +550,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <p className={`text-sm mt-1 transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Song wird automatisch zur Spotify-Playlist hinzugefügt
+                Song wird automatisch zur Musikwunschliste hinzugefügt
               </p>
             </div>
           )}
