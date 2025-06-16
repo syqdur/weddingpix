@@ -536,6 +536,150 @@ export const addToSelectedPlaylist = async (playlistId: string, musicRequests: M
   }
 };
 
+// 🗑️ NEW: REMOVE SONGS FROM SELECTED PLAYLIST
+export const removeFromSelectedPlaylist = async (playlistId: string, spotifyIds: string[]) => {
+  const token = await getValidAccessToken();
+  
+  if (!token) {
+    throw new Error('Nicht bei Spotify angemeldet');
+  }
+  
+  console.log(`🗑️ === REMOVING FROM PLAYLIST ===`);
+  console.log(`📊 Playlist ID: ${playlistId}`);
+  console.log(`📊 Spotify IDs to remove: ${spotifyIds.length}`);
+  
+  const results = {
+    success: 0,
+    errors: [] as string[],
+    details: [] as string[]
+  };
+  
+  if (spotifyIds.length === 0) {
+    results.details.push('Keine Spotify-IDs zum Entfernen gefunden');
+    return results;
+  }
+  
+  try {
+    // Get current playlist tracks to find the ones to remove
+    const playlistResponse = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+    
+    if (!playlistResponse.ok) {
+      throw new Error(`Failed to get playlist: ${playlistResponse.status}`);
+    }
+    
+    const playlist = await playlistResponse.json();
+    const tracksToRemove: Array<{ uri: string; positions: number[] }> = [];
+    
+    // Get all tracks from playlist and find positions of tracks to remove
+    let offset = 0;
+    const limit = 100;
+    let currentPosition = 0;
+    
+    while (offset < playlist.tracks.total) {
+      const tracksResponse = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?offset=${offset}&limit=${limit}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }
+      );
+      
+      if (tracksResponse.ok) {
+        const tracksData = await tracksResponse.json();
+        
+        tracksData.items.forEach((item: any, index: number) => {
+          if (item.track && item.track.id && spotifyIds.includes(item.track.id)) {
+            const position = currentPosition + index;
+            const uri = `spotify:track:${item.track.id}`;
+            
+            // Find existing entry or create new one
+            let existingTrack = tracksToRemove.find(t => t.uri === uri);
+            if (existingTrack) {
+              existingTrack.positions.push(position);
+            } else {
+              tracksToRemove.push({
+                uri: uri,
+                positions: [position]
+              });
+            }
+            
+            console.log(`🎯 Found track to remove: ${item.track.name} at position ${position}`);
+          }
+        });
+        
+        currentPosition += tracksData.items.length;
+        offset += limit;
+      } else {
+        break;
+      }
+    }
+    
+    console.log(`🗑️ Found ${tracksToRemove.length} unique tracks to remove`);
+    
+    if (tracksToRemove.length === 0) {
+      results.details.push('Keine der angegebenen Songs wurden in der Playlist gefunden');
+      return results;
+    }
+    
+    // Remove tracks (Spotify API requires specific format)
+    for (const track of tracksToRemove) {
+      console.log(`🗑️ Removing track: ${track.uri} from positions: ${track.positions.join(', ')}`);
+      
+      // For each position, we need to remove from the highest position first
+      // to avoid position shifts affecting subsequent removals
+      const sortedPositions = [...track.positions].sort((a, b) => b - a);
+      
+      for (const position of sortedPositions) {
+        const removeResponse = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tracks: [
+              {
+                uri: track.uri,
+                positions: [position]
+              }
+            ]
+          }),
+        });
+        
+        if (removeResponse.ok) {
+          results.success++;
+          console.log(`  ✅ Removed from position ${position}`);
+        } else {
+          const errorText = await removeResponse.text();
+          const errorMsg = `Failed to remove ${track.uri} from position ${position}: ${removeResponse.status}`;
+          results.errors.push(errorMsg);
+          console.error(`❌ ${errorMsg} - ${errorText}`);
+        }
+      }
+    }
+    
+    console.log(`🗑️ === PLAYLIST REMOVAL COMPLETE ===`);
+    console.log(`✅ Success: ${results.success} track instances removed`);
+    console.log(`❌ Errors: ${results.errors.length}`);
+    
+    if (results.success > 0) {
+      results.details.push(`✅ ${results.success} Song-Instanz${results.success > 1 ? 'en' : ''} erfolgreich entfernt`);
+    }
+    
+    return results;
+    
+  } catch (error) {
+    console.error('❌ Error removing from playlist:', error);
+    results.errors.push(error.message || 'Unbekannter Fehler');
+    return results;
+  }
+};
+
 // 🔗 OPEN WEDDING PLAYLIST
 export const openWeddingPlaylist = () => {
   const playlistId = getActivePlaylistId();
@@ -649,3 +793,4 @@ const selectedPlaylist = getSelectedPlaylist();
 if (selectedPlaylist) {
   console.log(`🔒 Playlist locked: "${selectedPlaylist.name}" (selected ${new Date(selectedPlaylist.selectedAt).toLocaleString()})`);
 }
+console.log('🗑️ Auto-removal from Spotify playlist enabled!');

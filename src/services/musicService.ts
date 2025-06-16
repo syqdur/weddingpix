@@ -21,7 +21,9 @@ import {
 } from './spotifyService';
 import { 
   addToWeddingPlaylist, 
-  isSpotifyAuthenticated 
+  isSpotifyAuthenticated,
+  removeFromSelectedPlaylist,
+  getActivePlaylistId
 } from './spotifyPlaylistService';
 
 // 🎵 ENHANCED SEARCH - Uses REAL Spotify API when available
@@ -282,13 +284,62 @@ export const voteMusicRequest = async (
   }
 };
 
-// Delete music request
+// 🗑️ DELETE MUSIC REQUEST WITH SPOTIFY SYNC
 export const deleteMusicRequest = async (requestId: string): Promise<void> => {
   try {
-    console.log(`🗑️ Deleting music request: ${requestId}`);
+    console.log(`🗑️ === DELETING MUSIC REQUEST ===`);
+    console.log(`🗑️ Request ID: ${requestId}`);
     
+    // 🔍 GET REQUEST DATA BEFORE DELETION
+    const requestDoc = await getDocs(query(
+      collection(db, 'music_requests'),
+      where('__name__', '==', requestId)
+    ));
+    
+    let requestData: MusicRequest | null = null;
+    
+    if (!requestDoc.empty) {
+      requestData = {
+        id: requestDoc.docs[0].id,
+        ...requestDoc.docs[0].data()
+      } as MusicRequest;
+      
+      console.log(`🎵 Found request: "${requestData.songTitle}" by ${requestData.artist}`);
+      console.log(`🔗 Spotify ID: ${requestData.spotifyId || 'none'}`);
+    }
+    
+    // 🗑️ DELETE FROM FIRESTORE FIRST
     await deleteDoc(doc(db, 'music_requests', requestId));
-    console.log('✅ Music request deleted successfully');
+    console.log('✅ Music request deleted from Firestore');
+    
+    // 🎯 AUTOMATICALLY REMOVE FROM SPOTIFY PLAYLIST (if available and has Spotify ID)
+    if (requestData && requestData.spotifyId && isSpotifyAuthenticated()) {
+      try {
+        console.log(`🎯 Auto-removing from Spotify playlist...`);
+        
+        const playlistId = getActivePlaylistId();
+        const removeResult = await removeFromSelectedPlaylist(playlistId, [requestData.spotifyId]);
+        
+        if (removeResult.success > 0) {
+          console.log(`✅ Song automatically removed from Spotify playlist!`);
+        } else if (removeResult.errors.length > 0) {
+          console.warn(`⚠️ Failed to remove from Spotify playlist: ${removeResult.errors.join(', ')}`);
+        } else {
+          console.log(`ℹ️ Song was not found in Spotify playlist (already removed or not added)`);
+        }
+        
+      } catch (playlistError) {
+        console.error('❌ Error removing from Spotify playlist:', playlistError);
+        // Continue anyway - song is still deleted from requests
+      }
+    } else if (requestData && !requestData.spotifyId) {
+      console.log(`ℹ️ Song has no Spotify ID - only removed from requests`);
+    } else if (!isSpotifyAuthenticated()) {
+      console.log(`ℹ️ Spotify not authenticated - only removed from requests`);
+    }
+    
+    console.log(`🗑️ === DELETION COMPLETE ===`);
+    
   } catch (error) {
     console.error('❌ Error deleting music request:', error);
     throw error;
@@ -299,3 +350,4 @@ console.log('🎵 === MUSIC SERVICE INITIALIZED ===');
 console.log('🌍 Ready to search ALL Spotify tracks (when API is configured)');
 console.log('🔄 Fallback to enhanced mock database available');
 console.log('🎯 Songs werden automatisch zur Playlist hinzugefügt - kein DJ-Eingriff nötig!');
+console.log('🗑️ Songs werden automatisch aus der Spotify-Playlist entfernt beim Löschen!');
