@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Eye } from 'lucide-react';
+import { 
+  doc, 
+  setDoc, 
+  onSnapshot, 
+  collection,
+  query,
+  where,
+  orderBy
+} from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 // Live User Types
 interface LiveUser {
@@ -22,53 +32,89 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
   const [liveUsers, setLiveUsers] = useState<LiveUser[]>([]);
   const [showTooltip, setShowTooltip] = useState(false);
 
-  // Mock live users for demonstration (replace with real Firebase subscription)
+  // Real Firebase live user tracking
   useEffect(() => {
-    // Simulate live users
-    const mockUsers: LiveUser[] = [
-      {
-        id: '1',
-        userName: currentUser,
-        deviceId: 'current-device',
-        lastSeen: new Date().toISOString(),
-        isActive: true
+    if (!currentUser) return;
+
+    const deviceId = localStorage.getItem('wedding_device_id') || 'unknown';
+
+    // Update user presence
+    const updatePresence = async () => {
+      try {
+        const userRef = doc(db, 'live_users', deviceId);
+        await setDoc(userRef, {
+          userName: currentUser,
+          deviceId,
+          lastSeen: new Date().toISOString(),
+          isActive: true
+        }, { merge: true });
+      } catch (error) {
+        console.error('Error updating user presence:', error);
       }
-    ];
+    };
 
-    // Add some random users occasionally
-    const interval = setInterval(() => {
-      const randomUsers = ['Anna', 'Tom', 'Lisa', 'Max', 'Sarah', 'Ben'];
-      const shouldAddUser = Math.random() > 0.7;
-      
-      if (shouldAddUser && mockUsers.length < 5) {
-        const randomName = randomUsers[Math.floor(Math.random() * randomUsers.length)];
-        if (!mockUsers.find(u => u.userName === randomName)) {
-          mockUsers.push({
-            id: Math.random().toString(),
-            userName: randomName,
-            deviceId: `device-${Math.random()}`,
-            lastSeen: new Date().toISOString(),
-            isActive: true
-          });
-        }
-      } else if (mockUsers.length > 1 && Math.random() > 0.8) {
-        // Sometimes remove a user (except current user)
-        const nonCurrentUsers = mockUsers.filter(u => u.userName !== currentUser);
-        if (nonCurrentUsers.length > 0) {
-          const userToRemove = nonCurrentUsers[Math.floor(Math.random() * nonCurrentUsers.length)];
-          const index = mockUsers.findIndex(u => u.id === userToRemove.id);
-          if (index > -1) {
-            mockUsers.splice(index, 1);
-          }
-        }
+    // Set user offline when leaving
+    const setOffline = async () => {
+      try {
+        const userRef = doc(db, 'live_users', deviceId);
+        await setDoc(userRef, {
+          isActive: false,
+          lastSeen: new Date().toISOString()
+        }, { merge: true });
+      } catch (error) {
+        console.error('Error setting user offline:', error);
       }
+    };
+
+    // Initial presence update
+    updatePresence();
+
+    // Set up presence heartbeat
+    const presenceInterval = setInterval(updatePresence, 30000); // Every 30 seconds
+
+    // Subscribe to live users
+    const q = query(
+      collection(db, 'live_users'),
+      where('isActive', '==', true),
+      orderBy('lastSeen', 'desc')
+    );
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const users: LiveUser[] = [];
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
       
-      setLiveUsers([...mockUsers]);
-    }, 3000);
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const lastSeen = new Date(data.lastSeen);
+        
+        // Only include users who were active in the last 5 minutes
+        if (lastSeen > fiveMinutesAgo) {
+          users.push({
+            id: doc.id,
+            ...data
+          } as LiveUser);
+        }
+      });
+      
+      setLiveUsers(users);
+    }, (error) => {
+      console.error('Error listening to live users:', error);
+      setLiveUsers([]);
+    });
 
-    setLiveUsers(mockUsers);
+    // Set user offline when leaving
+    const handleBeforeUnload = () => {
+      setOffline();
+    };
 
-    return () => clearInterval(interval);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      clearInterval(presenceInterval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      setOffline();
+      unsubscribe();
+    };
   }, [currentUser]);
 
   const onlineCount = liveUsers.length;
