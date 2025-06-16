@@ -13,6 +13,7 @@ import { StoryUploadModal } from './components/StoryUploadModal';
 import { MusicRequestsSection } from './components/MusicRequestsSection';
 import { TabNavigation } from './components/TabNavigation';
 import { LiveUserIndicator } from './components/LiveUserIndicator';
+import { SpotifyCallbackHandler } from './components/SpotifyCallbackHandler';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -39,7 +40,7 @@ import {
   cleanupExpiredStories,
   Story
 } from './services/liveService';
-import { initializeSpotifyAuth } from './services/spotifyPlaylistService';
+import { handleCallbackIfPresent, isSpotifyCallback } from './services/spotifyAuthService';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -60,19 +61,13 @@ function App() {
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
 
-  // 🔧 FIX: Only initialize Spotify auth when user is logged in AND site is not under construction
+  // Handle Spotify callback if present
   useEffect(() => {
-    if (userName && siteStatus && !siteStatus.isUnderConstruction) {
-      console.log('🎵 User logged in and site is live - initializing Spotify auth for music functionality...');
-      initializeSpotifyAuth().catch(error => {
-        console.error('❌ Spotify auth initialization failed:', error);
-      });
-    } else if (!userName) {
-      console.log('🎵 No user logged in - skipping Spotify auth initialization');
-    } else if (siteStatus?.isUnderConstruction) {
-      console.log('🎵 Site under construction - skipping Spotify auth initialization');
+    if (isSpotifyCallback()) {
+      console.log('🎵 Spotify callback detected, handling...');
+      // The SpotifyCallbackHandler component will handle this
     }
-  }, [userName, siteStatus]);
+  }, []);
 
   // Subscribe to site status changes
   useEffect(() => {
@@ -314,6 +309,21 @@ function App() {
       prev === 0 ? mediaItems.length - 1 : prev - 1
     );
   };
+
+  // Show Spotify callback handler if on callback page
+  if (isSpotifyCallback()) {
+    return (
+      <SpotifyCallbackHandler 
+        isDarkMode={isDarkMode}
+        onSuccess={() => {
+          console.log('✅ Spotify authentication successful');
+        }}
+        onError={(error) => {
+          console.error('❌ Spotify authentication failed:', error);
+        }}
+      />
+    );
+  }
 
   // Show loading while site status is being fetched
   if (siteStatus === null) {
