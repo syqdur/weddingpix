@@ -98,7 +98,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     setShowSuggestions(false);
   };
 
-  // 🎯 FIXED: Direct song add when clicking on a track - NO TAB SWITCH
+  // 🎯 FIXED: Direct song add when clicking on a track - Songs werden sofort hinzugefügt
   const handleTrackClick = async (track: SpotifyTrack) => {
     setIsSubmitting(true);
     setSuccessMessage(null);
@@ -106,11 +106,12 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     try {
       console.log(`🎵 Adding track directly: ${track.name} by ${track.artists[0].name}`);
       
-      await addMusicRequest(track, userName, deviceId, '');
+      // 🔧 FIX: Songs werden sofort mit Status 'approved' hinzugefügt
+      await addMusicRequest(track, userName, deviceId, '', 'approved');
       
-      setSuccessMessage(`🎵 "${track.name}" wurde zu deinen Musikwünschen hinzugefügt!`);
+      setSuccessMessage(`🎵 "${track.name}" wurde zu deiner Hochzeits-Playlist hinzugefügt!`);
       
-      // 🔧 FIX: Close modal immediately without tab switch
+      // Close modal immediately
       setTimeout(() => {
         onClose();
       }, 1500);
@@ -130,9 +131,10 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     setSuccessMessage(null);
     
     try {
-      await addMusicRequestFromUrl(spotifyUrl, userName, deviceId, '');
+      // 🔧 FIX: Songs werden sofort mit Status 'approved' hinzugefügt
+      await addMusicRequestFromUrl(spotifyUrl, userName, deviceId, '', 'approved');
       
-      setSuccessMessage('🎵 Song wurde erfolgreich zu deinen Musikwünschen hinzugefügt!');
+      setSuccessMessage('🎵 Song wurde erfolgreich zu deiner Hochzeits-Playlist hinzugefügt!');
       
       // Reset form
       setSpotifyUrl('');
@@ -141,7 +143,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
       setShowSuggestions(true);
       setUrlError(null);
       
-      // 🔧 FIX: Close modal immediately without tab switch
+      // Close modal immediately
       setTimeout(() => {
         onClose();
       }, 1500);
@@ -187,12 +189,12 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <h3 className={`text-xl font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                🎵 Musikwunsch hinzufügen
+                🎵 Song zur Hochzeits-Playlist hinzufügen
               </h3>
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Klicke auf einen Song, um ihn direkt hinzuzufügen
+                Klicke auf einen Song, um ihn sofort zur Playlist hinzuzufügen
               </p>
             </div>
           </div>
@@ -303,7 +305,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 <p className={`text-xs mt-2 transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-600'
                 }`}>
-                  💡 Klicke auf einen Song, um ihn direkt zu deinen Wünschen hinzuzufügen!
+                  💡 Klicke auf einen Song, um ihn sofort zur Hochzeits-Playlist hinzuzufügen!
                 </p>
               </div>
 
@@ -357,7 +359,6 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-4">
-                        {/* 🔧 FIXED: Made album cover smaller */}
                         <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
                           <img 
                             src={track.album.images[0]?.url || '/placeholder-album.png'}
@@ -390,7 +391,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                           <div className={`text-xs px-2 py-1 rounded-full transition-colors duration-300 ${
                             isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
                           }`}>
-                            Klicken zum Hinzufügen
+                            ➕ Zur Playlist hinzufügen
                           </div>
                         </div>
                       </div>
@@ -494,12 +495,12 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                     {isSubmitting ? (
                       <>
                         <Loader className="w-4 h-4 animate-spin" />
-                        Lade Song...
+                        Füge Song hinzu...
                       </>
                     ) : (
                       <>
                         <Music className="w-4 h-4" />
-                        Song hinzufügen
+                        ➕ Zur Playlist hinzufügen
                       </>
                     )}
                   </button>
@@ -515,7 +516,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
               <p className={`text-lg font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                Füge Song hinzu...
+                Füge Song zur Playlist hinzu...
               </p>
               <p className={`text-sm mt-1 transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'

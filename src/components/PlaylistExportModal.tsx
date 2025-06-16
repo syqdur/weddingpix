@@ -117,12 +117,25 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
     setSelectedPlaylistId('');
   };
 
+  // 🎯 FIXED: Automatisches Hinzufügen zur Hochzeits-Playlist
   const handleAddToWeddingPlaylist = async () => {
     setIsAddingToPlaylist(true);
     setAddToPlaylistResult(null);
 
     try {
-      const result = await addToWeddingPlaylist(approvedRequests);
+      console.log(`🎯 === AUTO-ADDING TO WEDDING PLAYLIST ===`);
+      console.log(`📊 Total requests: ${approvedRequests.length}`);
+      
+      // 🔧 FIX: Alle Songs hinzufügen, nicht nur approved (da sie bereits approved sind)
+      const spotifyTracks = approvedRequests.filter(request => request.spotifyId);
+      console.log(`🎵 Spotify tracks to add: ${spotifyTracks.length}`);
+      
+      if (spotifyTracks.length === 0) {
+        setAddToPlaylistResult(`❌ Keine Spotify-Songs gefunden. Füge zuerst Songs über die Suche hinzu.`);
+        return;
+      }
+      
+      const result = await addToWeddingPlaylist(spotifyTracks);
       
       if (result.success > 0) {
         setAddToPlaylistResult(`🎯 ${result.success} Songs erfolgreich zur Hochzeits-Playlist hinzugefügt!`);
@@ -150,7 +163,15 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
     setAddToPlaylistResult(null);
 
     try {
-      const result = await addApprovedRequestsToPlaylist(selectedPlaylistId, approvedRequests);
+      // 🔧 FIX: Alle Songs hinzufügen, nicht nur approved
+      const spotifyTracks = approvedRequests.filter(request => request.spotifyId);
+      
+      if (spotifyTracks.length === 0) {
+        setAddToPlaylistResult(`❌ Keine Spotify-Songs gefunden.`);
+        return;
+      }
+      
+      const result = await addApprovedRequestsToPlaylist(selectedPlaylistId, spotifyTracks);
       
       if (result.success > 0) {
         setAddToPlaylistResult(`✅ ${result.success} Songs erfolgreich zur Playlist hinzugefügt!`);
@@ -219,7 +240,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Füge genehmigte Songs zu deiner Hochzeits-Playlist hinzu
+                Verwalte deine Hochzeits-Playlist und exportiere Songs
               </p>
             </div>
           </div>
@@ -258,7 +279,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                   <div className={`text-sm transition-colors duration-300 ${
                     isDarkMode ? 'text-gray-400' : 'text-gray-600'
                   }`}>
-                    Genehmigte Songs
+                    Songs in Playlist
                   </div>
                 </div>
                 <div className={`p-4 rounded-xl transition-colors duration-300 ${
@@ -573,7 +594,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                   <h4 className={`font-semibold mb-3 transition-colors duration-300 ${
                     isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    🎵 Genehmigte Spotify Tracks ({spotifyTracks.length})
+                    🎵 Songs in der Playlist ({spotifyTracks.length})
                   </h4>
                   <div className="max-h-40 overflow-y-auto space-y-2">
                     {spotifyTracks.slice(0, 10).map((track, index) => (
