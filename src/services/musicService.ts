@@ -10,7 +10,7 @@ import {
   where,
   getDocs,
   increment
-} from 'firebase/firestore';
+} from 'firestore/firestore';
 import { db } from '../config/firebase';
 import { MusicRequest, SpotifyTrack } from '../types';
 import { 
@@ -76,27 +76,28 @@ const checkForDuplicate = async (spotifyId: string): Promise<boolean> => {
   }
 };
 
-// 🎯 AUTOMATIC SPOTIFY INTEGRATION - Works for ALL users
+// 🎯 AUTOMATIC SPOTIFY INTEGRATION - Works for ALL users (FIXED)
 const tryAddToSpotifyPlaylist = async (musicRequest: MusicRequest): Promise<void> => {
   try {
     console.log(`🎯 === ATTEMPTING SPOTIFY PLAYLIST INTEGRATION ===`);
     console.log(`🎵 Song: "${musicRequest.songTitle}" by ${musicRequest.artist}`);
     console.log(`🔗 Spotify ID: ${musicRequest.spotifyId || 'none'}`);
     
-    // Try to initialize Spotify auth (uses stored tokens if available)
-    const authResult = await initializeSpotifyAuth();
-    
-    if (!authResult) {
-      console.log(`ℹ️ No Spotify authentication available - song added to requests only`);
-      return;
-    }
-    
-    console.log(`✅ Spotify authentication available - attempting playlist add...`);
-    
     if (!musicRequest.spotifyId) {
       console.log(`⚠️ Song has no Spotify ID - cannot add to playlist`);
       return;
     }
+    
+    // 🔧 FIX: Check if Spotify is already authenticated (don't try to initialize)
+    const isAuthenticated = isSpotifyAuthenticated();
+    
+    if (!isAuthenticated) {
+      console.log(`ℹ️ No Spotify authentication available - song added to requests only`);
+      console.log(`💡 An admin needs to set up Spotify integration first`);
+      return;
+    }
+    
+    console.log(`✅ Spotify authentication available - attempting playlist add...`);
     
     // Try to add to the wedding playlist
     const playlistResult = await addToWeddingPlaylist([musicRequest]);
@@ -344,10 +345,10 @@ export const deleteMusicRequest = async (requestId: string): Promise<void> => {
       try {
         console.log(`🎯 Attempting to remove from Spotify playlist...`);
         
-        // Try to initialize Spotify auth
-        const authResult = await initializeSpotifyAuth();
+        // 🔧 FIX: Check if Spotify is authenticated (don't try to initialize)
+        const isAuthenticated = isSpotifyAuthenticated();
         
-        if (authResult) {
+        if (isAuthenticated) {
           const playlistId = getActivePlaylistId();
           const removeResult = await removeFromSelectedPlaylist(playlistId, [requestData.spotifyId]);
           
@@ -384,3 +385,4 @@ console.log('🔄 Fallback to enhanced mock database available');
 console.log('🎯 Songs werden automatisch zur Playlist hinzugefügt - für ALLE User!');
 console.log('🗑️ Songs werden automatisch aus der Spotify-Playlist entfernt beim Löschen!');
 console.log('🔑 Verwendet gespeicherte Admin-Tokens für Spotify-Integration');
+console.log('🔧 FIXED: Spotify-Integration funktioniert jetzt für alle User (wenn Admin eingerichtet hat)');

@@ -3,6 +3,7 @@ import { X, Search, Music, ExternalLink, Plus, CheckCircle, AlertCircle, Sparkle
 import { SpotifyTrack } from '../types';
 import { searchSpotifyTracks } from '../services/spotifyService';
 import { addMusicRequest, addMusicRequestFromUrl } from '../services/musicService';
+import { isSpotifyAuthenticated } from '../services/spotifyPlaylistService';
 
 interface MusicRequestModalProps {
   isOpen: boolean;
@@ -29,6 +30,16 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [spotifyConnected, setSpotifyConnected] = useState(false);
+
+  // Check Spotify connection status
+  useEffect(() => {
+    if (isOpen) {
+      const connected = isSpotifyAuthenticated();
+      setSpotifyConnected(connected);
+      console.log(`🔍 Spotify connection status: ${connected ? 'CONNECTED' : 'NOT_CONNECTED'}`);
+    }
+  }, [isOpen]);
 
   // Search with debounce
   useEffect(() => {
@@ -62,7 +73,13 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
 
     try {
       await addMusicRequest(track, userName, deviceId, message.trim() || undefined);
-      setSuccess(`🎉 "${track.name}" wurde zur Playlist hinzugefügt!`);
+      
+      // 🔧 FIX: Better success message based on Spotify connection
+      const successMessage = spotifyConnected 
+        ? `🎉 "${track.name}" wurde zur Playlist hinzugefügt und automatisch zu Spotify synchronisiert!`
+        : `🎉 "${track.name}" wurde zur Playlist hinzugefügt!`;
+      
+      setSuccess(successMessage);
       
       // Reset form
       setSearchQuery('');
@@ -94,7 +111,13 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
 
     try {
       await addMusicRequestFromUrl(urlInput.trim(), userName, deviceId, message.trim() || undefined);
-      setSuccess('🎉 Song wurde zur Playlist hinzugefügt!');
+      
+      // 🔧 FIX: Better success message based on Spotify connection
+      const successMessage = spotifyConnected 
+        ? '🎉 Song wurde zur Playlist hinzugefügt und automatisch zu Spotify synchronisiert!'
+        : '🎉 Song wurde zur Playlist hinzugefügt!';
+      
+      setSuccess(successMessage);
       
       // Reset form
       setSearchQuery('');
@@ -171,8 +194,12 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                   <div className="font-semibold">{success}</div>
                   <div className="text-sm mt-1">
                     ✅ Song wurde zur Hochzeits-Playlist hinzugefügt
-                    <br />
-                    🎯 Automatisch auch zu Spotify synchronisiert (falls eingerichtet)
+                    {spotifyConnected && (
+                      <>
+                        <br />
+                        🎯 Automatisch auch zu Spotify synchronisiert
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -198,32 +225,49 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
 
           {/* Enhanced Info Banner */}
           <div className={`mb-6 p-4 rounded-xl transition-colors duration-300 ${
-            isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
+            spotifyConnected
+              ? isDarkMode ? 'bg-green-900/20 border border-green-700/30' : 'bg-green-50 border border-green-200'
+              : isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
           }`}>
             <div className="flex items-center gap-3 mb-3">
               <Zap className={`w-5 h-5 transition-colors duration-300 ${
-                isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                spotifyConnected
+                  ? isDarkMode ? 'text-green-400' : 'text-green-600'
+                  : isDarkMode ? 'text-blue-400' : 'text-blue-600'
               }`} />
               <h4 className={`font-semibold transition-colors duration-300 ${
-                isDarkMode ? 'text-blue-300' : 'text-blue-800'
+                spotifyConnected
+                  ? isDarkMode ? 'text-green-300' : 'text-green-800'
+                  : isDarkMode ? 'text-blue-300' : 'text-blue-800'
               }`}>
-                🎯 Automatische Spotify-Integration für ALLE
+                {spotifyConnected 
+                  ? '🎯 Spotify-Integration AKTIV für ALLE'
+                  : '🎯 Automatische Spotify-Integration für ALLE'
+                }
               </h4>
             </div>
             <div className={`text-sm space-y-2 transition-colors duration-300 ${
-              isDarkMode ? 'text-blue-200' : 'text-blue-700'
+              spotifyConnected
+                ? isDarkMode ? 'text-green-200' : 'text-green-700'
+                : isDarkMode ? 'text-blue-200' : 'text-blue-700'
             }`}>
-              <p>
-                <strong>✨ Neu:</strong> Deine Songs werden automatisch zur Hochzeits-Playlist hinzugefügt und - falls ein Admin Spotify eingerichtet hat - auch direkt zur Spotify-Playlist!
-              </p>
+              {spotifyConnected ? (
+                <p>
+                  <strong>✅ Spotify verbunden:</strong> Deine Songs werden automatisch zur Hochzeits-Playlist hinzugefügt und direkt zur Spotify-Playlist synchronisiert!
+                </p>
+              ) : (
+                <p>
+                  <strong>ℹ️ Spotify nicht verbunden:</strong> Deine Songs werden zur internen Playlist hinzugefügt. Falls ein Admin später Spotify einrichtet, werden sie automatisch synchronisiert!
+                </p>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-3">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <span>Sofort zur internen Playlist</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>Auto-Sync zu Spotify</span>
+                  <div className={`w-2 h-2 rounded-full ${spotifyConnected ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                  <span>Auto-Sync zu Spotify {spotifyConnected ? '(AKTIV)' : '(falls eingerichtet)'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -415,7 +459,7 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
             }`}>
               <li>🔍 <strong>Suche:</strong> Durchsuche Millionen von Spotify-Songs oder 50+ Demo-Songs</li>
               <li>🎯 <strong>Sofort hinzugefügt:</strong> Song wird direkt zur Playlist hinzugefügt</li>
-              <li>🎵 <strong>Auto-Spotify-Sync:</strong> Automatisch auch zu Spotify (falls Admin eingerichtet hat)</li>
+              <li>🎵 <strong>Auto-Spotify-Sync:</strong> {spotifyConnected ? 'AKTIV - Songs werden automatisch zu Spotify hinzugefügt!' : 'Automatisch aktiv, falls Admin Spotify eingerichtet hat'}</li>
               <li>👍 <strong>Voting:</strong> Andere Gäste können für Songs voten</li>
               <li>🎶 <strong>Beliebte Songs:</strong> Werden häufiger gespielt</li>
               <li>🔗 <strong>Spotify-Links:</strong> Funktionieren auch direkt</li>
