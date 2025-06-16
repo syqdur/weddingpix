@@ -39,7 +39,6 @@ import {
   cleanupExpiredStories,
   Story
 } from './services/liveService';
-import { initializeSpotifyAuth } from './services/spotifyPlaylistService';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -59,16 +58,6 @@ function App() {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
-
-  // Initialize Spotify auth on app load - ADMIN ONLY
-  useEffect(() => {
-    if (isAdmin) {
-      console.log('🔒 Admin detected - initializing Spotify auth...');
-      initializeSpotifyAuth().catch(console.error);
-    } else {
-      console.log('👤 Regular user - skipping Spotify auth initialization');
-    }
-  }, [isAdmin]);
 
   // Subscribe to site status changes
   useEffect(() => {
