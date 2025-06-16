@@ -17,18 +17,18 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
 
   const uris = [
     {
-      name: 'Production (Netlify)',
-      uri: 'https://kristinundmauro.netlify.app/',
+      name: 'Production (kristinundmauro.de)',
+      uri: 'https://kristinundmauro.de/',
       description: 'Für die Live-Website (EMPFOHLEN)',
       recommended: true
     },
     {
-      name: 'Production (Custom Domain)',
-      uri: 'https://kristinundmauro.de/',
-      description: 'Falls du eine eigene Domain hast'
+      name: 'Production (Netlify Backup)',
+      uri: 'https://kristinundmauro.netlify.app/',
+      description: 'Backup URL falls die Hauptdomain nicht funktioniert'
     },
     {
-      name: 'Lokale Entwicklung (NICHT SICHER)',
+      name: 'Lokale Entwicklung (FUNKTIONIERT NICHT)',
       uri: 'http://localhost:5173/',
       description: 'Funktioniert NICHT - Spotify blockiert localhost',
       disabled: true
@@ -139,7 +139,7 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
               <li>2. Öffne deine App "WeddingPix Musikwünsche"</li>
               <li>3. Klicke auf "Edit Settings"</li>
               <li>4. Scrolle zu "Redirect URIs"</li>
-              <li>5. <strong>LÖSCHE die localhost URI</strong> (falls vorhanden)</li>
+              <li>5. <strong>LÖSCHE alle localhost URIs</strong> (falls vorhanden)</li>
               <li>6. Füge nur die Production URIs unten hinzu</li>
               <li>7. Klicke "Save"</li>
               <li>8. Warte 5 Minuten und teste erneut</li>
@@ -319,6 +319,7 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
               <li>• Die URIs müssen EXAKT so eingetragen werden (mit / am Ende)</li>
               <li>• Nach dem Speichern dauert es ~5 Minuten bis die Änderungen aktiv sind</li>
               <li>• Teste die Spotify-Anmeldung erst nach der Wartezeit</li>
+              <li>• <strong>WICHTIG:</strong> Verwende https://kristinundmauro.de/ als primäre URI</li>
             </ul>
           </div>
 

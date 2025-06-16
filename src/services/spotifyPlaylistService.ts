@@ -46,18 +46,26 @@ export interface PlaylistExport {
   totalTracks: number;
 }
 
-// 🔧 FIXED: Automatische Redirect URI Erkennung
+// 🔧 FIXED: Correct redirect URI detection for production
 const getRedirectUri = (): string => {
   const currentOrigin = window.location.origin;
   
-  if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
-    return 'https://kristinundmauro.netlify.app/';
+  console.log(`🔍 Current origin: ${currentOrigin}`);
+  
+  // 🎯 PRODUCTION URLS - Use exact deployed URL
+  if (currentOrigin === 'https://kristinundmauro.de') {
+    console.log('✅ Using production domain redirect URI');
+    return 'https://kristinundmauro.de/';
   } else if (currentOrigin.includes('netlify.app')) {
+    console.log('✅ Using Netlify redirect URI');
     return `${currentOrigin}/`;
-  } else if (currentOrigin.includes('kristinundmauro.de')) {
+  } else if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
+    console.log('⚠️ Localhost detected - redirecting to production');
+    // 🔧 FIX: Never use localhost for Spotify auth - always redirect to production
     return 'https://kristinundmauro.de/';
   } else {
-    return 'https://kristinundmauro.netlify.app/';
+    console.log('🔄 Unknown origin - using production fallback');
+    return 'https://kristinundmauro.de/';
   }
 };
 
@@ -168,6 +176,10 @@ export const generateAdminSpotifyAuthUrl = (): string => {
   console.log(`🔑 Client ID: ${SPOTIFY_CLIENT_ID}`);
   console.log(`🔄 Redirect URI: ${redirectUri}`);
   
+  if (!SPOTIFY_CLIENT_ID) {
+    throw new Error('Spotify Client ID not configured');
+  }
+  
   const params = new URLSearchParams({
     client_id: SPOTIFY_CLIENT_ID,
     response_type: 'code', // Use authorization code flow for refresh tokens
@@ -199,8 +211,14 @@ export const initiateAdminSpotifySetup = () => {
     return;
   }
   
-  const authUrl = generateAdminSpotifyAuthUrl();
-  window.location.href = authUrl;
+  try {
+    const authUrl = generateAdminSpotifyAuthUrl();
+    console.log(`🔗 Redirecting to: ${authUrl}`);
+    window.location.href = authUrl;
+  } catch (error) {
+    console.error('❌ Error generating auth URL:', error);
+    alert('Fehler: Spotify Client ID nicht konfiguriert. Bitte .env Datei prüfen.');
+  }
 };
 
 // 🔄 HANDLE AUTH CALLBACK
@@ -211,6 +229,7 @@ export const handleSpotifyCallback = async (): Promise<boolean> => {
   
   if (error) {
     console.error(`❌ Spotify auth error: ${error}`);
+    alert(`Spotify Authentifizierung fehlgeschlagen: ${error}`);
     return false;
   }
   
@@ -220,8 +239,21 @@ export const handleSpotifyCallback = async (): Promise<boolean> => {
   }
   
   console.log('🔄 Processing Spotify auth callback...');
+  console.log(`🔑 Auth code: ${code.substring(0, 20)}...`);
   
   try {
+    const redirectUri = getRedirectUri();
+    console.log(`🔄 Using redirect URI: ${redirectUri}`);
+    
+    // 🔧 FIX: Ensure we have client secret
+    const clientSecret = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
+    if (!clientSecret) {
+      throw new Error('Spotify Client Secret not configured');
+    }
+    
+    console.log(`🔑 Client ID: ${SPOTIFY_CLIENT_ID}`);
+    console.log(`🔑 Client Secret: ${clientSecret ? 'SET' : 'MISSING'}`);
+    
     // Exchange code for tokens
     const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
@@ -231,17 +263,28 @@ export const handleSpotifyCallback = async (): Promise<boolean> => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code: code,
-        redirect_uri: getRedirectUri(),
+        redirect_uri: redirectUri,
         client_id: SPOTIFY_CLIENT_ID,
-        client_secret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || '',
+        client_secret: clientSecret,
       }),
     });
     
+    console.log(`🔄 Token response status: ${tokenResponse.status}`);
+    
     if (!tokenResponse.ok) {
-      throw new Error(`Token exchange failed: ${tokenResponse.status}`);
+      const errorText = await tokenResponse.text();
+      console.error(`❌ Token exchange failed: ${tokenResponse.status} - ${errorText}`);
+      
+      // Provide specific error messages
+      if (tokenResponse.status === 400) {
+        throw new Error(`Spotify Authentifizierung fehlgeschlagen (400). Mögliche Ursachen:\n\n1. Redirect URI stimmt nicht überein\n2. Ungültiger Authorization Code\n3. Client ID/Secret falsch\n\nBitte prüfe die Spotify App Einstellungen.`);
+      } else {
+        throw new Error(`Token exchange failed: ${tokenResponse.status} - ${errorText}`);
+      }
     }
     
     const tokenData = await tokenResponse.json();
+    console.log('✅ Token exchange successful');
     
     // Store tokens
     storeTokens(tokenData.access_token, tokenData.expires_in, tokenData.refresh_token);
@@ -256,6 +299,9 @@ export const handleSpotifyCallback = async (): Promise<boolean> => {
     if (userResponse.ok) {
       const userData = await userResponse.json();
       storeUserInfo(userData);
+      console.log(`✅ User info loaded: ${userData.display_name}`);
+    } else {
+      console.warn('⚠️ Could not load user info, but auth was successful');
     }
     
     // Clean URL
@@ -267,6 +313,14 @@ export const handleSpotifyCallback = async (): Promise<boolean> => {
   } catch (error) {
     console.error('❌ Spotify callback error:', error);
     clearStoredTokens();
+    
+    // Show user-friendly error
+    if (error instanceof Error) {
+      alert(`Spotify Authentifizierung fehlgeschlagen:\n\n${error.message}`);
+    } else {
+      alert('Spotify Authentifizierung fehlgeschlagen. Bitte versuche es erneut.');
+    }
+    
     return false;
   }
 };
@@ -876,3 +930,4 @@ if (selectedPlaylist) {
 }
 console.log('🗑️ Auto-removal from Spotify playlist enabled!');
 console.log('🔄 Playlist sync functionality available!');
+console.log('🔗 Production redirect URI: https://kristinundmauro.de/');
