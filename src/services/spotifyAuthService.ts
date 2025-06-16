@@ -75,17 +75,26 @@ const generateDeviceId = (): string => {
   return deviceId;
 };
 
+// 🔧 FIXED: Simplified redirect URI that matches Spotify app configuration
 const getRedirectUri = (): string => {
   const currentOrigin = window.location.origin;
   
-  // Production URLs
+  console.log(`🔍 Current origin: ${currentOrigin}`);
+  
+  // 🎯 PRODUCTION URLS - Use exact deployed URL without /spotify-callback path
   if (currentOrigin === 'https://kristinundmauro.de') {
-    return 'https://kristinundmauro.de/spotify-callback';
+    console.log('✅ Using production domain redirect URI');
+    return 'https://kristinundmauro.de/';
   } else if (currentOrigin.includes('netlify.app')) {
-    return `${currentOrigin}/spotify-callback`;
+    console.log('✅ Using Netlify redirect URI');
+    return `${currentOrigin}/`;
+  } else if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
+    console.log('⚠️ Localhost detected - redirecting to production');
+    // 🔧 FIX: Never use localhost for Spotify auth - always redirect to production
+    return 'https://kristinundmauro.de/';
   } else {
-    // For development, redirect to production to avoid CORS issues
-    return 'https://kristinundmauro.de/spotify-callback';
+    console.log('🔄 Unknown origin - using production fallback');
+    return 'https://kristinundmauro.de/';
   }
 };
 
@@ -316,6 +325,9 @@ export class SpotifyAuthService {
       const codeVerifier = generateCodeVerifier();
       const codeChallenge = await generateCodeChallenge(codeVerifier);
       const state = generateDeviceId();
+      const redirectUri = getRedirectUri();
+      
+      console.log(`🔗 Using redirect URI: ${redirectUri}`);
       
       // Store PKCE parameters
       secureStorage.set(STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
@@ -324,7 +336,7 @@ export class SpotifyAuthService {
       const params = new URLSearchParams({
         client_id: SPOTIFY_CLIENT_ID,
         response_type: 'code',
-        redirect_uri: getRedirectUri(),
+        redirect_uri: redirectUri,
         code_challenge_method: 'S256',
         code_challenge: codeChallenge,
         state: state,
@@ -343,6 +355,7 @@ export class SpotifyAuthService {
 
       const authUrl = `${SPOTIFY_ACCOUNTS_BASE}/authorize?${params.toString()}`;
       console.log('🔗 Redirecting to Spotify auth...');
+      console.log(`🔗 Auth URL: ${authUrl}`);
       
       window.location.href = authUrl;
       
@@ -355,9 +368,13 @@ export class SpotifyAuthService {
   async handleAuthCallback(code: string, state: string): Promise<boolean> {
     try {
       console.log('🔄 Processing Spotify auth callback...');
+      console.log(`🔑 Code: ${code.substring(0, 20)}...`);
+      console.log(`🔑 State: ${state}`);
       
       // Verify state parameter
       const storedState = secureStorage.get(STORAGE_KEYS.AUTH_STATE);
+      console.log(`🔑 Stored state: ${storedState}`);
+      
       if (state !== storedState) {
         throw new SpotifyAuthError('Invalid state parameter. Possible CSRF attack.');
       }
@@ -366,6 +383,9 @@ export class SpotifyAuthService {
       if (!codeVerifier) {
         throw new SpotifyAuthError('Missing code verifier. Please restart authentication.');
       }
+      
+      const redirectUri = getRedirectUri();
+      console.log(`🔄 Using redirect URI for token exchange: ${redirectUri}`);
       
       // Exchange code for tokens
       const response = await fetch(`${SPOTIFY_ACCOUNTS_BASE}/api/token`, {
@@ -377,21 +397,38 @@ export class SpotifyAuthService {
           client_id: SPOTIFY_CLIENT_ID,
           grant_type: 'authorization_code',
           code: code,
-          redirect_uri: getRedirectUri(),
+          redirect_uri: redirectUri,
           code_verifier: codeVerifier,
         }),
       });
 
+      console.log(`🔄 Token exchange response status: ${response.status}`);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Token exchange error:', errorData);
+        
+        let errorMessage = 'Token exchange failed';
+        
+        if (response.status === 400) {
+          if (errorData.error === 'invalid_grant') {
+            errorMessage = 'Ungültiger Authentifizierungscode. Bitte versuche es erneut.';
+          } else if (errorData.error === 'invalid_request') {
+            errorMessage = 'Ungültige Anfrage. Redirect URI stimmt möglicherweise nicht überein.';
+          } else {
+            errorMessage = `Authentifizierungsfehler: ${errorData.error_description || errorData.error}`;
+          }
+        }
+        
         throw new SpotifyAPIError(
-          `Token exchange failed: ${errorData.error_description || response.statusText}`,
+          errorMessage,
           response.status,
           errorData.error
         );
       }
 
       const tokenData = await response.json();
+      console.log('✅ Token exchange successful');
       
       // Store tokens
       this.tokenManager.storeTokens(
@@ -404,6 +441,7 @@ export class SpotifyAuthService {
       const user = await this.getCurrentUser();
       if (user) {
         this.tokenManager.storeUser(user);
+        console.log(`✅ User info stored: ${user.display_name}`);
       }
       
       // Clean up PKCE parameters
@@ -587,15 +625,24 @@ export class SpotifyAuthService {
 // Singleton instance
 export const spotifyAuth = new SpotifyAuthService();
 
-// Utility function to check if we're on the callback page
+// 🔧 FIXED: Better callback detection
 export const isSpotifyCallback = (): boolean => {
-  return window.location.pathname === '/spotify-callback' || 
-         window.location.search.includes('code=');
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasCode = urlParams.has('code');
+  const hasState = urlParams.has('state');
+  
+  console.log(`🔍 Checking for Spotify callback: code=${hasCode}, state=${hasState}`);
+  return hasCode && hasState;
 };
 
 // Auto-handle callback if on callback page
 export const handleCallbackIfPresent = async (): Promise<boolean> => {
-  if (!isSpotifyCallback()) return false;
+  if (!isSpotifyCallback()) {
+    console.log('🔍 No Spotify callback detected');
+    return false;
+  }
+  
+  console.log('🔄 Spotify callback detected, processing...');
   
   const urlParams = new URLSearchParams(window.location.search);
   const code = urlParams.get('code');
@@ -604,19 +651,32 @@ export const handleCallbackIfPresent = async (): Promise<boolean> => {
   
   if (error) {
     console.error('❌ Spotify auth error:', error);
-    throw new SpotifyAuthError(`Authentication failed: ${error}`);
+    const errorDescription = urlParams.get('error_description') || error;
+    throw new SpotifyAuthError(`Spotify Authentifizierung fehlgeschlagen: ${errorDescription}`);
   }
   
-  if (code && state) {
+  if (!code) {
+    throw new SpotifyAuthError('Kein Authentifizierungscode erhalten. Bitte versuche es erneut.');
+  }
+  
+  if (!state) {
+    throw new SpotifyAuthError('Kein State-Parameter erhalten. Bitte versuche es erneut.');
+  }
+  
+  try {
     const success = await spotifyAuth.handleAuthCallback(code, state);
     
-    // Clean up URL
-    window.history.replaceState({}, document.title, window.location.pathname);
+    if (success) {
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      console.log('✅ Spotify callback handled successfully');
+    }
     
     return success;
+  } catch (error) {
+    console.error('❌ Callback handling failed:', error);
+    throw error;
   }
-  
-  return false;
 };
 
 console.log('🔑 === PERSISTENT SPOTIFY AUTH SERVICE INITIALIZED ===');
@@ -626,3 +686,4 @@ console.log('✅ Secure Token Storage');
 console.log('✅ Error Handling & Retry Logic');
 console.log('✅ Rate Limit Handling');
 console.log('✅ Cross-Session Persistence');
+console.log(`🔗 Redirect URI: ${getRedirectUri()}`);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Music, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { Music, CheckCircle, AlertCircle, Loader, ExternalLink } from 'lucide-react';
 import { handleCallbackIfPresent, SpotifyAuthError, SpotifyAPIError } from '../services/spotifyAuthService';
 
 interface SpotifyCallbackHandlerProps {
@@ -15,6 +15,7 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
 }) => {
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [message, setMessage] = useState('Verarbeite Spotify-Authentifizierung...');
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -22,6 +23,7 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
         setStatus('processing');
         setMessage('Verarbeite Spotify-Authentifizierung...');
 
+        console.log('🔄 Starting callback processing...');
         const success = await handleCallbackIfPresent();
         
         if (success) {
@@ -41,23 +43,39 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
         console.error('❌ Spotify callback error:', error);
         
         let errorMessage = 'Unbekannter Fehler bei der Spotify-Authentifizierung';
+        let details = null;
         
         if (error instanceof SpotifyAuthError) {
           errorMessage = error.message;
+          if (error.message.includes('Invalid state parameter')) {
+            details = 'Sicherheitsfehler: Der State-Parameter stimmt nicht überein. Dies kann durch eine unterbrochene Authentifizierung verursacht werden.';
+          } else if (error.message.includes('Missing code verifier')) {
+            details = 'Der Code-Verifier fehlt. Dies kann passieren, wenn die Authentifizierung in einem anderen Tab gestartet wurde.';
+          } else if (error.message.includes('Ungültiger Authentifizierungscode')) {
+            details = 'Der Authentifizierungscode ist ungültig oder abgelaufen. Bitte starte die Authentifizierung erneut.';
+          } else if (error.message.includes('Redirect URI')) {
+            details = 'Die Redirect-URI stimmt nicht mit der Spotify-App-Konfiguration überein. Bitte kontaktiere den Administrator.';
+          }
         } else if (error instanceof SpotifyAPIError) {
           errorMessage = `Spotify API Fehler: ${error.message}`;
+          if (error.status === 400) {
+            details = 'Ungültige Anfrage an Spotify. Dies kann durch falsche App-Konfiguration verursacht werden.';
+          } else if (error.status === 401) {
+            details = 'Authentifizierung bei Spotify fehlgeschlagen. Bitte überprüfe die App-Berechtigung.';
+          }
         } else if (error instanceof Error) {
           errorMessage = error.message;
         }
         
         setStatus('error');
         setMessage(errorMessage);
+        setErrorDetails(details);
         onError?.(errorMessage);
         
         // Redirect to main page after error
         setTimeout(() => {
           window.location.href = '/';
-        }, 5000);
+        }, 8000);
       }
     };
 
@@ -90,7 +108,7 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
     <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${
       isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
     }`}>
-      <div className={`max-w-md w-full text-center p-8 rounded-2xl transition-colors duration-300 ${
+      <div className={`max-w-lg w-full text-center p-8 rounded-2xl transition-colors duration-300 ${
         isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200 shadow-lg'
       }`}>
         {/* Spotify Logo */}
@@ -117,6 +135,24 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
         <p className={`text-base mb-6 transition-colors duration-300 ${getStatusColor()}`}>
           {message}
         </p>
+
+        {/* Error Details */}
+        {status === 'error' && errorDetails && (
+          <div className={`mb-6 p-4 rounded-xl text-left transition-colors duration-300 ${
+            isDarkMode ? 'bg-red-900/20 border border-red-700/30' : 'bg-red-50 border border-red-200'
+          }`}>
+            <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-red-300' : 'text-red-800'
+            }`}>
+              Details:
+            </h4>
+            <p className={`text-sm transition-colors duration-300 ${
+              isDarkMode ? 'text-red-200' : 'text-red-700'
+            }`}>
+              {errorDetails}
+            </p>
+          </div>
+        )}
 
         {/* Progress Indicator */}
         {status === 'processing' && (
@@ -153,7 +189,7 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
           <div className={`p-4 rounded-xl transition-colors duration-300 ${
             isDarkMode ? 'bg-red-900/20 border border-red-700/30' : 'bg-red-50 border border-red-200'
           }`}>
-            <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="flex items-center justify-center gap-2 mb-3">
               <AlertCircle className="w-5 h-5 text-red-500" />
               <span className={`font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-red-300' : 'text-red-800'
@@ -161,21 +197,63 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
                 Verbindung fehlgeschlagen
               </span>
             </div>
-            <p className={`text-sm mb-4 transition-colors duration-300 ${
-              isDarkMode ? 'text-red-200' : 'text-red-700'
+            
+            <div className="space-y-3">
+              <p className={`text-sm transition-colors duration-300 ${
+                isDarkMode ? 'text-red-200' : 'text-red-700'
+              }`}>
+                Du wirst automatisch zur Hauptseite weitergeleitet...
+              </p>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={() => window.location.href = '/'}
+                  className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isDarkMode 
+                      ? 'bg-red-600 hover:bg-red-700 text-white' 
+                      : 'bg-red-500 hover:bg-red-600 text-white'
+                  }`}
+                >
+                  Zur Hauptseite
+                </button>
+                
+                <a
+                  href="https://developer.spotify.com/dashboard"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isDarkMode 
+                      ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                      : 'bg-gray-500 hover:bg-gray-600 text-white'
+                  }`}
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Spotify App
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Troubleshooting Info */}
+        {status === 'error' && (
+          <div className={`mt-6 p-4 rounded-xl text-left transition-colors duration-300 ${
+            isDarkMode ? 'bg-yellow-900/20 border border-yellow-700/30' : 'bg-yellow-50 border border-yellow-200'
+          }`}>
+            <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-yellow-300' : 'text-yellow-800'
             }`}>
-              Du wirst zur Hauptseite weitergeleitet...
-            </p>
-            <button
-              onClick={() => window.location.href = '/'}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                isDarkMode 
-                  ? 'bg-red-600 hover:bg-red-700 text-white' 
-                  : 'bg-red-500 hover:bg-red-600 text-white'
-              }`}
-            >
-              Jetzt zur Hauptseite
-            </button>
+              💡 Lösungsvorschläge:
+            </h4>
+            <ul className={`text-sm space-y-1 transition-colors duration-300 ${
+              isDarkMode ? 'text-yellow-200' : 'text-yellow-700'
+            }`}>
+              <li>• Stelle sicher, dass die Spotify App korrekt konfiguriert ist</li>
+              <li>• Überprüfe die Redirect URIs in der Spotify App</li>
+              <li>• Versuche die Authentifizierung in einem neuen Tab</li>
+              <li>• Lösche Browser-Cache und Cookies für diese Seite</li>
+              <li>• Kontaktiere den Administrator bei anhaltenden Problemen</li>
+            </ul>
           </div>
         )}
 
