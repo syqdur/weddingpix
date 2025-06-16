@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Grid, List, Heart, MessageCircle, Trash2, Edit3 } from 'lucide-react';
+import { Grid, List, Heart, MessageCircle, Trash2, Edit3, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MediaItem, Comment, Like } from '../types';
 import { InstagramPost } from './InstagramPost';
 import { NotePost } from './NotePost';
@@ -34,6 +34,7 @@ export const InstagramGallery: React.FC<InstagramGalleryProps> = ({
   isDarkMode
 }) => {
   const [viewMode, setViewMode] = useState<'feed' | 'grid'>('feed');
+  const [notesSliderIndex, setNotesSliderIndex] = useState(0);
 
   if (items.length === 0) {
     return (
@@ -92,6 +93,23 @@ export const InstagramGallery: React.FC<InstagramGalleryProps> = ({
     }, 0);
     
     return weddingAvatars[Math.abs(hash) % weddingAvatars.length];
+  };
+
+  // Slider navigation for notes
+  const nextNote = () => {
+    setNotesSliderIndex((prev) => 
+      prev === noteItems.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  const prevNote = () => {
+    setNotesSliderIndex((prev) => 
+      prev === 0 ? noteItems.length - 1 : prev - 1
+    );
+  };
+
+  const goToNote = (index: number) => {
+    setNotesSliderIndex(index);
   };
 
   return (
@@ -178,135 +196,193 @@ export const InstagramGallery: React.FC<InstagramGalleryProps> = ({
           ))}
         </div>
       ) : (
-        // Grid View (new)
+        // Grid View with Notes Slider
         <div className="p-1">
-          {/* Notes Grid */}
+          {/* Notes Slider */}
           {noteItems.length > 0 && (
             <div className="mb-6">
-              <h3 className={`text-lg font-semibold mb-3 px-3 transition-colors duration-300 ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}>
-                💌 Notizen ({noteItems.length})
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-3">
-                {noteItems.map((item) => {
-                  const itemLikes = likes.filter(l => l.mediaId === item.id);
-                  const itemComments = comments.filter(c => c.mediaId === item.id);
-                  const isLiked = itemLikes.some(like => like.userName === userName);
-                  const canDelete = isAdmin || item.uploadedBy === userName;
-                  const canEdit = item.uploadedBy === userName;
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      className={`p-4 rounded-xl border transition-all duration-300 hover:scale-[1.02] ${
-                        isDarkMode 
-                          ? 'bg-gray-800/50 border-gray-700 hover:bg-gray-800' 
-                          : 'bg-white border-gray-200 hover:bg-gray-50 shadow-sm'
+              <div className="flex items-center justify-between mb-3 px-3">
+                <h3 className={`text-lg font-semibold transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  💌 Notizen ({noteItems.length})
+                </h3>
+                
+                {/* Slider Navigation */}
+                {noteItems.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={prevNote}
+                      className={`p-2 rounded-full transition-colors duration-300 ${
+                        isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
                       }`}
                     >
-                      {/* Note Header */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full overflow-hidden">
-                            <img 
-                              src={getAvatarUrl(item.uploadedBy)}
-                              alt={item.uploadedBy}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                          <div>
-                            <span className={`font-semibold text-sm transition-colors duration-300 ${
-                              isDarkMode ? 'text-white' : 'text-gray-900'
-                            }`}>
-                              {item.uploadedBy}
-                              {item.uploadedBy === userName && (
-                                <span className={`ml-1 text-xs px-1.5 py-0.5 rounded transition-colors duration-300 ${
-                                  isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    
+                    {/* Dots Indicator */}
+                    <div className="flex gap-1">
+                      {noteItems.map((_, index) => (
+                        <button
+                          key={index}
+                          onClick={() => goToNote(index)}
+                          className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                            index === notesSliderIndex
+                              ? 'bg-pink-500 w-4'
+                              : isDarkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-300 hover:bg-gray-400'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    
+                    <button
+                      onClick={nextNote}
+                      className={`p-2 rounded-full transition-colors duration-300 ${
+                        isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Slider Container */}
+              <div className="relative overflow-hidden rounded-xl">
+                <div 
+                  className="flex transition-transform duration-300 ease-in-out"
+                  style={{ transform: `translateX(-${notesSliderIndex * 100}%)` }}
+                >
+                  {noteItems.map((item) => {
+                    const itemLikes = likes.filter(l => l.mediaId === item.id);
+                    const itemComments = comments.filter(c => c.mediaId === item.id);
+                    const isLiked = itemLikes.some(like => like.userName === userName);
+                    const canDelete = isAdmin || item.uploadedBy === userName;
+                    const canEdit = item.uploadedBy === userName;
+                    
+                    return (
+                      <div
+                        key={item.id}
+                        className="w-full flex-shrink-0 px-3"
+                      >
+                        <div className={`p-6 rounded-xl border transition-all duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-800/50 border-gray-700' 
+                            : 'bg-white border-gray-200 shadow-sm'
+                        }`}>
+                          {/* Note Header */}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full overflow-hidden">
+                                <img 
+                                  src={getAvatarUrl(item.uploadedBy)}
+                                  alt={item.uploadedBy}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div>
+                                <span className={`font-semibold transition-colors duration-300 ${
+                                  isDarkMode ? 'text-white' : 'text-gray-900'
                                 }`}>
-                                  Du
+                                  {item.uploadedBy}
+                                  {item.uploadedBy === userName && (
+                                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full transition-colors duration-300 ${
+                                      isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
+                                    }`}>
+                                      Du
+                                    </span>
+                                  )}
                                 </span>
+                                <div className={`text-sm transition-colors duration-300 ${
+                                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                                }`}>
+                                  {formatDate(item.uploadedAt)}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Actions */}
+                            <div className="flex items-center gap-1">
+                              {canEdit && (
+                                <button
+                                  onClick={() => {
+                                    const newText = prompt('Notiz bearbeiten:', item.noteText);
+                                    if (newText && newText.trim() && onEditNote) {
+                                      onEditNote(item, newText.trim());
+                                    }
+                                  }}
+                                  className={`p-2 rounded transition-colors duration-300 ${
+                                    isDarkMode ? 'text-blue-400 hover:bg-gray-700' : 'text-blue-500 hover:bg-blue-50'
+                                  }`}
+                                  title="Notiz bearbeiten"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
                               )}
-                            </span>
-                            <div className={`text-xs transition-colors duration-300 ${
-                              isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                              {canDelete && (
+                                <button
+                                  onClick={() => onDelete && onDelete(item)}
+                                  className={`p-2 rounded transition-colors duration-300 ${
+                                    isDarkMode ? 'text-red-400 hover:bg-gray-700' : 'text-red-500 hover:bg-red-50'
+                                  }`}
+                                  title="Notiz löschen"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Note Content */}
+                          <div className={`p-4 rounded-lg mb-4 transition-colors duration-300 ${
+                            isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'
+                          }`}>
+                            <p className={`text-base leading-relaxed transition-colors duration-300 ${
+                              isDarkMode ? 'text-gray-200' : 'text-gray-800'
                             }`}>
-                              {formatDate(item.uploadedAt)}
+                              "{item.noteText}"
+                            </p>
+                          </div>
+
+                          {/* Note Actions */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <button 
+                                onClick={() => onToggleLike(item.id)}
+                                className={`flex items-center gap-2 transition-colors ${
+                                  isLiked ? 'text-red-500' : isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                }`}
+                              >
+                                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+                                <span className="font-medium">{itemLikes.length}</span>
+                              </button>
+                              <div className={`flex items-center gap-2 transition-colors duration-300 ${
+                                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                              }`}>
+                                <MessageCircle className="w-5 h-5" />
+                                <span className="font-medium">{itemComments.length}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="text-xs text-gray-500">
+                              💌 Notiz
                             </div>
                           </div>
                         </div>
-                        
-                        {/* Actions */}
-                        <div className="flex items-center gap-1">
-                          {canEdit && (
-                            <button
-                              onClick={() => {
-                                const newText = prompt('Notiz bearbeiten:', item.noteText);
-                                if (newText && newText.trim() && onEditNote) {
-                                  onEditNote(item, newText.trim());
-                                }
-                              }}
-                              className={`p-1 rounded transition-colors duration-300 ${
-                                isDarkMode ? 'text-blue-400 hover:bg-gray-700' : 'text-blue-500 hover:bg-blue-50'
-                              }`}
-                              title="Notiz bearbeiten"
-                            >
-                              <Edit3 className="w-3 h-3" />
-                            </button>
-                          )}
-                          {canDelete && (
-                            <button
-                              onClick={() => onDelete && onDelete(item)}
-                              className={`p-1 rounded transition-colors duration-300 ${
-                                isDarkMode ? 'text-red-400 hover:bg-gray-700' : 'text-red-500 hover:bg-red-50'
-                              }`}
-                              title="Notiz löschen"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
                       </div>
-
-                      {/* Note Content */}
-                      <div className={`p-3 rounded-lg mb-3 transition-colors duration-300 ${
-                        isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'
-                      }`}>
-                        <p className={`text-sm leading-relaxed transition-colors duration-300 ${
-                          isDarkMode ? 'text-gray-200' : 'text-gray-800'
-                        }`}>
-                          "{item.noteText}"
-                        </p>
-                      </div>
-
-                      {/* Note Actions */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <button 
-                            onClick={() => onToggleLike(item.id)}
-                            className={`flex items-center gap-1 transition-colors ${
-                              isLiked ? 'text-red-500' : isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                            }`}
-                          >
-                            <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                            <span className="text-sm font-medium">{itemLikes.length}</span>
-                          </button>
-                          <div className={`flex items-center gap-1 transition-colors duration-300 ${
-                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                          }`}>
-                            <MessageCircle className="w-4 h-4" />
-                            <span className="text-sm font-medium">{itemComments.length}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="text-xs text-gray-500">
-                          💌 Notiz
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
+              
+              {/* Swipe Hint */}
+              {noteItems.length > 1 && (
+                <div className={`text-center mt-2 text-xs transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                }`}>
+                  ← Wische oder nutze die Pfeile zum Navigieren →
+                </div>
+              )}
             </div>
           )}
 
