@@ -60,10 +60,15 @@ function App() {
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
 
-  // Initialize Spotify auth on app load
+  // Initialize Spotify auth on app load - ADMIN ONLY
   useEffect(() => {
-    initializeSpotifyAuth().catch(console.error);
-  }, []);
+    if (isAdmin) {
+      console.log('🔒 Admin detected - initializing Spotify auth...');
+      initializeSpotifyAuth().catch(console.error);
+    } else {
+      console.log('👤 Regular user - skipping Spotify auth initialization');
+    }
+  }, [isAdmin]);
 
   // Subscribe to site status changes
   useEffect(() => {
@@ -505,3 +510,5 @@ function App() {
 }
 
 export default App;
+
+export default App
