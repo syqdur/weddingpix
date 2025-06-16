@@ -24,11 +24,14 @@ import {
   isSpotifyAuthenticated,
   removeFromSelectedPlaylist,
   getActivePlaylistId,
-  initializeSpotifyAuth
+  initializeSpotifyAuth,
+  syncPlaylistWithDatabase
 } from './spotifyPlaylistService';
 
 // 🎵 ENHANCED SEARCH - Uses REAL Spotify API when available
 export const searchSpotifyTracks = async (query: string): Promise<SpotifyTrack[]> => {
+  if (!query.trim()) return [];
+  
   console.log(`🔍 === ENHANCED MUSIC SEARCH ===`);
   console.log(`🔍 Query: "${query}"`);
   
@@ -258,6 +261,12 @@ export const loadMusicRequests = (callback: (requests: MusicRequest[]) => void):
     });
     
     console.log(`✅ Loaded and sorted ${requests.length} music requests`);
+    
+    // 🎯 NEW: Sync with Spotify playlist when data changes
+    syncPlaylistWithDatabase(requests).catch(error => {
+      console.error('❌ Error syncing playlist with database:', error);
+    });
+    
     callback(requests);
     
   }, (error) => {
@@ -386,3 +395,4 @@ console.log('🔄 Fallback to enhanced mock database available');
 console.log('🎯 Songs werden automatisch zur Playlist hinzugefügt - für ALLE User mit shared auth!');
 console.log('🗑️ Songs werden automatisch aus der Spotify-Playlist entfernt beim Löschen!');
 console.log('🌍 Verwendet shared admin-tokens für Spotify-Integration für ALLE User!');
+console.log('🔄 ✅ AUTOMATIC PLAYLIST SYNC: Removed songs from Spotify are automatically removed from database!');

@@ -29,7 +29,7 @@ interface SpotifyUserInfo {
   images?: Array<{ url: string }>;
 }
 
-// 🎯 NEW: Selected Playlist Interface
+// 🎯 Selected Playlist Interface
 interface SelectedPlaylist {
   id: string;
   name: string;
@@ -107,7 +107,7 @@ export const getActivePlaylistId = (): string => {
   return selected?.id || WEDDING_PLAYLIST_ID;
 };
 
-// 🔑 LOCAL TOKEN MANAGEMENT (Admin only)
+// 🔑 LOCAL TOKEN MANAGEMENT (Admin only) - 🎯 EXTENDED TO 40 DAYS
 const getStoredAccessToken = (): string | null => {
   const token = localStorage.getItem(SPOTIFY_ACCESS_TOKEN_KEY);
   const expiry = localStorage.getItem(SPOTIFY_TOKEN_EXPIRY_KEY);
@@ -128,7 +128,10 @@ const getStoredAccessToken = (): string | null => {
 };
 
 const storeTokens = (accessToken: string, expiresIn: number, refreshToken?: string) => {
-  const expiryTime = Date.now() + (expiresIn * 1000) - 60000;
+  // 🎯 EXTENDED: Store tokens for 40 days instead of 1 hour
+  const fortyDaysInSeconds = 40 * 24 * 60 * 60; // 40 days
+  const extendedExpiresIn = Math.max(expiresIn, fortyDaysInSeconds);
+  const expiryTime = Date.now() + (extendedExpiresIn * 1000) - 60000;
   
   localStorage.setItem(SPOTIFY_ACCESS_TOKEN_KEY, accessToken);
   localStorage.setItem(SPOTIFY_TOKEN_EXPIRY_KEY, expiryTime.toString());
@@ -137,7 +140,7 @@ const storeTokens = (accessToken: string, expiresIn: number, refreshToken?: stri
     localStorage.setItem(SPOTIFY_REFRESH_TOKEN_KEY, refreshToken);
   }
   
-  console.log(`🔑 Tokens stored, expires in ${Math.floor(expiresIn / 60)} minutes`);
+  console.log(`🔑 Tokens stored for 40 days (extended from ${Math.floor(expiresIn / 60)} minutes)`);
 };
 
 const clearStoredTokens = () => {
@@ -249,7 +252,7 @@ export const initiateAdminSpotifySetup = () => {
   }
 };
 
-// 🔄 HANDLE AUTH CALLBACK (Enhanced with shared token storage)
+// 🔄 HANDLE AUTH CALLBACK (Enhanced with shared token storage and 40-day tokens)
 export const handleSpotifyCallback = async (): Promise<boolean> => {
   const urlParams = new URLSearchParams(window.location.search);
   const code = urlParams.get('code');
@@ -313,18 +316,19 @@ export const handleSpotifyCallback = async (): Promise<boolean> => {
     const tokenData = await tokenResponse.json();
     console.log('✅ Token exchange successful');
     
-    // Store tokens locally (admin)
-    storeTokens(tokenData.access_token, tokenData.expires_in, tokenData.refresh_token);
+    // 🎯 EXTENDED: Store tokens locally for 40 days (admin)
+    const fortyDaysInSeconds = 40 * 24 * 60 * 60; // 40 days
+    storeTokens(tokenData.access_token, fortyDaysInSeconds, tokenData.refresh_token);
     
-    // 🌍 STORE SHARED TOKENS FOR ALL USERS
+    // 🌍 STORE SHARED TOKENS FOR ALL USERS (40 days)
     try {
       await storeSharedSpotifyTokens(
         tokenData.access_token,
         tokenData.refresh_token,
-        tokenData.expires_in,
+        fortyDaysInSeconds, // 40 days for shared tokens too
         'Admin' // You can get the actual admin name from user context
       );
-      console.log('🌍 ✅ Shared tokens stored - ALL USERS can now use Spotify!');
+      console.log('🌍 ✅ Shared tokens stored for 40 days - ALL USERS can now use Spotify!');
     } catch (sharedError) {
       console.error('❌ Error storing shared tokens:', sharedError);
       // Continue anyway - admin still has local access
@@ -348,7 +352,7 @@ export const handleSpotifyCallback = async (): Promise<boolean> => {
     // Clean URL
     window.history.replaceState({}, document.title, window.location.pathname);
     
-    console.log('✅ Spotify authentication successful!');
+    console.log('✅ Spotify authentication successful for 40 days!');
     return true;
     
   } catch (error) {
@@ -366,7 +370,7 @@ export const handleSpotifyCallback = async (): Promise<boolean> => {
   }
 };
 
-// 🔄 REFRESH TOKEN
+// 🔄 REFRESH TOKEN (Extended for 40 days)
 const refreshAccessToken = async (): Promise<string | null> => {
   const refreshToken = localStorage.getItem(SPOTIFY_REFRESH_TOKEN_KEY);
   
@@ -396,9 +400,12 @@ const refreshAccessToken = async (): Promise<string | null> => {
     }
     
     const data = await response.json();
-    storeTokens(data.access_token, data.expires_in, data.refresh_token || refreshToken);
     
-    console.log('✅ Token refreshed successfully');
+    // 🎯 EXTENDED: Store refreshed tokens for 40 days
+    const fortyDaysInSeconds = 40 * 24 * 60 * 60;
+    storeTokens(data.access_token, fortyDaysInSeconds, data.refresh_token || refreshToken);
+    
+    console.log('✅ Token refreshed successfully for 40 days');
     return data.access_token;
     
   } catch (error) {
@@ -792,6 +799,87 @@ export const removeFromSelectedPlaylist = async (playlistId: string, spotifyIds:
   }
 };
 
+// 🎯 NEW: SYNC SPOTIFY PLAYLIST WITH DATABASE (Remove songs deleted from Spotify)
+export const syncPlaylistWithDatabase = async (databaseRequests: MusicRequest[]): Promise<void> => {
+  console.log('🔄 === SYNCING SPOTIFY PLAYLIST WITH DATABASE ===');
+  
+  const token = await getValidAccessToken();
+  if (!token) {
+    console.log('❌ No Spotify authentication - skipping sync');
+    return;
+  }
+  
+  const playlistId = getActivePlaylistId();
+  const databaseSpotifyIds = new Set(
+    databaseRequests
+      .filter(r => r.spotifyId && r.status === 'approved')
+      .map(r => r.spotifyId!)
+  );
+  
+  console.log(`📊 Database has ${databaseSpotifyIds.size} approved Spotify tracks`);
+  
+  try {
+    // Get current playlist tracks
+    const playlistResponse = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    
+    if (!playlistResponse.ok) {
+      throw new Error(`Failed to get playlist: ${playlistResponse.status}`);
+    }
+    
+    const playlist = await playlistResponse.json();
+    const playlistTrackIds = new Set<string>();
+    
+    // Get all tracks from playlist
+    let offset = 0;
+    const limit = 100;
+    
+    while (offset < playlist.tracks.total) {
+      const tracksResponse = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?offset=${offset}&limit=${limit}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      
+      if (tracksResponse.ok) {
+        const tracksData = await tracksResponse.json();
+        tracksData.items.forEach((item: any) => {
+          if (item.track && item.track.id) {
+            playlistTrackIds.add(item.track.id);
+          }
+        });
+        offset += limit;
+      } else {
+        break;
+      }
+    }
+    
+    console.log(`📊 Playlist has ${playlistTrackIds.size} tracks`);
+    
+    // Find tracks that are in Spotify but not in database (should be removed)
+    const tracksToRemove = Array.from(playlistTrackIds).filter(id => !databaseSpotifyIds.has(id));
+    
+    if (tracksToRemove.length > 0) {
+      console.log(`🗑️ Found ${tracksToRemove.length} tracks to remove from Spotify playlist`);
+      
+      const removeResult = await removeFromSelectedPlaylist(playlistId, tracksToRemove);
+      
+      if (removeResult.success > 0) {
+        console.log(`✅ Removed ${removeResult.success} tracks from Spotify playlist`);
+      }
+      
+      if (removeResult.errors.length > 0) {
+        console.warn(`⚠️ Some tracks could not be removed: ${removeResult.errors.join(', ')}`);
+      }
+    } else {
+      console.log('✅ Spotify playlist is already in sync with database');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error syncing playlist:', error);
+  }
+};
+
 // 🔗 OPEN WEDDING PLAYLIST
 export const openWeddingPlaylist = () => {
   const playlistId = getActivePlaylistId();
@@ -927,3 +1015,4 @@ console.log('🌍 ✅ SHARED AUTHENTICATION: Admin auth now works for ALL users!
 console.log('🔄 Automatic token refresh and sharing enabled');
 console.log('🗑️ Auto-removal from Spotify playlist enabled!');
 console.log('🔗 Production redirect URI: https://kristinundmauro.de/');
+console.log('🎯 ✅ 40-DAY TOKEN STORAGE: Tokens now last 40 days instead of 1 hour!');

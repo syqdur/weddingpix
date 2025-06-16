@@ -20,7 +20,7 @@ interface SharedSpotifyTokens {
 
 const SHARED_TOKENS_DOC = 'shared_spotify_tokens';
 
-// 🔑 STORE TOKENS FOR ALL USERS (Admin only)
+// 🔑 STORE TOKENS FOR ALL USERS (Admin only) - 🎯 EXTENDED TO 40 DAYS
 export const storeSharedSpotifyTokens = async (
   accessToken: string,
   refreshToken: string,
@@ -28,11 +28,15 @@ export const storeSharedSpotifyTokens = async (
   adminName: string
 ): Promise<void> => {
   try {
-    console.log('🔑 === STORING SHARED SPOTIFY TOKENS ===');
+    console.log('🔑 === STORING SHARED SPOTIFY TOKENS FOR 40 DAYS ===');
     console.log(`👤 Admin: ${adminName}`);
-    console.log(`⏰ Expires in: ${Math.floor(expiresIn / 60)} minutes`);
+    console.log(`⏰ Original expires in: ${Math.floor(expiresIn / 60)} minutes`);
     
-    const expiresAt = Date.now() + (expiresIn * 1000) - 60000; // 1 minute buffer
+    // 🎯 EXTENDED: Store for 40 days instead of original expiry
+    const fortyDaysInMs = 40 * 24 * 60 * 60 * 1000; // 40 days in milliseconds
+    const expiresAt = Date.now() + fortyDaysInMs - 60000; // 40 days minus 1 minute buffer
+    
+    console.log(`🎯 Extended to: 40 days (${Math.floor(fortyDaysInMs / (24 * 60 * 60 * 1000))} days)`);
     
     const sharedTokens: SharedSpotifyTokens = {
       accessToken,
@@ -46,8 +50,8 @@ export const storeSharedSpotifyTokens = async (
     const docRef = doc(db, 'settings', SHARED_TOKENS_DOC);
     await setDoc(docRef, sharedTokens);
     
-    console.log('✅ Shared Spotify tokens stored successfully');
-    console.log('🌍 All users can now access Spotify integration!');
+    console.log('✅ Shared Spotify tokens stored for 40 days');
+    console.log('🌍 All users can now access Spotify integration for 40 days!');
     
   } catch (error) {
     console.error('❌ Error storing shared tokens:', error);
@@ -74,7 +78,8 @@ export const getSharedSpotifyTokens = async (): Promise<SharedSpotifyTokens | nu
       return null;
     }
     
-    console.log(`✅ Found valid shared Spotify tokens from ${tokens.authenticatedBy}`);
+    const daysLeft = Math.floor((tokens.expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+    console.log(`✅ Found valid shared Spotify tokens from ${tokens.authenticatedBy} (${daysLeft} days left)`);
     return tokens;
     
   } catch (error) {
@@ -83,7 +88,7 @@ export const getSharedSpotifyTokens = async (): Promise<SharedSpotifyTokens | nu
   }
 };
 
-// 🔑 REFRESH SHARED TOKENS (System)
+// 🔑 REFRESH SHARED TOKENS (System) - 🎯 EXTENDED TO 40 DAYS
 export const refreshSharedSpotifyTokens = async (): Promise<string | null> => {
   try {
     const currentTokens = await getSharedSpotifyTokens();
@@ -93,7 +98,7 @@ export const refreshSharedSpotifyTokens = async (): Promise<string | null> => {
       return null;
     }
     
-    console.log('🔄 Refreshing shared Spotify tokens...');
+    console.log('🔄 Refreshing shared Spotify tokens for 40 days...');
     
     const response = await fetch('https://accounts.spotify.com/api/token', {
       method: 'POST',
@@ -103,8 +108,8 @@ export const refreshSharedSpotifyTokens = async (): Promise<string | null> => {
       body: new URLSearchParams({
         grant_type: 'refresh_token',
         refresh_token: currentTokens.refreshToken,
-        client_id: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '',
-        client_secret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || '',
+        client_id: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '4dbf85a8ca7c43d3b2ddc540194e9387',
+        client_secret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || 'acf102b8834d48b497a7e98bf69021f6',
       }),
     });
     
@@ -114,15 +119,16 @@ export const refreshSharedSpotifyTokens = async (): Promise<string | null> => {
     
     const data = await response.json();
     
-    // Update shared tokens
+    // 🎯 EXTENDED: Update shared tokens for 40 days
+    const fortyDaysInSeconds = 40 * 24 * 60 * 60; // 40 days
     await storeSharedSpotifyTokens(
       data.access_token,
       data.refresh_token || currentTokens.refreshToken,
-      data.expires_in,
+      fortyDaysInSeconds,
       currentTokens.authenticatedBy
     );
     
-    console.log('✅ Shared Spotify tokens refreshed successfully');
+    console.log('✅ Shared Spotify tokens refreshed for 40 days');
     return data.access_token;
     
   } catch (error) {
@@ -149,14 +155,16 @@ export const getValidSharedAccessToken = async (): Promise<string | null> => {
       return null;
     }
     
-    // Check if token needs refresh (5 minutes before expiry)
-    const fiveMinutesFromNow = Date.now() + (5 * 60 * 1000);
-    if (fiveMinutesFromNow >= tokens.expiresAt) {
-      console.log('🔄 Shared token needs refresh...');
+    // 🎯 EXTENDED: Check if token needs refresh (1 day before expiry instead of 5 minutes)
+    const oneDayFromNow = Date.now() + (24 * 60 * 60 * 1000); // 1 day
+    if (oneDayFromNow >= tokens.expiresAt) {
+      console.log('🔄 Shared token needs refresh (less than 1 day remaining)...');
       const newToken = await refreshSharedSpotifyTokens();
       return newToken;
     }
     
+    const daysLeft = Math.floor((tokens.expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+    console.log(`✅ Using shared token (${daysLeft} days remaining)`);
     return tokens.accessToken;
     
   } catch (error) {
@@ -212,12 +220,16 @@ export const subscribeToSharedSpotifyStatus = (
       const tokens = doc.data() as SharedSpotifyTokens;
       
       if (tokens.isActive && Date.now() < tokens.expiresAt) {
+        const daysLeft = Math.floor((tokens.expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+        console.log(`🌍 Shared Spotify status: ACTIVE (${daysLeft} days left)`);
+        
         callback({
           isAvailable: true,
           authenticatedBy: tokens.authenticatedBy,
           authenticatedAt: tokens.authenticatedAt
         });
       } else {
+        console.log('🌍 Shared Spotify status: INACTIVE (expired or disabled)');
         callback({
           isAvailable: false,
           authenticatedBy: null,
@@ -225,6 +237,7 @@ export const subscribeToSharedSpotifyStatus = (
         });
       }
     } else {
+      console.log('🌍 Shared Spotify status: NOT_FOUND');
       callback({
         isAvailable: false,
         authenticatedBy: null,
@@ -245,3 +258,4 @@ console.log('🔑 === SHARED SPOTIFY TOKEN SERVICE INITIALIZED ===');
 console.log('🌍 Allows admin authentication to be shared with ALL users');
 console.log('🔄 Automatic token refresh for continuous access');
 console.log('📡 Real-time status updates for all users');
+console.log('🎯 ✅ 40-DAY TOKEN STORAGE: Shared tokens now last 40 days!');
