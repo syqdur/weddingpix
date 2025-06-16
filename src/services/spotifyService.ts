@@ -3,9 +3,9 @@ import { SpotifyTrack, SpotifySearchResponse } from '../types';
 // 🎵 ECHTE SPOTIFY API INTEGRATION
 // Zugriff auf ALLE Songs die bei Spotify verfügbar sind
 
-// Spotify API Configuration
-const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || 'your_spotify_client_id';
-const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || 'your_spotify_client_secret';
+// Spotify API Configuration with fallback
+const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '4dbf85a8ca7c43d3b2ddc540194e9387';
+const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || 'acf102b8834d48b497a7e98bf69021f6';
 
 // Spotify API Base URLs
 const SPOTIFY_API_BASE = 'https://api.spotify.com/v1';
@@ -28,10 +28,8 @@ const getAccessToken = async (): Promise<string> => {
     console.log(`🔑 Client ID: ${SPOTIFY_CLIENT_ID ? 'SET' : 'MISSING'}`);
     console.log(`🔑 Client Secret: ${SPOTIFY_CLIENT_SECRET ? 'SET' : 'MISSING'}`);
     
-    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET || 
-        SPOTIFY_CLIENT_ID === 'your_spotify_client_id' || 
-        SPOTIFY_CLIENT_SECRET === 'your_spotify_client_secret') {
-      throw new Error('Spotify API credentials not configured. Please set VITE_SPOTIFY_CLIENT_ID and VITE_SPOTIFY_CLIENT_SECRET in your .env file.');
+    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
+      throw new Error('Spotify API credentials not configured. Using fallback credentials.');
     }
     
     const response = await fetch(`${SPOTIFY_ACCOUNTS_BASE}/api/token`, {
@@ -815,9 +813,7 @@ export const extractTrackIdFromUrl = (url: string): string | null => {
 // Check if Spotify API is available and configured
 export const isSpotifyAvailable = async (): Promise<boolean> => {
   try {
-    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET || 
-        SPOTIFY_CLIENT_ID === 'your_spotify_client_id' || 
-        SPOTIFY_CLIENT_SECRET === 'your_spotify_client_secret') {
+    if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
       console.log('⚠️ Spotify API credentials not configured - using enhanced mock data');
       return false;
     }
@@ -972,9 +968,7 @@ console.log(`🔑 Client Secret: ${SPOTIFY_CLIENT_SECRET ? 'CONFIGURED' : 'MISSI
 console.log(`🌍 Ready to search ALL Spotify tracks for EVERYONE!`);
 console.log(`🎯 Enhanced mock database with 50+ tracks as fallback`);
 
-if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET || 
-    SPOTIFY_CLIENT_ID === 'your_spotify_client_id' || 
-    SPOTIFY_CLIENT_SECRET === 'your_spotify_client_secret') {
+if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) {
   console.warn(`⚠️ === SPOTIFY SETUP INFO ===`);
   console.warn(`📋 To enable real Spotify search for ALL users:`);
   console.warn(`1. Create a Spotify App at https://developer.spotify.com/dashboard`);

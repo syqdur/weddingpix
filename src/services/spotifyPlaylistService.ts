@@ -8,8 +8,8 @@ import {
   subscribeToSharedSpotifyStatus
 } from './spotifyTokenService';
 
-// Spotify API Configuration
-const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '';
+// Spotify API Configuration with fallback
+const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '4dbf85a8ca7c43d3b2ddc540194e9387';
 
 // Token Storage Keys (for local admin tokens)
 const SPOTIFY_ACCESS_TOKEN_KEY = 'spotify_access_token';
@@ -274,7 +274,7 @@ export const handleSpotifyCallback = async (): Promise<boolean> => {
     console.log(`🔄 Using redirect URI: ${redirectUri}`);
     
     // 🔧 FIX: Ensure we have client secret
-    const clientSecret = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
+    const clientSecret = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || 'acf102b8834d48b497a7e98bf69021f6';
     if (!clientSecret) {
       throw new Error('Spotify Client Secret not configured');
     }
@@ -387,7 +387,7 @@ const refreshAccessToken = async (): Promise<string | null> => {
         grant_type: 'refresh_token',
         refresh_token: refreshToken,
         client_id: SPOTIFY_CLIENT_ID,
-        client_secret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || '',
+        client_secret: import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || 'acf102b8834d48b497a7e98bf69021f6',
       }),
     });
     
