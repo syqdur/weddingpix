@@ -5,7 +5,7 @@ import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
 import { ShowcaseModal } from './ShowcaseModal';
 import { SpotifyUriModal } from './SpotifyUriModal';
-import { SpotifyAdminModal } from './SpotifyAdminModal';
+import { PlaylistExportModal } from './PlaylistExportModal';
 
 interface AdminPanelProps {
   isDarkMode: boolean;
@@ -316,7 +316,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       )}
 
       {/* 🎵 SPOTIFY ADMIN MODAL - Jetzt mit isAdmin prop */}
-      <SpotifyAdminModal 
+      <PlaylistExportModal 
         isOpen={showSpotifyAdmin}
         onClose={() => setShowSpotifyAdmin(false)}
         isDarkMode={isDarkMode}
