@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, History, Music, Sparkles, TrendingUp, Users, Clock, Search, Filter, SortAsc, Award, CheckCircle, AlertCircle } from 'lucide-react';
+import { Plus, History, Music, Sparkles, TrendingUp, Users, Clock, Search, Filter, SortAsc, Award, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { loadMusicRequests } from '../services/musicService';
 import { MusicHistoryList } from './MusicHistoryList';
@@ -126,6 +126,26 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
     };
   }, [allRequests]);
 
+  // 📅 Calculate integration expiry date
+  const getIntegrationExpiryInfo = () => {
+    if (!sharedSpotifyStatus.isAvailable || !sharedSpotifyStatus.authenticatedAt) {
+      return null;
+    }
+
+    const authDate = new Date(sharedSpotifyStatus.authenticatedAt);
+    const expiryDate = new Date(authDate.getTime() + (40 * 24 * 60 * 60 * 1000)); // 40 days
+    const now = new Date();
+    const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+
+    return {
+      expiryDate,
+      daysLeft,
+      isExpiringSoon: daysLeft <= 7
+    };
+  };
+
+  const expiryInfo = getIntegrationExpiryInfo();
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
@@ -154,41 +174,84 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
       {/* 🎵 NEW: Now Playing Widget */}
       <NowPlayingWidget isDarkMode={isDarkMode} />
 
-      {/* 🌍 Shared Spotify Status Banner */}
+      {/* 🌍 Shared Spotify Status Banner with Expiry Info */}
       {sharedSpotifyStatus.isAvailable && (
         <div className={`p-4 rounded-xl transition-colors duration-300 ${
-          isDarkMode 
-            ? 'bg-green-900/20 border border-green-700/30' 
-            : 'bg-green-50 border border-green-200'
+          expiryInfo?.isExpiringSoon
+            ? isDarkMode 
+              ? 'bg-yellow-900/20 border border-yellow-700/30' 
+              : 'bg-yellow-50 border border-yellow-200'
+            : isDarkMode 
+              ? 'bg-green-900/20 border border-green-700/30' 
+              : 'bg-green-50 border border-green-200'
         }`}>
           <div className="flex items-center gap-3">
-            <CheckCircle className={`w-5 h-5 transition-colors duration-300 ${
-              isDarkMode ? 'text-green-400' : 'text-green-600'
-            }`} />
+            {expiryInfo?.isExpiringSoon ? (
+              <AlertCircle className={`w-5 h-5 transition-colors duration-300 ${
+                isDarkMode ? 'text-yellow-400' : 'text-yellow-600'
+              }`} />
+            ) : (
+              <CheckCircle className={`w-5 h-5 transition-colors duration-300 ${
+                isDarkMode ? 'text-green-400' : 'text-green-600'
+              }`} />
+            )}
             <div className="flex-1">
               <h4 className={`font-semibold transition-colors duration-300 ${
-                isDarkMode ? 'text-green-300' : 'text-green-800'
+                expiryInfo?.isExpiringSoon
+                  ? isDarkMode ? 'text-yellow-300' : 'text-yellow-800'
+                  : isDarkMode ? 'text-green-300' : 'text-green-800'
               }`}>
-                🌍 Spotify Integration aktiv für ALLE Benutzer!
-              </h4>
-              <p className={`text-sm transition-colors duration-300 ${
-                isDarkMode ? 'text-green-200' : 'text-green-700'
-              }`}>
-                Eingerichtet von {sharedSpotifyStatus.authenticatedBy} am {' '}
-                {sharedSpotifyStatus.authenticatedAt && 
-                  new Date(sharedSpotifyStatus.authenticatedAt).toLocaleDateString('de-DE', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })
+                {expiryInfo?.isExpiringSoon 
+                  ? '⚠️ Spotify Integration läuft bald ab!'
+                  : '🌍 Spotify Integration aktiv für ALLE Benutzer!'
                 }
-              </p>
+              </h4>
+              <div className="flex items-center gap-4 mt-1">
+                <p className={`text-sm transition-colors duration-300 ${
+                  expiryInfo?.isExpiringSoon
+                    ? isDarkMode ? 'text-yellow-200' : 'text-yellow-700'
+                    : isDarkMode ? 'text-green-200' : 'text-green-700'
+                }`}>
+                  Eingerichtet von {sharedSpotifyStatus.authenticatedBy} am {' '}
+                  {sharedSpotifyStatus.authenticatedAt && 
+                    new Date(sharedSpotifyStatus.authenticatedAt).toLocaleDateString('de-DE', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })
+                  }
+                </p>
+                {expiryInfo && (
+                  <div className="flex items-center gap-1">
+                    <Calendar className={`w-4 h-4 transition-colors duration-300 ${
+                      expiryInfo.isExpiringSoon
+                        ? isDarkMode ? 'text-yellow-400' : 'text-yellow-600'
+                        : isDarkMode ? 'text-green-400' : 'text-green-600'
+                    }`} />
+                    <span className={`text-sm font-medium transition-colors duration-300 ${
+                      expiryInfo.isExpiringSoon
+                        ? isDarkMode ? 'text-yellow-300' : 'text-yellow-800'
+                        : isDarkMode ? 'text-green-300' : 'text-green-800'
+                    }`}>
+                      {expiryInfo.isExpiringSoon 
+                        ? `Läuft in ${expiryInfo.daysLeft} Tag${expiryInfo.daysLeft !== 1 ? 'en' : ''} ab`
+                        : `Läuft bis ${expiryInfo.expiryDate.toLocaleDateString('de-DE')} (${expiryInfo.daysLeft} Tage)`
+                      }
+                    </span>
+                  </div>
+                )}
+              </div>
               <p className={`text-xs mt-1 transition-colors duration-300 ${
-                isDarkMode ? 'text-green-300' : 'text-green-600'
+                expiryInfo?.isExpiringSoon
+                  ? isDarkMode ? 'text-yellow-300' : 'text-yellow-600'
+                  : isDarkMode ? 'text-green-300' : 'text-green-600'
               }`}>
-                ✅ Alle Songs werden automatisch zur Spotify-Playlist hinzugefügt
+                {expiryInfo?.isExpiringSoon 
+                  ? '⚠️ Ein Admin sollte die Integration bald erneuern'
+                  : '✅ Alle Songs werden automatisch zur Spotify-Playlist hinzugefügt'
+                }
               </p>
             </div>
           </div>

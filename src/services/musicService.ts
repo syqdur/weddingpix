@@ -127,13 +127,12 @@ export const addMusicRequest = async (
   track: SpotifyTrack,
   userName: string,
   deviceId: string,
-  message?: string
+  message?: string // 🗑️ REMOVED: Message parameter is now optional and ignored
 ): Promise<void> => {
   try {
     console.log(`🎵 === ADDING MUSIC REQUEST (ALL USERS WITH SHARED AUTH) ===`);
     console.log(`🎵 Song: "${track.name}" by ${track.artists[0].name}`);
     console.log(`👤 User: ${userName} (${deviceId})`);
-    console.log(`💬 Message: ${message || 'none'}`);
     console.log(`🎯 Status: approved (automatic)`);
 
     // Validate track data
@@ -158,7 +157,7 @@ export const addMusicRequest = async (
       requestedBy: userName,
       deviceId: deviceId,
       requestedAt: new Date().toISOString(),
-      message: message || '',
+      message: '', // 🗑️ REMOVED: Always empty string now
       status: 'approved', // 🎯 DIREKT ALS APPROVED MARKIERT
       votes: 1, // User automatically votes for their own request
       votedBy: [deviceId],
@@ -192,7 +191,7 @@ export const addMusicRequestFromUrl = async (
   spotifyUrl: string,
   userName: string,
   deviceId: string,
-  message?: string
+  message?: string // 🗑️ REMOVED: Message parameter is now optional and ignored
 ): Promise<void> => {
   try {
     console.log(`🔗 === ADDING FROM SPOTIFY URL (ALL USERS WITH SHARED AUTH) ===`);
@@ -213,8 +212,8 @@ export const addMusicRequestFromUrl = async (
 
     console.log(`✅ Found track: "${track.name}" by ${track.artists[0].name}`);
 
-    // Add the request (will automatically try Spotify integration with shared auth)
-    await addMusicRequest(track, userName, deviceId, message);
+    // Add the request (will automatically try Spotify integration)
+    await addMusicRequest(track, userName, deviceId); // 🗑️ REMOVED: No message parameter
     
   } catch (error) {
     console.error('❌ Error adding music request from URL:', error);
@@ -387,6 +386,33 @@ export const deleteMusicRequest = async (requestId: string): Promise<void> => {
     console.error('❌ Error deleting music request:', error);
     throw error;
   }
+};
+
+// 🗑️ NEW: Bulk delete multiple music requests
+export const bulkDeleteMusicRequests = async (requestIds: string[]): Promise<{success: number, errors: string[]}> => {
+  console.log(`🗑️ === BULK DELETING ${requestIds.length} MUSIC REQUESTS ===`);
+  
+  const result = {
+    success: 0,
+    errors: [] as string[]
+  };
+  
+  for (const requestId of requestIds) {
+    try {
+      await deleteMusicRequest(requestId);
+      result.success++;
+      console.log(`✅ Successfully deleted request: ${requestId}`);
+    } catch (error) {
+      console.error(`❌ Error deleting request ${requestId}:`, error);
+      result.errors.push(`${requestId}: ${error.message || 'Unknown error'}`);
+    }
+  }
+  
+  console.log(`🗑️ === BULK DELETION COMPLETE ===`);
+  console.log(`✅ Success: ${result.success} / ${requestIds.length}`);
+  console.log(`❌ Errors: ${result.errors.length}`);
+  
+  return result;
 };
 
 console.log('🎵 === ENHANCED MUSIC SERVICE INITIALIZED ===');

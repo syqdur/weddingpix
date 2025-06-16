@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw, Heart, Star, Settings, User, ChevronDown, Lock, Shield, Eye, Info } from 'lucide-react';
+import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw, Heart, Star, Settings, User, ChevronDown, Lock, Shield, Eye, Info, Calendar } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { 
   createPlaylistExport,
@@ -20,7 +20,8 @@ import {
   addToSelectedPlaylist,
   getSelectedPlaylist,
   setSelectedPlaylist,
-  isPlaylistLocked
+  isPlaylistLocked,
+  getSharedSpotifyStatus
 } from '../services/spotifyPlaylistService';
 import { loadMusicRequests } from '../services/musicService';
 
@@ -50,12 +51,13 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
   const [showPlaylistSelector, setShowPlaylistSelector] = useState(false);
   const [showConnectionStatus, setShowConnectionStatus] = useState(false);
   const [approvedRequests, setApprovedRequests] = useState<MusicRequest[]>([]);
+  const [sharedSpotifyStatus, setSharedSpotifyStatus] = useState<any>(null);
 
   // 🎯 NEW: Persistent playlist state
   const [persistentPlaylist, setPersistentPlaylist] = useState<any | null>(null);
   const [playlistLocked, setPlaylistLocked] = useState(false);
 
-  // 🔒 Load music requests for all users
+  // 🔧 Load music requests for all users
   useEffect(() => {
     if (isOpen) {
       console.log('🎵 Loading music requests for playlist management...');
@@ -75,7 +77,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
     }
   }, [isOpen]);
 
-  // 🔒 ADMIN-ONLY: Initialize Spotify auth only for admins
+  // 🔧 Initialize Spotify auth only for admins
   useEffect(() => {
     if (isOpen) {
       if (isAdmin) {
@@ -87,6 +89,23 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
       }
     }
   }, [isOpen, isAdmin]);
+
+  // 🌍 Get shared Spotify status
+  useEffect(() => {
+    if (isOpen) {
+      const getStatus = async () => {
+        try {
+          const status = await getSharedSpotifyStatus();
+          setSharedSpotifyStatus(status);
+          console.log('🌍 Shared Spotify status:', status);
+        } catch (error) {
+          console.error('❌ Error getting shared Spotify status:', error);
+        }
+      };
+      
+      getStatus();
+    }
+  }, [isOpen]);
 
   const checkSpotifyStatus = async () => {
     setIsInitializing(true);
@@ -102,9 +121,9 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
       }
       
       // Check if Spotify is authenticated (without initializing)
-      const authenticated = isSpotifyAuthenticated();
+      const authenticated = await isSpotifyAuthenticated();
       if (authenticated) {
-        const user = getCurrentSpotifyUser();
+        const user = await getCurrentSpotifyUser();
         setIsSpotifyConnected(true);
         setSpotifyUser(user);
         console.log(`✅ Spotify connected as: ${user?.display_name}`);
@@ -142,7 +161,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
       const authResult = await initializeSpotifyAuth();
       
       if (authResult) {
-        const user = getCurrentSpotifyUser();
+        const user = await getCurrentSpotifyUser();
         setIsSpotifyConnected(true);
         setSpotifyUser(user);
         console.log(`✅ Spotify connected as: ${user?.display_name}`);
@@ -214,7 +233,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
       return;
     }
     
-    if (window.confirm('Spotify-Verbindung trennen?')) {
+    if (window.confirm('Spotify-Verbindung trennen?\n\n⚠️ Dies betrifft ALLE Benutzer!')) {
       logoutSpotify();
       setIsSpotifyConnected(false);
       setSpotifyUser(null);
@@ -276,6 +295,26 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
     }
   };
 
+  // 🎯 Calculate integration expiry date
+  const getIntegrationExpiryInfo = () => {
+    if (!sharedSpotifyStatus?.isAvailable || !sharedSpotifyStatus?.authenticatedAt) {
+      return null;
+    }
+
+    const authDate = new Date(sharedSpotifyStatus.authenticatedAt);
+    const expiryDate = new Date(authDate.getTime() + (40 * 24 * 60 * 60 * 1000)); // 40 days
+    const now = new Date();
+    const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+
+    return {
+      expiryDate,
+      daysLeft,
+      isExpiringSoon: daysLeft <= 7
+    };
+  };
+
+  const expiryInfo = getIntegrationExpiryInfo();
+
   if (!isOpen) return null;
 
   const spotifyTracks = approvedRequests.filter(request => request.spotifyId);
@@ -335,7 +374,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
           {/* 🆕 NEW: Connection Status Panel */}
           {showConnectionStatus && (
             <div className={`mb-6 p-6 rounded-xl transition-colors duration-300 ${
-              isSpotifyConnected
+              isSpotifyConnected || sharedSpotifyStatus?.isAvailable
                 ? isDarkMode 
                   ? 'bg-green-900/20 border border-green-700/30' 
                   : 'bg-green-50 border border-green-200'
@@ -345,7 +384,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
             }`}>
               <div className="flex items-center gap-3 mb-4">
                 <Eye className={`w-6 h-6 transition-colors duration-300 ${
-                  isSpotifyConnected
+                  isSpotifyConnected || sharedSpotifyStatus?.isAvailable
                     ? isDarkMode ? 'text-green-400' : 'text-green-600'
                     : isDarkMode ? 'text-gray-400' : 'text-gray-500'
                 }`} />
@@ -356,7 +395,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                 </h4>
               </div>
 
-              {isSpotifyConnected && spotifyUser ? (
+              {(isSpotifyConnected || sharedSpotifyStatus?.isAvailable) ? (
                 <div className="space-y-4">
                   {/* Connected User Info */}
                   <div className={`p-4 rounded-lg transition-colors duration-300 ${
@@ -373,9 +412,29 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                     <div className={`text-sm space-y-1 transition-colors duration-300 ${
                       isDarkMode ? 'text-green-200' : 'text-green-700'
                     }`}>
-                      <div><strong>Account:</strong> {spotifyUser.display_name}</div>
-                      {spotifyUser.email && <div><strong>E-Mail:</strong> {spotifyUser.email}</div>}
-                      <div><strong>Spotify ID:</strong> {spotifyUser.id}</div>
+                      {spotifyUser ? (
+                        <>
+                          <div><strong>Account:</strong> {spotifyUser.display_name}</div>
+                          {spotifyUser.email && <div><strong>E-Mail:</strong> {spotifyUser.email}</div>}
+                          <div><strong>Spotify ID:</strong> {spotifyUser.id}</div>
+                        </>
+                      ) : sharedSpotifyStatus?.isAvailable && (
+                        <>
+                          <div><strong>Account:</strong> {sharedSpotifyStatus.authenticatedBy} (Shared)</div>
+                          <div><strong>Eingerichtet am:</strong> {new Date(sharedSpotifyStatus.authenticatedAt).toLocaleDateString('de-DE')}</div>
+                          {expiryInfo && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Calendar className="w-4 h-4 text-green-500" />
+                              <span className={`font-medium ${
+                                expiryInfo.isExpiringSoon ? 'text-yellow-500' : ''
+                              }`}>
+                                Läuft ab am: {expiryInfo.expiryDate.toLocaleDateString('de-DE')} 
+                                ({expiryInfo.daysLeft} Tage verbleibend)
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -450,6 +509,31 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                       <div>✅ Automatisches Entfernen: <strong>Aktiv</strong></div>
                       <div>✅ Für alle Benutzer: <strong>Verfügbar</strong></div>
                       <div>🎯 Songs werden automatisch zur ausgewählten Playlist hinzugefügt</div>
+                      
+                      {/* 🎯 NEW: Expiry Info */}
+                      {expiryInfo && (
+                        <div className={`mt-3 p-2 rounded ${
+                          expiryInfo.isExpiringSoon
+                            ? isDarkMode ? 'bg-yellow-800/30 text-yellow-200' : 'bg-yellow-100 text-yellow-800'
+                            : isDarkMode ? 'bg-purple-700/30' : 'bg-purple-200/50'
+                        }`}>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            <span className="font-medium">
+                              {expiryInfo.isExpiringSoon
+                                ? `⚠️ Integration läuft in ${expiryInfo.daysLeft} Tagen ab!`
+                                : `Integration gültig bis ${expiryInfo.expiryDate.toLocaleDateString('de-DE')}`
+                              }
+                            </span>
+                          </div>
+                          <div className="text-xs mt-1">
+                            {expiryInfo.isExpiringSoon
+                              ? 'Ein Admin sollte die Integration bald erneuern'
+                              : `Noch ${expiryInfo.daysLeft} Tage verbleibend`
+                            }
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -537,6 +621,97 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* 🎯 NEW: Integration Expiry Info */}
+              {sharedSpotifyStatus?.isAvailable && expiryInfo && (
+                <div className={`mb-6 p-4 rounded-xl transition-colors duration-300 ${
+                  expiryInfo.isExpiringSoon
+                    ? isDarkMode ? 'bg-yellow-900/20 border border-yellow-700/30' : 'bg-yellow-50 border border-yellow-200'
+                    : isDarkMode ? 'bg-green-900/20 border border-green-700/30' : 'bg-green-50 border border-green-200'
+                }`}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <Calendar className={`w-5 h-5 transition-colors duration-300 ${
+                      expiryInfo.isExpiringSoon
+                        ? isDarkMode ? 'text-yellow-400' : 'text-yellow-600'
+                        : isDarkMode ? 'text-green-400' : 'text-green-600'
+                    }`} />
+                    <h4 className={`font-semibold transition-colors duration-300 ${
+                      expiryInfo.isExpiringSoon
+                        ? isDarkMode ? 'text-yellow-300' : 'text-yellow-800'
+                        : isDarkMode ? 'text-green-300' : 'text-green-800'
+                    }`}>
+                      {expiryInfo.isExpiringSoon
+                        ? '⚠️ Spotify Integration läuft bald ab!'
+                        : '🎯 Spotify Integration Laufzeit'
+                      }
+                    </h4>
+                  </div>
+                  
+                  <div className="flex flex-col md:flex-row md:items-center gap-4">
+                    <div className={`flex-1 p-3 rounded-lg transition-colors duration-300 ${
+                      expiryInfo.isExpiringSoon
+                        ? isDarkMode ? 'bg-yellow-800/30' : 'bg-yellow-100'
+                        : isDarkMode ? 'bg-green-800/30' : 'bg-green-100'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <User className="w-4 h-4" />
+                        <span className="font-medium">Eingerichtet von:</span>
+                      </div>
+                      <div className="text-sm">
+                        {sharedSpotifyStatus.authenticatedBy} am {' '}
+                        {new Date(sharedSpotifyStatus.authenticatedAt).toLocaleDateString('de-DE', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                    
+                    <div className={`flex-1 p-3 rounded-lg transition-colors duration-300 ${
+                      expiryInfo.isExpiringSoon
+                        ? isDarkMode ? 'bg-yellow-800/30' : 'bg-yellow-100'
+                        : isDarkMode ? 'bg-green-800/30' : 'bg-green-100'
+                    }`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Calendar className="w-4 h-4" />
+                        <span className="font-medium">Läuft ab am:</span>
+                      </div>
+                      <div className="text-sm">
+                        {expiryInfo.expiryDate.toLocaleDateString('de-DE', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                        <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
+                          expiryInfo.isExpiringSoon
+                            ? isDarkMode ? 'bg-yellow-600 text-white' : 'bg-yellow-200 text-yellow-800'
+                            : isDarkMode ? 'bg-green-600 text-white' : 'bg-green-200 text-green-800'
+                        }`}>
+                          {expiryInfo.daysLeft} Tage verbleibend
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {expiryInfo.isExpiringSoon && isAdmin && (
+                    <div className="mt-3 text-sm">
+                      <button
+                        onClick={handleSpotifyConnect}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                          isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
+                        } text-white`}
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Spotify Integration erneuern (40 Tage)
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 🔒 ADMIN-ONLY: Spotify Connection Section */}
               {isAdmin && (
@@ -792,6 +967,25 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                   }`}>
                     Wenn ein Admin die Spotify-Integration eingerichtet hat, werden deine Songs automatisch zur Hochzeits-Playlist hinzugefügt. Du musst nichts weiter tun - einfach Songs hinzufügen und sie erscheinen sowohl hier als auch in Spotify!
                   </p>
+                  
+                  {/* 🎯 NEW: Show expiry info for non-admins too */}
+                  {expiryInfo && (
+                    <div className={`mt-3 p-3 rounded-lg transition-colors duration-300 ${
+                      expiryInfo.isExpiringSoon
+                        ? isDarkMode ? 'bg-yellow-800/30 text-yellow-200' : 'bg-yellow-100 text-yellow-800'
+                        : isDarkMode ? 'bg-blue-800/30 text-blue-200' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        <span className="font-medium">
+                          {expiryInfo.isExpiringSoon
+                            ? `⚠️ Integration läuft in ${expiryInfo.daysLeft} Tagen ab!`
+                            : `Integration gültig bis ${expiryInfo.expiryDate.toLocaleDateString('de-DE')}`
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -25,7 +25,6 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
   const [searchResults, setSearchResults] = useState<SpotifyTrack[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [urlInput, setUrlInput] = useState('');
-  const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -61,13 +60,13 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     setSuccess(null);
 
     try {
-      await addMusicRequest(track, userName, deviceId, message.trim() || undefined);
+      // 🗑️ REMOVED: No message parameter anymore
+      await addMusicRequest(track, userName, deviceId);
       setSuccess(`🎉 "${track.name}" wurde zur Playlist hinzugefügt!`);
       
       // Reset form
       setSearchQuery('');
       setSearchResults([]);
-      setMessage('');
       setUrlInput('');
       
       onSuccess?.();
@@ -93,13 +92,13 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
     setSuccess(null);
 
     try {
-      await addMusicRequestFromUrl(urlInput.trim(), userName, deviceId, message.trim() || undefined);
+      // 🗑️ REMOVED: No message parameter anymore
+      await addMusicRequestFromUrl(urlInput.trim(), userName, deviceId);
       setSuccess('🎉 Song wurde zur Playlist hinzugefügt!');
       
       // Reset form
       setSearchQuery('');
       setSearchResults([]);
-      setMessage('');
       setUrlInput('');
       
       onSuccess?.();
@@ -367,33 +366,6 @@ export const MusicRequestModal: React.FC<MusicRequestModalProps> = ({
                 {isSubmitting ? 'Wird hinzugefügt...' : '🎯 Song zur Playlist hinzufügen'}
               </button>
             </form>
-          </div>
-
-          {/* Optional Message */}
-          <div className="mb-6">
-            <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              💬 Nachricht (optional)
-            </label>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Warum ist dieser Song besonders für euch?"
-              rows={3}
-              maxLength={200}
-              className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none transition-colors duration-300 ${
-                isDarkMode 
-                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-              }`}
-              disabled={isSubmitting}
-            />
-            <div className={`text-xs mt-1 transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-500'
-            }`}>
-              {message.length}/200
-            </div>
           </div>
 
           {/* Enhanced Info */}
