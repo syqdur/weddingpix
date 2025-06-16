@@ -60,13 +60,19 @@ function App() {
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
 
-  // 🔧 FIX: Initialize Spotify auth for ALL users (not just admins)
+  // 🔧 FIX: Only initialize Spotify auth when user is logged in AND site is not under construction
   useEffect(() => {
-    if (userName) {
-      console.log('🎵 User logged in - initializing Spotify auth for music functionality...');
-      initializeSpotifyAuth().catch(console.error);
+    if (userName && siteStatus && !siteStatus.isUnderConstruction) {
+      console.log('🎵 User logged in and site is live - initializing Spotify auth for music functionality...');
+      initializeSpotifyAuth().catch(error => {
+        console.error('❌ Spotify auth initialization failed:', error);
+      });
+    } else if (!userName) {
+      console.log('🎵 No user logged in - skipping Spotify auth initialization');
+    } else if (siteStatus?.isUnderConstruction) {
+      console.log('🎵 Site under construction - skipping Spotify auth initialization');
     }
-  }, [userName]);
+  }, [userName, siteStatus]);
 
   // Subscribe to site status changes
   useEffect(() => {
