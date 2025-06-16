@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Plus, Filter, TrendingUp, Clock, Check, Play } from 'lucide-react';
+import { Music, Plus, Filter, TrendingUp, Clock, Check, Play, List } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { loadMusicRequests } from '../services/musicService';
 import { MusicRequestModal } from './MusicRequestModal';
 import { MusicRequestsList } from './MusicRequestsList';
+import { PlaylistExportModal } from './PlaylistExportModal';
 
 interface MusicRequestsSectionProps {
   userName: string;
@@ -20,13 +21,21 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
 }) => {
   const [requests, setRequests] = useState<MusicRequest[]>([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'played'>('all');
   const [isLoading, setIsLoading] = useState(true);
+
+  // 🎧 DJ SYSTEM: Check if current user is DJ, Mauro, or Admin
+  const isDJ = userName.toLowerCase() === 'dj' || 
+              userName.toLowerCase() === 'mauro' || 
+              userName.toLowerCase() === 'maurizio' || 
+              isAdmin;
 
   useEffect(() => {
     console.log(`🎵 === MUSIC REQUESTS SECTION MOUNTED ===`);
     console.log(`👤 User: ${userName} (${deviceId})`);
     console.log(`👑 Admin: ${isAdmin}`);
+    console.log(`🎧 DJ: ${isDJ}`);
     
     setIsLoading(true);
     
@@ -44,12 +53,14 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
       console.log(`🎵 Unsubscribing from music requests`);
       unsubscribe();
     };
-  }, [userName, deviceId, isAdmin]);
+  }, [userName, deviceId, isAdmin, isDJ]);
 
   const filteredRequests = requests.filter(request => {
     if (filter === 'all') return true;
     return request.status === filter;
   });
+
+  const approvedRequests = requests.filter(request => request.status === 'approved');
 
   const getFilterCount = (status: MusicRequest['status'] | 'all') => {
     if (status === 'all') return requests.length;
@@ -103,18 +114,36 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={() => setShowRequestModal(true)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 ${
-              isDarkMode
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-green-500 hover:bg-green-600 text-white'
-            }`}
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Wunsch hinzufügen</span>
-            <span className="sm:hidden">Hinzufügen</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Playlist Export Button - Only for DJ/Admin */}
+            {isDJ && approvedRequests.length > 0 && (
+              <button
+                onClick={() => setShowPlaylistModal(true)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all duration-300 hover:scale-105 ${
+                  isDarkMode
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                    : 'bg-purple-500 hover:bg-purple-600 text-white'
+                }`}
+                title="Genehmigte Songs zu Spotify Playlist hinzufügen"
+              >
+                <List className="w-4 h-4" />
+                <span className="hidden sm:inline">Playlist</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowRequestModal(true)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 ${
+                isDarkMode
+                  ? 'bg-green-600 hover:bg-green-700 text-white'
+                  : 'bg-green-500 hover:bg-green-600 text-white'
+              }`}
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Wunsch hinzufügen</span>
+              <span className="sm:hidden">Hinzufügen</span>
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -247,6 +276,14 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
         onClose={() => setShowRequestModal(false)}
         userName={userName}
         deviceId={deviceId}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Playlist Export Modal */}
+      <PlaylistExportModal
+        isOpen={showPlaylistModal}
+        onClose={() => setShowPlaylistModal(false)}
+        approvedRequests={approvedRequests}
         isDarkMode={isDarkMode}
       />
     </div>
