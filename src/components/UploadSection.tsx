@@ -70,7 +70,7 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
 
         {/* Content Info */}
         <div className="flex-1">
-          <h3 className={`font-semibold text-sm mb-1 transition-colors duration-300 ${
+          <h3 className={`font-bold text-sm mb-1 transition-colors duration-300 ${
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
             Neuer Beitrag
