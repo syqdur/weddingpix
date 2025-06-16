@@ -19,6 +19,10 @@ import {
   validateSpotifyUrl,
   isSpotifyAvailable
 } from './spotifyService';
+import { 
+  addToWeddingPlaylist, 
+  isSpotifyAuthenticated 
+} from './spotifyPlaylistService';
 
 // 🎵 ENHANCED SEARCH - Uses REAL Spotify API when available
 export const searchSpotifyTracks = async (query: string): Promise<SpotifyTrack[]> => {
@@ -53,7 +57,23 @@ export const searchSpotifyTracks = async (query: string): Promise<SpotifyTrack[]
   }
 };
 
-// 🎯 SIMPLIFIED: Songs werden direkt zur Playlist hinzugefügt (kein Genehmigungssystem)
+// 🔍 CHECK FOR DUPLICATE SONGS
+const checkForDuplicate = async (spotifyId: string): Promise<boolean> => {
+  try {
+    const q = query(
+      collection(db, 'music_requests'),
+      where('spotifyId', '==', spotifyId)
+    );
+    
+    const snapshot = await getDocs(q);
+    return !snapshot.empty;
+  } catch (error) {
+    console.error('❌ Error checking for duplicates:', error);
+    return false;
+  }
+};
+
+// 🎯 AUTOMATIC PLAYLIST MANAGEMENT: Add song and immediately add to Spotify playlist
 export const addMusicRequest = async (
   track: SpotifyTrack,
   userName: string,
@@ -61,7 +81,7 @@ export const addMusicRequest = async (
   message?: string
 ): Promise<void> => {
   try {
-    console.log(`🎵 === ADDING MUSIC REQUEST ===`);
+    console.log(`🎵 === ADDING MUSIC REQUEST WITH AUTO-PLAYLIST ===`);
     console.log(`🎵 Song: "${track.name}" by ${track.artists[0].name}`);
     console.log(`👤 User: ${userName} (${deviceId})`);
     console.log(`💬 Message: ${message || 'none'}`);
@@ -70,6 +90,14 @@ export const addMusicRequest = async (
     // Validate track data
     if (!track.name || !track.artists || track.artists.length === 0) {
       throw new Error('Ungültige Track-Daten');
+    }
+
+    // 🔍 CHECK FOR DUPLICATES
+    if (track.id) {
+      const isDuplicate = await checkForDuplicate(track.id);
+      if (isDuplicate) {
+        throw new Error('Song befindet sich bereits in der Playlist');
+      }
     }
 
     const musicRequest: Omit<MusicRequest, 'id'> = {
@@ -82,7 +110,7 @@ export const addMusicRequest = async (
       deviceId: deviceId,
       requestedAt: new Date().toISOString(),
       message: message || '',
-      status: 'approved', // 🎯 DIREKT GENEHMIGT - kein Wartestatus
+      status: 'approved', // 🎯 DIREKT GENEHMIGT
       votes: 1, // User automatically votes for their own request
       votedBy: [deviceId],
       albumArt: track.album?.images?.[0]?.url || '',
@@ -94,6 +122,37 @@ export const addMusicRequest = async (
     console.log(`💾 Saving to Firestore as APPROVED...`);
     const docRef = await addDoc(collection(db, 'music_requests'), musicRequest);
     console.log(`✅ Music request added successfully with ID: ${docRef.id}`);
+
+    // 🎯 AUTOMATICALLY ADD TO SPOTIFY PLAYLIST
+    if (isSpotifyAuthenticated() && track.id) {
+      try {
+        console.log(`🎯 Auto-adding to Spotify playlist...`);
+        
+        const playlistResult = await addToWeddingPlaylist([{
+          ...musicRequest,
+          id: docRef.id
+        }]);
+        
+        if (playlistResult.success > 0) {
+          console.log(`✅ Song automatically added to Spotify playlist!`);
+          
+          // 🗑️ REMOVE FROM LOCAL QUEUE AFTER SUCCESSFUL SPOTIFY ADD
+          console.log(`🗑️ Removing from local queue...`);
+          await deleteDoc(doc(db, 'music_requests', docRef.id));
+          console.log(`✅ Song removed from local queue - now only in Spotify playlist!`);
+          
+        } else {
+          console.warn(`⚠️ Failed to add to Spotify playlist: ${playlistResult.errors.join(', ')}`);
+          // Keep in local queue if Spotify add failed
+        }
+        
+      } catch (playlistError) {
+        console.error('❌ Error adding to Spotify playlist:', playlistError);
+        // Keep in local queue if Spotify add failed
+      }
+    } else {
+      console.log(`ℹ️ Spotify not authenticated or no track ID - keeping in local queue`);
+    }
     
   } catch (error) {
     console.error('❌ Error adding music request:', error);
@@ -101,7 +160,7 @@ export const addMusicRequest = async (
   }
 };
 
-// 🎯 SIMPLIFIED: Songs von URL werden direkt genehmigt
+// 🎯 AUTOMATIC PLAYLIST MANAGEMENT: Add from URL and immediately add to Spotify playlist
 export const addMusicRequestFromUrl = async (
   spotifyUrl: string,
   userName: string,
@@ -109,7 +168,7 @@ export const addMusicRequestFromUrl = async (
   message?: string
 ): Promise<void> => {
   try {
-    console.log(`🔗 === ADDING FROM SPOTIFY URL ===`);
+    console.log(`🔗 === ADDING FROM SPOTIFY URL WITH AUTO-PLAYLIST ===`);
     console.log(`🔗 URL: ${spotifyUrl}`);
     
     // Validate URL
@@ -127,7 +186,7 @@ export const addMusicRequestFromUrl = async (
 
     console.log(`✅ Found track: "${track.name}" by ${track.artists[0].name}`);
 
-    // Add the request (automatically approved)
+    // Add the request (automatically approved and added to Spotify playlist)
     await addMusicRequest(track, userName, deviceId, message);
     
   } catch (error) {
@@ -295,4 +354,4 @@ export const getPopularRequests = async (): Promise<MusicRequest[]> => {
 console.log('🎵 === MUSIC SERVICE INITIALIZED ===');
 console.log('🌍 Ready to search ALL Spotify tracks (when API is configured)');
 console.log('🔄 Fallback to enhanced mock database available');
-console.log('🎯 Songs werden automatisch als "approved" hinzugefügt - KEIN Genehmigungssystem');
+console.log('🎯 Songs werden automatisch zur Spotify-Playlist hinzugefügt und aus der Warteschlange entfernt');
