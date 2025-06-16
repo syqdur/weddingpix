@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw } from 'lucide-react';
+import { X, Music, Download, ExternalLink, Copy, List, FileText, Check, Loader, LogIn, LogOut, Plus, RefreshCw, Heart, Star } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { 
   createPlaylistExport, 
@@ -12,7 +12,11 @@ import {
   initiateSpotifyLogin,
   logoutSpotifyUser,
   getUserPlaylists,
-  addApprovedRequestsToPlaylist
+  addApprovedRequestsToPlaylist,
+  addToWeddingPlaylist,
+  getWeddingPlaylistDetails,
+  openWeddingPlaylist,
+  getWeddingPlaylistUrl
 } from '../services/spotifyPlaylistService';
 
 interface PlaylistExportModalProps {
@@ -33,6 +37,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userPlaylists, setUserPlaylists] = useState<any[]>([]);
+  const [weddingPlaylist, setWeddingPlaylist] = useState<any | null>(null);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>('');
   const [isAddingToPlaylist, setIsAddingToPlaylist] = useState(false);
   const [addToPlaylistResult, setAddToPlaylistResult] = useState<string | null>(null);
@@ -55,6 +60,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
   useEffect(() => {
     if (isLoggedIn && isOpen) {
       loadUserPlaylists();
+      loadWeddingPlaylist();
     }
   }, [isLoggedIn, isOpen]);
 
@@ -75,6 +81,17 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
     }
   };
 
+  const loadWeddingPlaylist = async () => {
+    try {
+      const playlist = await getWeddingPlaylistDetails();
+      setWeddingPlaylist(playlist);
+      console.log(`✅ Wedding playlist loaded: ${playlist.name}`);
+    } catch (error) {
+      console.error('❌ Error loading wedding playlist:', error);
+      // Don't show error for wedding playlist - it might not be accessible
+    }
+  };
+
   const handleSpotifyLogin = () => {
     initiateSpotifyLogin();
     
@@ -84,6 +101,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
         setIsLoggedIn(true);
         clearInterval(checkLogin);
         loadUserPlaylists();
+        loadWeddingPlaylist();
       }
     }, 2000);
     
@@ -95,7 +113,31 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
     logoutSpotifyUser();
     setIsLoggedIn(false);
     setUserPlaylists([]);
+    setWeddingPlaylist(null);
     setSelectedPlaylistId('');
+  };
+
+  const handleAddToWeddingPlaylist = async () => {
+    setIsAddingToPlaylist(true);
+    setAddToPlaylistResult(null);
+
+    try {
+      const result = await addToWeddingPlaylist(approvedRequests);
+      
+      if (result.success > 0) {
+        setAddToPlaylistResult(`🎯 ${result.success} Songs erfolgreich zur Hochzeits-Playlist hinzugefügt!`);
+        // Reload wedding playlist to show updated track count
+        setTimeout(() => loadWeddingPlaylist(), 1000);
+      } else {
+        setAddToPlaylistResult(`❌ Fehler: ${result.errors.join(', ')}`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error adding to wedding playlist:', error);
+      setAddToPlaylistResult(`❌ Fehler: ${error.message}`);
+    } finally {
+      setIsAddingToPlaylist(false);
+    }
   };
 
   const handleAddToPlaylist = async () => {
@@ -172,12 +214,12 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
               <h3 className={`text-xl font-semibold transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                🎵 Spotify Playlist Management
+                🎯 Hochzeits-Playlist Management
               </h3>
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Füge genehmigte Songs zu deiner Spotify Playlist hinzu
+                Füge genehmigte Songs zu deiner Hochzeits-Playlist hinzu
               </p>
             </div>
           </div>
@@ -255,19 +297,19 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                   ? 'bg-green-900/20 border border-green-700/30' 
                   : 'bg-green-50 border border-green-200'
               }`}>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-4">
                   <div>
                     <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
                       isDarkMode ? 'text-green-300' : 'text-green-800'
                     }`}>
-                      🎯 Zu bestehender Playlist hinzufügen
+                      🎯 Zu deiner Hochzeits-Playlist hinzufügen
                     </h4>
                     <p className={`text-sm transition-colors duration-300 ${
                       isDarkMode ? 'text-green-200' : 'text-green-700'
                     }`}>
                       {isLoggedIn 
-                        ? 'Du bist bei Spotify angemeldet. Wähle eine Playlist aus:'
-                        : 'Melde dich bei Spotify an, um Songs zu deinen Playlists hinzuzufügen.'
+                        ? 'Du bist bei Spotify angemeldet. Füge Songs direkt zu deiner Hochzeits-Playlist hinzu:'
+                        : 'Melde dich bei Spotify an, um Songs zu deiner Hochzeits-Playlist hinzuzufügen.'
                       }
                     </p>
                   </div>
@@ -275,7 +317,10 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                   {isLoggedIn ? (
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={loadUserPlaylists}
+                        onClick={() => {
+                          loadUserPlaylists();
+                          loadWeddingPlaylist();
+                        }}
                         className={`p-2 rounded-lg transition-colors ${
                           isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
                         } text-white`}
@@ -306,13 +351,84 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                   )}
                 </div>
 
-                {/* Playlist Selection */}
+                {/* Wedding Playlist Section */}
+                {isLoggedIn && (
+                  <div className={`p-4 rounded-xl transition-colors duration-300 ${
+                    isDarkMode ? 'bg-pink-900/30 border border-pink-700/30' : 'bg-pink-50 border border-pink-200'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Heart className={`w-6 h-6 transition-colors duration-300 ${
+                          isDarkMode ? 'text-pink-400' : 'text-pink-600'
+                        }`} />
+                        <div>
+                          <h5 className={`font-semibold transition-colors duration-300 ${
+                            isDarkMode ? 'text-pink-300' : 'text-pink-800'
+                          }`}>
+                            💕 Deine Hochzeits-Playlist
+                          </h5>
+                          {weddingPlaylist ? (
+                            <p className={`text-sm transition-colors duration-300 ${
+                              isDarkMode ? 'text-pink-200' : 'text-pink-700'
+                            }`}>
+                              "{weddingPlaylist.name}" • {weddingPlaylist.tracks.total} Songs
+                            </p>
+                          ) : (
+                            <p className={`text-sm transition-colors duration-300 ${
+                              isDarkMode ? 'text-pink-200' : 'text-pink-700'
+                            }`}>
+                              Lade Playlist-Details...
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={openWeddingPlaylist}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                            isDarkMode ? 'bg-pink-600 hover:bg-pink-700' : 'bg-pink-500 hover:bg-pink-600'
+                          } text-white text-sm`}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Öffnen
+                        </button>
+                        
+                        <button
+                          onClick={handleAddToWeddingPlaylist}
+                          disabled={isAddingToPlaylist || spotifyTracks.length === 0}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                            isAddingToPlaylist || spotifyTracks.length === 0
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : isDarkMode
+                                ? 'bg-pink-600 hover:bg-pink-700'
+                                : 'bg-pink-500 hover:bg-pink-600'
+                          } text-white font-semibold`}
+                        >
+                          {isAddingToPlaylist ? (
+                            <>
+                              <Loader className="w-4 h-4 animate-spin" />
+                              Hinzufügen...
+                            </>
+                          ) : (
+                            <>
+                              <Star className="w-4 h-4" />
+                              {spotifyTracks.length} Songs hinzufügen
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Other Playlists Selection */}
                 {isLoggedIn && userPlaylists.length > 0 && (
                   <div className="mt-4">
                     <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
                       isDarkMode ? 'text-green-300' : 'text-green-800'
                     }`}>
-                      Playlist auswählen:
+                      Oder zu anderer Playlist hinzufügen:
                     </label>
                     <div className="flex gap-3">
                       <select
@@ -324,7 +440,7 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                             : 'bg-white border-gray-300 text-gray-900'
                         }`}
                       >
-                        <option value="">-- Playlist wählen --</option>
+                        <option value="">-- Andere Playlist wählen --</option>
                         {userPlaylists.map((playlist) => (
                           <option key={playlist.id} value={playlist.id}>
                             {playlist.name} ({playlist.tracks.total} Songs)
@@ -351,22 +467,22 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
                         ) : (
                           <>
                             <Plus className="w-4 h-4" />
-                            {spotifyTracks.length} Songs hinzufügen
+                            Hinzufügen
                           </>
                         )}
                       </button>
                     </div>
+                  </div>
+                )}
 
-                    {/* Add to Playlist Result */}
-                    {addToPlaylistResult && (
-                      <div className={`mt-3 p-3 rounded-lg ${
-                        addToPlaylistResult.includes('✅') 
-                          ? isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800'
-                          : isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {addToPlaylistResult}
-                      </div>
-                    )}
+                {/* Add to Playlist Result */}
+                {addToPlaylistResult && (
+                  <div className={`mt-4 p-3 rounded-lg ${
+                    addToPlaylistResult.includes('✅') || addToPlaylistResult.includes('🎯')
+                      ? isDarkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800'
+                      : isDarkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {addToPlaylistResult}
                   </div>
                 )}
 

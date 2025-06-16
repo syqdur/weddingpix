@@ -22,6 +22,10 @@ export interface SpotifyAuthConfig {
   scopes: string[];
 }
 
+// 🎯 DEINE HOCHZEITS-PLAYLIST
+const WEDDING_PLAYLIST_ID = '5IkTeF1ydIrwQ4VZxkCtdO'; // Aus der URL extrahiert
+const WEDDING_PLAYLIST_URL = 'https://open.spotify.com/playlist/5IkTeF1ydIrwQ4VZxkCtdO';
+
 // Spotify OAuth Configuration für Playlist-Management
 const SPOTIFY_AUTH_CONFIG: SpotifyAuthConfig = {
   clientId: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '',
@@ -149,6 +153,45 @@ export const getUserPlaylists = async (): Promise<any[]> => {
   }
 };
 
+// 🎯 NEUE FUNKTION: Hole spezifische Hochzeits-Playlist Details
+export const getWeddingPlaylistDetails = async (): Promise<any | null> => {
+  if (!userAccessToken) {
+    throw new Error('Nicht bei Spotify angemeldet');
+  }
+
+  try {
+    console.log(`🎯 === FETCHING WEDDING PLAYLIST DETAILS ===`);
+    console.log(`📋 Playlist ID: ${WEDDING_PLAYLIST_ID}`);
+    
+    const response = await fetch(`https://api.spotify.com/v1/playlists/${WEDDING_PLAYLIST_ID}`, {
+      headers: {
+        'Authorization': `Bearer ${userAccessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        logoutSpotifyUser();
+        throw new Error('Spotify-Anmeldung abgelaufen. Bitte erneut anmelden.');
+      }
+      if (response.status === 404) {
+        throw new Error('Hochzeits-Playlist nicht gefunden oder nicht zugänglich.');
+      }
+      throw new Error(`Fehler beim Laden der Playlist: ${response.status}`);
+    }
+
+    const playlist = await response.json();
+    console.log(`✅ Wedding playlist loaded: "${playlist.name}" (${playlist.tracks.total} tracks)`);
+    
+    return playlist;
+    
+  } catch (error) {
+    console.error('❌ Error fetching wedding playlist:', error);
+    throw error;
+  }
+};
+
 // Füge Tracks zu bestehender Playlist hinzu
 export const addTracksToPlaylist = async (
   playlistId: string, 
@@ -186,6 +229,9 @@ export const addTracksToPlaylist = async (
           logoutSpotifyUser();
           throw new Error('Spotify-Anmeldung abgelaufen. Bitte erneut anmelden.');
         }
+        if (response.status === 403) {
+          throw new Error('Keine Berechtigung zum Bearbeiten dieser Playlist. Bist du der Besitzer?');
+        }
         throw new Error(`Fehler beim Hinzufügen der Tracks: ${response.status}`);
       }
 
@@ -198,6 +244,48 @@ export const addTracksToPlaylist = async (
   } catch (error) {
     console.error('❌ Error adding tracks to playlist:', error);
     throw error;
+  }
+};
+
+// 🎯 NEUE FUNKTION: Füge Songs direkt zur Hochzeits-Playlist hinzu
+export const addToWeddingPlaylist = async (
+  approvedRequests: MusicRequest[]
+): Promise<{ success: number; failed: number; errors: string[] }> => {
+  console.log(`🎯 === ADDING TO WEDDING PLAYLIST ===`);
+  console.log(`📋 Wedding Playlist ID: ${WEDDING_PLAYLIST_ID}`);
+  console.log(`🎵 Approved Requests: ${approvedRequests.length}`);
+
+  // Filter nur Songs mit Spotify IDs
+  const spotifyTracks = approvedRequests.filter(request => 
+    request.spotifyId && request.status === 'approved'
+  );
+
+  if (spotifyTracks.length === 0) {
+    throw new Error('Keine genehmigten Spotify-Tracks gefunden');
+  }
+
+  console.log(`🎵 Found ${spotifyTracks.length} Spotify tracks to add to wedding playlist`);
+
+  // Erstelle Spotify URIs
+  const trackUris = spotifyTracks.map(track => `spotify:track:${track.spotifyId}`);
+
+  try {
+    await addTracksToPlaylist(WEDDING_PLAYLIST_ID, trackUris);
+    
+    return {
+      success: spotifyTracks.length,
+      failed: 0,
+      errors: []
+    };
+    
+  } catch (error) {
+    console.error('❌ Failed to add tracks to wedding playlist:', error);
+    
+    return {
+      success: 0,
+      failed: spotifyTracks.length,
+      errors: [error.message || 'Unbekannter Fehler']
+    };
   }
 };
 
@@ -242,6 +330,22 @@ export const addApprovedRequestsToPlaylist = async (
       errors: [error.message || 'Unbekannter Fehler']
     };
   }
+};
+
+// 🎯 NEUE FUNKTION: Öffne die Hochzeits-Playlist direkt
+export const openWeddingPlaylist = (): void => {
+  console.log(`🎯 Opening wedding playlist: ${WEDDING_PLAYLIST_URL}`);
+  window.open(WEDDING_PLAYLIST_URL, '_blank');
+};
+
+// 🎯 NEUE FUNKTION: Hole Wedding Playlist ID
+export const getWeddingPlaylistId = (): string => {
+  return WEDDING_PLAYLIST_ID;
+};
+
+// 🎯 NEUE FUNKTION: Hole Wedding Playlist URL
+export const getWeddingPlaylistUrl = (): string => {
+  return WEDDING_PLAYLIST_URL;
 };
 
 // === EXISTING EXPORT FUNCTIONS (unchanged) ===
@@ -392,6 +496,8 @@ export const copyTrackListToClipboard = async (approvedRequests: MusicRequest[])
   }
 };
 
-console.log('🎵 === ENHANCED SPOTIFY PLAYLIST SERVICE INITIALIZED ===');
-console.log('🎯 Ready to add tracks to existing playlists');
+console.log('🎯 === ENHANCED SPOTIFY PLAYLIST SERVICE INITIALIZED ===');
+console.log(`📋 Wedding Playlist ID: ${WEDDING_PLAYLIST_ID}`);
+console.log(`🔗 Wedding Playlist URL: ${WEDDING_PLAYLIST_URL}`);
+console.log('🎯 Ready to add tracks to your wedding playlist');
 console.log('📋 Supports user authentication and playlist management');
