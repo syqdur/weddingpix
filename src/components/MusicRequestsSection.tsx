@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, History, Music, Sparkles, TrendingUp, Users, Clock, Search, Filter, SortAsc } from 'lucide-react';
+import { Plus, History, Music, Sparkles, TrendingUp, Users, Clock, Search, Filter, SortAsc, Award } from 'lucide-react';
 import { MusicRequest } from '../types';
 import { loadMusicRequests } from '../services/musicService';
 import { MusicHistoryList } from './MusicHistoryList';
@@ -122,162 +122,130 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
   }
 
   return (
-    <div className="space-y-8">
-      {/* Hero Section */}
-      <div className={`relative overflow-hidden rounded-3xl p-8 transition-colors duration-300 ${
+    <div className="space-y-6">
+      {/* Compact Hero Section */}
+      <div className={`relative overflow-hidden rounded-2xl p-6 transition-colors duration-300 ${
         isDarkMode 
           ? 'bg-gradient-to-br from-purple-900/30 via-pink-900/30 to-blue-900/30 border border-purple-700/30' 
           : 'bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 border border-purple-200/50'
       }`}>
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-4 left-4">
-            <Music className="w-8 h-8 text-purple-500 animate-pulse" />
-          </div>
-          <div className="absolute top-8 right-8">
-            <Sparkles className="w-6 h-6 text-pink-500 animate-bounce" />
-          </div>
-          <div className="absolute bottom-4 left-1/3">
-            <TrendingUp className="w-7 h-7 text-blue-500 animate-pulse" />
-          </div>
-          <div className="absolute bottom-8 right-1/4">
-            <Users className="w-5 h-5 text-green-500 animate-bounce" />
-          </div>
-        </div>
-
-        <div className="relative z-10">
-          <div className="flex flex-col lg:flex-row items-start justify-between gap-6">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`p-3 rounded-full transition-colors duration-300 ${
-                  isDarkMode ? 'bg-purple-600' : 'bg-purple-500'
-                }`}>
-                  <Music className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className={`text-3xl font-bold transition-colors duration-300 ${
-                    isDarkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    🎵 Hochzeits-Playlist
-                  </h1>
-                  <p className={`text-lg transition-colors duration-300 ${
-                    isDarkMode ? 'text-purple-200' : 'text-purple-700'
-                  }`}>
-                    Eure Lieblingssongs für den perfekten Tag
-                  </p>
-                </div>
-              </div>
-
-              <p className={`text-base mb-6 transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`p-2 rounded-full transition-colors duration-300 ${
+                isDarkMode ? 'bg-purple-600' : 'bg-purple-500'
               }`}>
-                Alle Gäste können Songs hinzufügen und für ihre Favoriten voten. 
-                Die beliebtesten Songs werden häufiger gespielt!
-                {isAdmin && ' Als Admin hast du zusätzlich Zugriff auf die Spotify-Integration.'}
-              </p>
-
-              {/* Stats Grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className={`p-4 rounded-xl transition-colors duration-300 ${
-                  isDarkMode ? 'bg-white/10 backdrop-blur-sm' : 'bg-white/60 backdrop-blur-sm'
+                <Music className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className={`text-xl font-bold transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  <div className={`text-2xl font-bold transition-colors duration-300 ${
-                    isDarkMode ? 'text-green-400' : 'text-green-600'
-                  }`}>
-                    {stats.totalSongs}
-                  </div>
-                  <div className={`text-sm transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                  }`}>
-                    Songs
-                  </div>
-                </div>
-                <div className={`p-4 rounded-xl transition-colors duration-300 ${
-                  isDarkMode ? 'bg-white/10 backdrop-blur-sm' : 'bg-white/60 backdrop-blur-sm'
+                  🎵 Hochzeits-Playlist
+                </h1>
+                <p className={`text-sm transition-colors duration-300 ${
+                  isDarkMode ? 'text-purple-200' : 'text-purple-700'
                 }`}>
-                  <div className={`text-2xl font-bold transition-colors duration-300 ${
-                    isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                  }`}>
-                    {stats.totalVotes}
-                  </div>
-                  <div className={`text-sm transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                  }`}>
-                    Votes
-                  </div>
-                </div>
-                <div className={`p-4 rounded-xl transition-colors duration-300 ${
-                  isDarkMode ? 'bg-white/10 backdrop-blur-sm' : 'bg-white/60 backdrop-blur-sm'
-                }`}>
-                  <div className={`text-2xl font-bold transition-colors duration-300 ${
-                    isDarkMode ? 'text-pink-400' : 'text-pink-600'
-                  }`}>
-                    {stats.uniqueUsers}
-                  </div>
-                  <div className={`text-sm transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                  }`}>
-                    Gäste
-                  </div>
-                </div>
-                <div className={`p-4 rounded-xl transition-colors duration-300 ${
-                  isDarkMode ? 'bg-white/10 backdrop-blur-sm' : 'bg-white/60 backdrop-blur-sm'
-                }`}>
-                  <div className={`text-2xl font-bold transition-colors duration-300 ${
-                    isDarkMode ? 'text-purple-400' : 'text-purple-600'
-                  }`}>
-                    {stats.totalDurationMinutes}
-                  </div>
-                  <div className={`text-sm transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                  }`}>
-                    Minuten
-                  </div>
-                </div>
+                  Eure Lieblingssongs für den perfekten Tag
+                </p>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col gap-3">
+            {/* Compact Stats */}
+            <div className="grid grid-cols-4 gap-3">
+              <div className={`p-3 rounded-lg transition-colors duration-300 ${
+                isDarkMode ? 'bg-white/10 backdrop-blur-sm' : 'bg-white/60 backdrop-blur-sm'
+              }`}>
+                <div className={`text-lg font-bold transition-colors duration-300 ${
+                  isDarkMode ? 'text-green-400' : 'text-green-600'
+                }`}>
+                  {stats.totalSongs}
+                </div>
+                <div className={`text-xs transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                }`}>
+                  Songs
+                </div>
+              </div>
+              <div className={`p-3 rounded-lg transition-colors duration-300 ${
+                isDarkMode ? 'bg-white/10 backdrop-blur-sm' : 'bg-white/60 backdrop-blur-sm'
+              }`}>
+                <div className={`text-lg font-bold transition-colors duration-300 ${
+                  isDarkMode ? 'text-blue-400' : 'text-blue-600'
+                }`}>
+                  {stats.totalVotes}
+                </div>
+                <div className={`text-xs transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                }`}>
+                  Votes
+                </div>
+              </div>
+              <div className={`p-3 rounded-lg transition-colors duration-300 ${
+                isDarkMode ? 'bg-white/10 backdrop-blur-sm' : 'bg-white/60 backdrop-blur-sm'
+              }`}>
+                <div className={`text-lg font-bold transition-colors duration-300 ${
+                  isDarkMode ? 'text-pink-400' : 'text-pink-600'
+                }`}>
+                  {stats.uniqueUsers}
+                </div>
+                <div className={`text-xs transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                }`}>
+                  Gäste
+                </div>
+              </div>
+              <div className={`p-3 rounded-lg transition-colors duration-300 ${
+                isDarkMode ? 'bg-white/10 backdrop-blur-sm' : 'bg-white/60 backdrop-blur-sm'
+              }`}>
+                <div className={`text-lg font-bold transition-colors duration-300 ${
+                  isDarkMode ? 'text-purple-400' : 'text-purple-600'
+                }`}>
+                  {stats.totalDurationMinutes}
+                </div>
+                <div className={`text-xs transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                }`}>
+                  Min
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons - Compact */}
+          <div className="flex flex-col gap-2 ml-4">
+            <button
+              onClick={() => setShowRequestModal(true)}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-300 hover:scale-105 shadow-lg ${
+                isDarkMode 
+                  ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white' 
+                  : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white'
+              }`}
+            >
+              <Plus className="w-4 h-4" />
+              <span className="font-semibold text-sm">Song hinzufügen</span>
+            </button>
+
+            {isAdmin && (
               <button
-                onClick={() => setShowRequestModal(true)}
-                className={`flex items-center gap-3 px-6 py-4 rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg ${
+                onClick={() => setShowPlaylistModal(true)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 shadow-lg ${
                   isDarkMode 
-                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white' 
-                    : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white'
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white' 
+                    : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white'
                 }`}
               >
-                <Plus className="w-5 h-5" />
-                <div className="text-left">
-                  <div className="font-semibold">Song hinzufügen</div>
-                  <div className="text-sm opacity-90">Zur Playlist</div>
-                </div>
+                <History className="w-4 h-4" />
+                <span className="font-semibold text-sm">Verwalten</span>
               </button>
-
-              {isAdmin && (
-                <button
-                  onClick={() => setShowPlaylistModal(true)}
-                  className={`flex items-center gap-3 px-6 py-4 rounded-2xl transition-all duration-300 hover:scale-105 shadow-lg ${
-                    isDarkMode 
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white' 
-                      : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white'
-                  }`}
-                >
-                  <History className="w-5 h-5" />
-                  <div className="text-left">
-                    <div className="font-semibold">Playlist verwalten</div>
-                    <div className="text-sm opacity-90">Admin</div>
-                  </div>
-                </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Success Message */}
       {submitSuccess && (
-        <div className={`p-6 rounded-2xl border transition-all duration-300 animate-in slide-in-from-top ${
+        <div className={`p-4 rounded-xl border transition-all duration-300 animate-in slide-in-from-top ${
           isDarkMode 
             ? 'bg-green-900/20 border-green-700/30 text-green-300' 
             : 'bg-green-50 border-green-200 text-green-700'
@@ -286,12 +254,12 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             <div className={`p-2 rounded-full transition-colors duration-300 ${
               isDarkMode ? 'bg-green-600' : 'bg-green-500'
             }`}>
-              <Music className="w-5 h-5 text-white" />
+              <Music className="w-4 h-4 text-white" />
             </div>
             <div>
-              <div className="font-semibold text-lg">{submitSuccess}</div>
+              <div className="font-semibold">{submitSuccess}</div>
               <div className="text-sm mt-1 opacity-90">
-                🎯 Der Song wurde zur Hochzeits-Playlist hinzugefügt und ist jetzt für alle sichtbar
+                🎯 Song wurde zur Playlist hinzugefügt und automatisch mit Spotify synchronisiert
               </div>
             </div>
           </div>
@@ -300,7 +268,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
 
       {/* Error Message */}
       {error && (
-        <div className={`p-6 rounded-2xl border transition-colors duration-300 ${
+        <div className={`p-4 rounded-xl border transition-colors duration-300 ${
           isDarkMode 
             ? 'bg-red-900/20 border-red-700/30 text-red-300' 
             : 'bg-red-50 border-red-200 text-red-700'
@@ -309,7 +277,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
             <div className={`p-2 rounded-full transition-colors duration-300 ${
               isDarkMode ? 'bg-red-600' : 'bg-red-500'
             }`}>
-              <Music className="w-5 h-5 text-white" />
+              <Music className="w-4 h-4 text-white" />
             </div>
             <div>
               <div className="font-semibold">Fehler beim Laden der Musikwünsche</div>
@@ -319,16 +287,16 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
         </div>
       )}
 
-      {/* Search and Filter Controls */}
+      {/* Compact Search and Filter Controls */}
       {allRequests.length > 0 && (
-        <div className={`p-6 rounded-2xl transition-colors duration-300 ${
+        <div className={`p-4 rounded-xl transition-colors duration-300 ${
           isDarkMode ? 'bg-gray-800/50 border border-gray-700' : 'bg-white border border-gray-200 shadow-sm'
         }`}>
-          <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex gap-3">
             {/* Search */}
             <div className="flex-1">
               <div className="relative">
-                <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors duration-300 ${
+                <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 transition-colors duration-300 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-500'
                 }`} />
                 <input
@@ -336,7 +304,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
                   placeholder="Songs, Künstler oder Gäste suchen..."
-                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                  className={`w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-colors duration-300 ${
                     isDarkMode 
                       ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
                       : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
@@ -345,17 +313,17 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
               </div>
             </div>
 
-            {/* Sort Options */}
-            <div className="flex gap-2">
+            {/* Sort Options - Compact */}
+            <div className="flex gap-1">
               {[
-                { key: 'popular', label: 'Beliebtheit', icon: <TrendingUp className="w-4 h-4" /> },
-                { key: 'newest', label: 'Neueste', icon: <Clock className="w-4 h-4" /> },
-                { key: 'alphabetical', label: 'A-Z', icon: <SortAsc className="w-4 h-4" /> }
+                { key: 'popular', icon: <TrendingUp className="w-4 h-4" />, label: 'Top' },
+                { key: 'newest', icon: <Clock className="w-4 h-4" />, label: 'Neu' },
+                { key: 'alphabetical', icon: <SortAsc className="w-4 h-4" />, label: 'A-Z' }
               ].map((option) => (
                 <button
                   key={option.key}
                   onClick={() => setSortBy(option.key as any)}
-                  className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-300 ${
+                  className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-all duration-300 ${
                     sortBy === option.key
                       ? isDarkMode
                         ? 'bg-purple-600 text-white'
@@ -364,9 +332,10 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
                         ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
                         : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                   }`}
+                  title={option.label}
                 >
                   {option.icon}
-                  <span className="hidden sm:inline text-sm font-medium">{option.label}</span>
+                  <span className="text-xs font-medium hidden sm:inline">{option.label}</span>
                 </button>
               ))}
             </div>
@@ -374,12 +343,84 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
 
           {/* Filter Results Info */}
           {searchFilter && (
-            <div className={`mt-4 text-sm transition-colors duration-300 ${
+            <div className={`mt-3 text-sm transition-colors duration-300 ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              {filteredAndSortedRequests.length} von {allRequests.length} Songs gefunden für "{searchFilter}"
+              {filteredAndSortedRequests.length} von {allRequests.length} Songs gefunden
             </div>
           )}
+        </div>
+      )}
+
+      {/* Summary Stats - Only show if there are requests */}
+      {allRequests.length > 0 && (
+        <div className={`p-4 rounded-xl transition-colors duration-300 ${
+          isDarkMode ? 'bg-gray-800/50 border border-gray-700' : 'bg-white border border-gray-200 shadow-sm'
+        }`}>
+          <div className="flex items-center gap-3 mb-3">
+            <Award className={`w-5 h-5 transition-colors duration-300 ${
+              isDarkMode ? 'text-yellow-400' : 'text-yellow-600'
+            }`} />
+            <h4 className={`font-semibold transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              🎵 Playlist-Übersicht
+            </h4>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className={`text-2xl font-bold mb-1 transition-colors duration-300 ${
+                isDarkMode ? 'text-blue-400' : 'text-blue-600'
+              }`}>
+                {allRequests.length}
+              </div>
+              <div className={`text-xs transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Songs gewünscht
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className={`text-2xl font-bold mb-1 transition-colors duration-300 ${
+                isDarkMode ? 'text-green-400' : 'text-green-600'
+              }`}>
+                {new Set(allRequests.map(r => r.requestedBy)).size}
+              </div>
+              <div className={`text-xs transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Verschiedene Gäste
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className={`text-2xl font-bold mb-1 transition-colors duration-300 ${
+                isDarkMode ? 'text-pink-400' : 'text-pink-600'
+              }`}>
+                {allRequests.reduce((sum, r) => sum + r.votes, 0)}
+              </div>
+              <div className={`text-xs transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Gesamt Votes
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className={`text-2xl font-bold mb-1 transition-colors duration-300 ${
+                isDarkMode ? 'text-purple-400' : 'text-purple-600'
+              }`}>
+                {Math.floor(allRequests.reduce((sum, r) => sum + (r.duration || 0), 0) / 60000)}
+              </div>
+              <div className={`text-xs transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Minuten Musik
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

@@ -786,6 +786,87 @@ export const initializeSpotifyAuth = async (): Promise<boolean> => {
   return isSpotifyAuthenticated();
 };
 
+// 🎯 NEW: SYNC SPOTIFY PLAYLIST WITH DELETED TRACKS
+export const syncPlaylistWithDatabase = async (databaseRequests: MusicRequest[]): Promise<void> => {
+  console.log('🔄 === SYNCING SPOTIFY PLAYLIST WITH DATABASE ===');
+  
+  const token = await getValidAccessToken();
+  if (!token) {
+    console.log('❌ No Spotify authentication - skipping sync');
+    return;
+  }
+  
+  const playlistId = getActivePlaylistId();
+  const databaseSpotifyIds = new Set(
+    databaseRequests
+      .filter(r => r.spotifyId && r.status === 'approved')
+      .map(r => r.spotifyId!)
+  );
+  
+  console.log(`📊 Database has ${databaseSpotifyIds.size} approved Spotify tracks`);
+  
+  try {
+    // Get current playlist tracks
+    const playlistResponse = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    
+    if (!playlistResponse.ok) {
+      throw new Error(`Failed to get playlist: ${playlistResponse.status}`);
+    }
+    
+    const playlist = await playlistResponse.json();
+    const playlistTrackIds = new Set<string>();
+    
+    // Get all tracks from playlist
+    let offset = 0;
+    const limit = 100;
+    
+    while (offset < playlist.tracks.total) {
+      const tracksResponse = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?offset=${offset}&limit=${limit}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      
+      if (tracksResponse.ok) {
+        const tracksData = await tracksResponse.json();
+        tracksData.items.forEach((item: any) => {
+          if (item.track && item.track.id) {
+            playlistTrackIds.add(item.track.id);
+          }
+        });
+        offset += limit;
+      } else {
+        break;
+      }
+    }
+    
+    console.log(`📊 Playlist has ${playlistTrackIds.size} tracks`);
+    
+    // Find tracks that are in Spotify but not in database (should be removed)
+    const tracksToRemove = Array.from(playlistTrackIds).filter(id => !databaseSpotifyIds.has(id));
+    
+    if (tracksToRemove.length > 0) {
+      console.log(`🗑️ Found ${tracksToRemove.length} tracks to remove from Spotify playlist`);
+      
+      const removeResult = await removeFromSelectedPlaylist(playlistId, tracksToRemove);
+      
+      if (removeResult.success > 0) {
+        console.log(`✅ Removed ${removeResult.success} tracks from Spotify playlist`);
+      }
+      
+      if (removeResult.errors.length > 0) {
+        console.warn(`⚠️ Some tracks could not be removed: ${removeResult.errors.join(', ')}`);
+      }
+    } else {
+      console.log('✅ Spotify playlist is already in sync with database');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error syncing playlist:', error);
+  }
+};
+
 console.log('🎵 === SPOTIFY PLAYLIST SERVICE INITIALIZED ===');
 console.log(`🔑 Client ID: ${SPOTIFY_CLIENT_ID ? 'CONFIGURED' : 'MISSING'}`);
 console.log(`🎯 Active Playlist: ${getActivePlaylistId()}`);
@@ -794,3 +875,4 @@ if (selectedPlaylist) {
   console.log(`🔒 Playlist locked: "${selectedPlaylist.name}" (selected ${new Date(selectedPlaylist.selectedAt).toLocaleString()})`);
 }
 console.log('🗑️ Auto-removal from Spotify playlist enabled!');
+console.log('🔄 Playlist sync functionality available!');
