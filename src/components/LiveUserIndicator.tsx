@@ -31,16 +31,24 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
 }) => {
   const [liveUsers, setLiveUsers] = useState<LiveUser[]>([]);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Real Firebase live user tracking
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      console.log('❌ No current user, skipping live user tracking');
+      return;
+    }
 
     const deviceId = localStorage.getItem('wedding_device_id') || 'unknown';
+    console.log(`🔄 === INITIALIZING LIVE USER TRACKING ===`);
+    console.log(`👤 User: ${currentUser}`);
+    console.log(`📱 Device ID: ${deviceId}`);
 
     // Update user presence
     const updatePresence = async () => {
       try {
+        console.log(`📡 Updating presence for ${currentUser}...`);
         const userRef = doc(db, 'live_users', deviceId);
         await setDoc(userRef, {
           userName: currentUser,
@@ -48,21 +56,28 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
           lastSeen: new Date().toISOString(),
           isActive: true
         }, { merge: true });
+        console.log(`✅ Presence updated for ${currentUser}`);
+        
+        if (!isInitialized) {
+          setIsInitialized(true);
+        }
       } catch (error) {
-        console.error('Error updating user presence:', error);
+        console.error('❌ Error updating user presence:', error);
       }
     };
 
     // Set user offline when leaving
     const setOffline = async () => {
       try {
+        console.log(`📡 Setting ${currentUser} offline...`);
         const userRef = doc(db, 'live_users', deviceId);
         await setDoc(userRef, {
           isActive: false,
           lastSeen: new Date().toISOString()
         }, { merge: true });
+        console.log(`✅ ${currentUser} set offline`);
       } catch (error) {
-        console.error('Error setting user offline:', error);
+        console.error('❌ Error setting user offline:', error);
       }
     };
 
@@ -70,9 +85,13 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
     updatePresence();
 
     // Set up presence heartbeat
-    const presenceInterval = setInterval(updatePresence, 30000); // Every 30 seconds
+    const presenceInterval = setInterval(() => {
+      console.log(`💓 Heartbeat for ${currentUser}`);
+      updatePresence();
+    }, 30000); // Every 30 seconds
 
     // Subscribe to live users
+    console.log(`👥 Subscribing to live users...`);
     const q = query(
       collection(db, 'live_users'),
       where('isActive', '==', true),
@@ -80,15 +99,21 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
     );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      console.log(`👥 === LIVE USERS UPDATE ===`);
+      console.log(`📊 Raw docs from Firebase: ${snapshot.docs.length}`);
+      
       const users: LiveUser[] = [];
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
       
-      snapshot.docs.forEach(doc => {
+      snapshot.docs.forEach((doc, index) => {
         const data = doc.data();
         const lastSeen = new Date(data.lastSeen);
+        const isRecent = lastSeen > fiveMinutesAgo;
+        
+        console.log(`  ${index + 1}. ${data.userName} (${data.deviceId}) - Last seen: ${lastSeen.toLocaleTimeString()} - Recent: ${isRecent}`);
         
         // Only include users who were active in the last 5 minutes
-        if (lastSeen > fiveMinutesAgo) {
+        if (isRecent) {
           users.push({
             id: doc.id,
             ...data
@@ -96,42 +121,91 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
         }
       });
       
+      console.log(`👥 Active users (last 5 min): ${users.length}`);
+      users.forEach((user, index) => {
+        console.log(`  ${index + 1}. ${user.userName} ${user.userName === currentUser ? '(YOU)' : ''}`);
+      });
+      
       setLiveUsers(users);
     }, (error) => {
-      console.error('Error listening to live users:', error);
+      console.error('❌ Error listening to live users:', error);
       setLiveUsers([]);
     });
 
     // Set user offline when leaving
     const handleBeforeUnload = () => {
+      console.log(`🚪 Page unload - setting ${currentUser} offline`);
       setOffline();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log(`👁️ Page hidden - setting ${currentUser} offline`);
+        setOffline();
+      } else {
+        console.log(`👁️ Page visible - updating ${currentUser} presence`);
+        updatePresence();
+      }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      console.log(`🧹 Cleaning up live user tracking for ${currentUser}`);
       clearInterval(presenceInterval);
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       setOffline();
       unsubscribe();
     };
-  }, [currentUser]);
+  }, [currentUser, isInitialized]);
 
   const onlineCount = liveUsers.length;
   const otherUsers = liveUsers.filter(user => user.userName !== currentUser);
   const isOnline = onlineCount > 0;
+  const currentUserOnline = liveUsers.some(user => user.userName === currentUser);
+
+  console.log(`📊 === LIVE USER INDICATOR RENDER ===`);
+  console.log(`👤 Current user: ${currentUser}`);
+  console.log(`📊 Total online: ${onlineCount}`);
+  console.log(`👤 Current user online: ${currentUserOnline}`);
+  console.log(`👥 Other users: ${otherUsers.length}`);
 
   const getStatusColor = () => {
-    if (onlineCount === 0) return 'bg-red-500';
+    if (!currentUserOnline) return 'bg-red-500';
     if (onlineCount === 1) return 'bg-yellow-500';
     return 'bg-green-500';
   };
 
   const getStatusText = () => {
-    if (onlineCount === 0) return 'Niemand online';
+    if (!currentUserOnline) return 'Offline';
     if (onlineCount === 1) return 'Du bist online';
     return `${onlineCount} online`;
   };
+
+  // Don't show anything if not initialized yet
+  if (!isInitialized) {
+    return (
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-full transition-all duration-300 ${
+        isDarkMode 
+          ? 'bg-gray-800/80 border border-gray-700/50 backdrop-blur-sm' 
+          : 'bg-white/80 border border-gray-200/50 backdrop-blur-sm shadow-sm'
+      }`}>
+        <div className="w-3 h-3 rounded-full bg-gray-400 animate-pulse"></div>
+        <div className="flex items-center gap-1">
+          <Users className={`w-4 h-4 transition-colors duration-300 ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+          }`} />
+          <span className={`text-sm font-medium transition-colors duration-300 ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+          }`}>
+            ...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
@@ -147,7 +221,7 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
         {/* Status Dot */}
         <div className="relative">
           <div className={`w-3 h-3 rounded-full ${getStatusColor()} transition-colors duration-300`}>
-            {isOnline && (
+            {currentUserOnline && (
               <div className={`absolute inset-0 rounded-full ${getStatusColor()} animate-ping opacity-75`}></div>
             )}
           </div>
@@ -218,7 +292,7 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
             <div className={`text-xs italic transition-colors duration-300 ${
               isDarkMode ? 'text-gray-400' : 'text-gray-500'
             }`}>
-              Niemand ist gerade online
+              Verbindung wird hergestellt...
             </div>
           )}
           
