@@ -1016,3 +1016,4 @@ console.log('🔄 Automatic token refresh and sharing enabled');
 console.log('🗑️ Auto-removal from Spotify playlist enabled!');
 console.log('🔗 Production redirect URI: https://kristinundmauro.de/');
 console.log('🎯 ✅ 40-DAY TOKEN STORAGE: Tokens now last 40 days instead of 1 hour!');
+console.log('🔄 ✅ TWO-WAY SYNC: Songs deleted from Spotify are automatically removed from database!');

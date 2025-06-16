@@ -219,7 +219,74 @@ export const addMusicRequestFromUrl = async (
   }
 };
 
-// Load music requests with simplified query (no index required)
+// 🔄 NEW: Sync database with Spotify playlist (remove songs deleted from Spotify)
+const syncDatabaseWithSpotify = async (requests: MusicRequest[]): Promise<void> => {
+  try {
+    console.log('🔄 === SYNCING DATABASE WITH SPOTIFY PLAYLIST ===');
+    
+    // Check if we have Spotify authentication
+    const authAvailable = await isSpotifyAuthenticated();
+    if (!authAvailable) {
+      console.log('❌ No Spotify authentication - skipping database sync');
+      return;
+    }
+    
+    // Get current Spotify playlist tracks
+    const playlistId = getActivePlaylistId();
+    const spotifyTrackIds = await getSpotifyPlaylistTrackIds(playlistId);
+    
+    if (!spotifyTrackIds) {
+      console.log('❌ Could not get Spotify playlist tracks - skipping sync');
+      return;
+    }
+    
+    console.log(`📊 Spotify playlist has ${spotifyTrackIds.size} tracks`);
+    
+    // Find database requests that are no longer in Spotify
+    const requestsToDelete = requests.filter(request => 
+      request.spotifyId && 
+      request.status === 'approved' && 
+      !spotifyTrackIds.has(request.spotifyId)
+    );
+    
+    if (requestsToDelete.length > 0) {
+      console.log(`🗑️ Found ${requestsToDelete.length} songs to remove from database (deleted from Spotify)`);
+      
+      // Delete these requests from the database
+      const deletePromises = requestsToDelete.map(async (request) => {
+        try {
+          console.log(`🗑️ Removing "${request.songTitle}" by ${request.artist} (deleted from Spotify)`);
+          await deleteDoc(doc(db, 'music_requests', request.id));
+          console.log(`✅ Removed from database: ${request.songTitle}`);
+        } catch (error) {
+          console.error(`❌ Error removing ${request.songTitle} from database:`, error);
+        }
+      });
+      
+      await Promise.all(deletePromises);
+      console.log(`✅ Database sync complete: ${requestsToDelete.length} songs removed`);
+    } else {
+      console.log('✅ Database is already in sync with Spotify playlist');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error syncing database with Spotify:', error);
+  }
+};
+
+// 🔄 Helper function to get Spotify playlist track IDs
+const getSpotifyPlaylistTrackIds = async (playlistId: string): Promise<Set<string> | null> => {
+  try {
+    // This would need to be implemented using the Spotify API
+    // For now, we'll use the existing sync function from spotifyPlaylistService
+    return null; // Placeholder - actual implementation would fetch from Spotify API
+  } catch (error) {
+    console.error('❌ Error getting Spotify playlist tracks:', error);
+    return null;
+  }
+};
+
+// Load music requests with enhanced sync
 export const loadMusicRequests = (callback: (requests: MusicRequest[]) => void): (() => void) => {
   console.log(`🎵 === SUBSCRIBING TO MUSIC REQUESTS ===`);
   
@@ -229,7 +296,7 @@ export const loadMusicRequests = (callback: (requests: MusicRequest[]) => void):
     orderBy('requestedAt', 'desc')
   );
   
-  return onSnapshot(q, (snapshot) => {
+  return onSnapshot(q, async (snapshot) => {
     console.log(`🎵 === MUSIC REQUESTS SNAPSHOT ===`);
     console.log(`📊 Total docs: ${snapshot.docs.length}`);
     
@@ -262,6 +329,11 @@ export const loadMusicRequests = (callback: (requests: MusicRequest[]) => void):
     // 🎯 NEW: Sync with Spotify playlist when data changes
     syncPlaylistWithDatabase(requests).catch(error => {
       console.error('❌ Error syncing playlist with database:', error);
+    });
+    
+    // 🔄 NEW: Also sync database with Spotify (remove songs deleted from Spotify)
+    syncDatabaseWithSpotify(requests).catch(error => {
+      console.error('❌ Error syncing database with Spotify:', error);
     });
     
     callback(requests);
