@@ -5,8 +5,8 @@ import { SpotifyCredentials, SelectedPlaylist, SpotifyTrack } from '../types';
 import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
 
 // Spotify API Configuration
-const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
+const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '4dbf85a8ca7c43d3b2ddc540194e9387';
+const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || 'acf102b8834d48b497a7e98bf69021f6';
 const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || 'https://kristinundmauro.de/';
 
 // Create Spotify API instance
@@ -59,62 +59,67 @@ export const getAuthorizationUrl = async (): Promise<string> => {
 
 // Exchange authorization code for tokens
 export const exchangeCodeForTokens = async (code: string, state: string): Promise<SpotifyCredentials> => {
-  // Verify state parameter
-  const storedState = localStorage.getItem(PKCE_STATE_KEY);
-  if (state !== storedState) {
-    throw new Error('State mismatch. Possible CSRF attack.');
+  try {
+    // Verify state parameter
+    const storedState = localStorage.getItem(PKCE_STATE_KEY);
+    if (state !== storedState) {
+      throw new Error('State mismatch. Possible CSRF attack.');
+    }
+    
+    // Get code verifier
+    const codeVerifier = localStorage.getItem(PKCE_CODE_VERIFIER_KEY);
+    if (!codeVerifier) {
+      throw new Error('Code verifier not found.');
+    }
+    
+    // Exchange code for tokens
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        client_id: SPOTIFY_CLIENT_ID,
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: SPOTIFY_REDIRECT_URI,
+        code_verifier: codeVerifier
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Token exchange failed: ${errorData.error_description || response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Calculate expiry time
+    const expiresAt = Date.now() + (data.expires_in * 1000);
+    
+    // Create credentials object
+    const credentials: Omit<SpotifyCredentials, 'id'> = {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      expiresAt: expiresAt,
+      createdAt: new Date().toISOString()
+    };
+    
+    // Store credentials in Firestore
+    const credentialsRef = await addDoc(collection(db, 'spotifyCredentials'), credentials);
+    
+    // Clean up localStorage
+    localStorage.removeItem(PKCE_CODE_VERIFIER_KEY);
+    localStorage.removeItem(PKCE_STATE_KEY);
+    
+    return {
+      id: credentialsRef.id,
+      ...credentials
+    };
+  } catch (error) {
+    console.error('Token exchange error:', error);
+    throw error;
   }
-  
-  // Get code verifier
-  const codeVerifier = localStorage.getItem(PKCE_CODE_VERIFIER_KEY);
-  if (!codeVerifier) {
-    throw new Error('Code verifier not found.');
-  }
-  
-  // Exchange code for tokens
-  const response = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      client_id: SPOTIFY_CLIENT_ID,
-      grant_type: 'authorization_code',
-      code: code,
-      redirect_uri: SPOTIFY_REDIRECT_URI,
-      code_verifier: codeVerifier
-    })
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(`Token exchange failed: ${errorData.error_description || response.statusText}`);
-  }
-  
-  const data = await response.json();
-  
-  // Calculate expiry time
-  const expiresAt = Date.now() + (data.expires_in * 1000);
-  
-  // Create credentials object
-  const credentials: Omit<SpotifyCredentials, 'id'> = {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresAt: expiresAt,
-    createdAt: new Date().toISOString()
-  };
-  
-  // Store credentials in Firestore
-  const credentialsRef = await addDoc(collection(db, 'spotifyCredentials'), credentials);
-  
-  // Clean up localStorage
-  localStorage.removeItem(PKCE_CODE_VERIFIER_KEY);
-  localStorage.removeItem(PKCE_STATE_KEY);
-  
-  return {
-    id: credentialsRef.id,
-    ...credentials
-  };
 };
 
 // Refresh access token
@@ -195,19 +200,6 @@ export const disconnectSpotify = async (): Promise<void> => {
       return;
     }
     
-    // Revoke access token
-    await fetch('https://accounts.spotify.com/api/token/revoke', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        token: credentials.accessToken,
-        token_type_hint: 'access_token',
-        client_id: SPOTIFY_CLIENT_ID
-      })
-    });
-    
     // Delete credentials from Firestore
     await deleteDoc(doc(db, 'spotifyCredentials', credentials.id));
   } catch (error) {
@@ -218,8 +210,13 @@ export const disconnectSpotify = async (): Promise<void> => {
 
 // Check if Spotify is connected
 export const isSpotifyConnected = async (): Promise<boolean> => {
-  const credentials = await getValidCredentials();
-  return !!credentials;
+  try {
+    const credentials = await getValidCredentials();
+    return !!credentials;
+  } catch (error) {
+    console.error('Error checking Spotify connection:', error);
+    return false;
+  }
 };
 
 // Get user's playlists
