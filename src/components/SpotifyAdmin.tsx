@@ -161,7 +161,7 @@ export const SpotifyAdmin: React.FC<SpotifyAdminProps> = ({ isDarkMode }) => {
           <p className={`text-sm mb-6 transition-colors duration-300 ${
             isDarkMode ? 'text-gray-400' : 'text-gray-600'
           }`}>
-            Connect your Spotify account to manage the wedding playlist
+            Verbinde Deine Spotify Playlist
           </p>
 
           {error && (
