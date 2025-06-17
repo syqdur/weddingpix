@@ -1,6 +1,6 @@
 # 💖 WeddingPix: Eure interaktive Hochzeitsgalerie & Musikwunsch-Plattform
 
-![WeddingPix Banner](https://i.ibb.co/HyWYH6Q/1.jpg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1 "Ein wunderschönes Hochzeitsbanner")
+
 _Ein modernes, interaktives Web-Erlebnis für euren besonderen Tag._
 
 ## ✨ Über WeddingPix
