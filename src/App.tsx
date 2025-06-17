@@ -14,6 +14,7 @@ import { TabNavigation } from './components/TabNavigation';
 import { LiveUserIndicator } from './components/LiveUserIndicator';
 import { SpotifyCallback } from './components/SpotifyCallback';
 import { MusicWishlist } from './components/MusicWishlist';
+import { Timeline } from './components/Timeline';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -58,7 +59,7 @@ function App() {
   const [showStoriesViewer, setShowStoriesViewer] = useState(false);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'music' | 'timeline'>('gallery');
 
   // Check if we're on the Spotify callback page
   const isSpotifyCallback = () => {
@@ -449,6 +450,12 @@ function App() {
               isDarkMode={isDarkMode}
             />
           </>
+        ) : activeTab === 'timeline' ? (
+          <Timeline 
+            isDarkMode={isDarkMode}
+            userName={userName || ''}
+            isAdmin={isAdmin}
+          />
         ) : (
           <MusicWishlist isDarkMode={isDarkMode} />
         )}
