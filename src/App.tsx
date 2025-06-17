@@ -10,7 +10,6 @@ import { UnderConstructionPage } from './components/UnderConstructionPage';
 import { StoriesBar } from './components/StoriesBar';
 import { StoriesViewer } from './components/StoriesViewer';
 import { StoryUploadModal } from './components/StoryUploadModal';
-import { MusicRequestsSection } from './components/MusicRequestsSection';
 import { TabNavigation } from './components/TabNavigation';
 import { LiveUserIndicator } from './components/LiveUserIndicator';
 import { useUser } from './hooks/useUser';
@@ -39,7 +38,6 @@ import {
   cleanupExpiredStories,
   Story
 } from './services/liveService';
-import { handleSpotifyCallback, isSpotifyCallback } from './services/spotifyAuthService';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -59,20 +57,6 @@ function App() {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
-
-  // Handle Spotify callback if present
-  useEffect(() => {
-    if (isSpotifyCallback()) {
-      console.log('🎵 Spotify callback detected, handling...');
-      handleSpotifyCallback().then(success => {
-        if (success) {
-          console.log('✅ Spotify authentication successful');
-        } else {
-          console.error('❌ Spotify authentication failed');
-        }
-      });
-    }
-  }, []);
 
   // Subscribe to site status changes
   useEffect(() => {
@@ -455,12 +439,23 @@ function App() {
             />
           </>
         ) : (
-          <MusicRequestsSection
-            userName={userName || ''}
-            deviceId={deviceId}
-            isAdmin={isAdmin}
-            isDarkMode={isDarkMode}
-          />
+          <div className="p-8 text-center">
+            <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-colors duration-300 ${
+              isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+            }`}>
+              <span className="text-3xl">🎵</span>
+            </div>
+            <h3 className={`text-xl font-semibold mb-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Musikwünsche deaktiviert
+            </h3>
+            <p className={`text-sm mb-4 transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Die Musikwünsche-Funktion wurde deaktiviert.
+            </p>
+          </div>
         )}
       </div>
 

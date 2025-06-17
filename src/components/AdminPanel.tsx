@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code, Music } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
 import { ShowcaseModal } from './ShowcaseModal';
-import { SpotifyAdminPanel } from './SpotifyAdminPanel';
 import { UserManagementModal } from './UserManagementModal';
 
 interface AdminPanelProps {
@@ -29,7 +28,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isUpdatingSiteStatus, setIsUpdatingSiteStatus] = useState(false);
   const [showExternalServices, setShowExternalServices] = useState(false);
   const [showShowcase, setShowShowcase] = useState(false);
-  const [showSpotifyAdmin, setShowSpotifyAdmin] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
 
   const correctPIN = "2407";
@@ -228,19 +226,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <Users className="w-5 h-5" />
           </button>
 
-          {/* SPOTIFY ADMIN BUTTON */}
-          <button
-            onClick={() => setShowSpotifyAdmin(true)}
-            className={`p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
-              isDarkMode
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-green-500 hover:bg-green-600 text-white'
-            }`}
-            title="🎵 Spotify Admin - Account verbinden und Playlist verwalten"
-          >
-            <Music className="w-5 h-5" />
-          </button>
-
           {/* Showcase Button */}
           <button
             onClick={() => setShowShowcase(true)}
@@ -319,13 +304,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       <UserManagementModal 
         isOpen={showUserManagement}
         onClose={() => setShowUserManagement(false)}
-        isDarkMode={isDarkMode}
-      />
-
-      {/* SPOTIFY ADMIN MODAL */}
-      <SpotifyAdminPanel 
-        isOpen={showSpotifyAdmin}
-        onClose={() => setShowSpotifyAdmin(false)}
         isDarkMode={isDarkMode}
       />
 
@@ -574,7 +552,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 isDarkMode ? 'text-gray-300' : 'text-gray-600'
               }`}>
                 <li>• 👥 User Management - Alle Benutzer und Status anzeigen</li>
-                <li>• 🎵 Spotify-Account verbinden und Playlist verwalten</li>
                 <li>• Website für alle freischalten/sperren</li>
                 <li>• Medien und Kommentare löschen</li>
                 <li>• Deutsche Fotobuch-Services</li>
