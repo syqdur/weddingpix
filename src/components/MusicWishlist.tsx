@@ -463,89 +463,91 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
               <div className="w-8 h-8 border-4 border-[#1DB954] border-t-transparent rounded-full animate-spin"></div>
             </div>
           ) : playlistTracks.length > 0 ? (
-            <div className="space-y-1 mt-2">
-              {playlistTracks.map((item, index) => (
-                <div
-                  key={`${item.track.id}-${item.added_at}`}
-                  className={`grid grid-cols-[16px_1fr_auto_auto] gap-4 px-4 py-2 rounded-md items-center group ${
-                    isDarkMode 
-                      ? 'hover:bg-gray-800 text-white' 
-                      : 'hover:bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  <div className={`text-sm ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`}>{index + 1}</div>
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded overflow-hidden bg-gray-100 flex-shrink-0">
-                      {item.track.album?.images?.[0] ? (
-                        <img 
-                          src={item.track.album.images[0].url} 
-                          alt={item.track.album.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Music className="w-4 h-4 text-gray-400" />
-                        </div>
-                      )}
+            <div className="max-h-[400px] overflow-y-auto">
+              <div className="space-y-1 mt-2">
+                {playlistTracks.map((item, index) => (
+                  <div
+                    key={`${item.track.id}-${item.added_at}`}
+                    className={`grid grid-cols-[16px_1fr_auto_auto] gap-4 px-4 py-2 rounded-md items-center group ${
+                      isDarkMode 
+                        ? 'hover:bg-gray-800 text-white' 
+                        : 'hover:bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    <div className={`text-sm ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>{index + 1}</div>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded overflow-hidden bg-gray-100 flex-shrink-0">
+                        {item.track.album?.images?.[0] ? (
+                          <img 
+                            src={item.track.album.images[0].url} 
+                            alt={item.track.album.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Music className="w-4 h-4 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <h5 className="font-medium truncate">
+                          {item.track.name}
+                        </h5>
+                        <p className={`text-xs truncate ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
+                          {item.track.artists.map(a => a.name).join(', ')}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h5 className="font-medium truncate">
-                        {item.track.name}
-                      </h5>
-                      <p className={`text-xs truncate ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                      }`}>
-                        {item.track.artists.map(a => a.name).join(', ')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className={`text-xs ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`}>
-                    {formatDate(item.added_at)}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs ${
+                    <div className={`text-xs ${
                       isDarkMode ? 'text-gray-400' : 'text-gray-500'
                     }`}>
-                      {formatDuration(item.track.duration_ms)}
-                    </span>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleRemoveTrack(item)}
-                        disabled={isRemovingTrack === item.track.id}
-                        className={`p-1.5 rounded-full transition-colors ${
-                          isDarkMode 
-                            ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' 
-                            : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
-                        }`}
-                        title="Aus Playlist entfernen"
-                      >
-                        {isRemovingTrack === item.track.id ? (
-                          <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <Trash2 className="w-4 h-4" />
-                        )}
-                      </button>
-                      <a
-                        href={item.track.external_urls.spotify}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`p-1.5 rounded-full transition-colors ${
-                          isDarkMode 
-                            ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' 
-                            : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
-                        }`}
-                        title="In Spotify öffnen"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
+                      {formatDate(item.added_at)}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        {formatDuration(item.track.duration_ms)}
+                      </span>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleRemoveTrack(item)}
+                          disabled={isRemovingTrack === item.track.id}
+                          className={`p-1.5 rounded-full transition-colors ${
+                            isDarkMode 
+                              ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' 
+                              : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
+                          }`}
+                          title="Aus Playlist entfernen"
+                        >
+                          {isRemovingTrack === item.track.id ? (
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                        <a
+                          href={item.track.external_urls.spotify}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`p-1.5 rounded-full transition-colors ${
+                            isDarkMode 
+                              ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' 
+                              : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
+                          }`}
+                          title="In Spotify öffnen"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           ) : (
             <div className={`text-center py-12 rounded-lg mt-4 ${
