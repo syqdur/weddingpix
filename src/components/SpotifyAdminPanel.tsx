@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Music, LogOut, RefreshCw, Check, AlertCircle, Search, ExternalLink, Plus, Play } from 'lucide-react';
+import { Music, LogOut, RefreshCw, Check, AlertCircle, Search, ExternalLink, Plus, Play, X } from 'lucide-react';
 import { 
   isSpotifyAuthenticated, 
   initiateSpotifySetup, 
@@ -12,11 +12,16 @@ import {
 } from '../services/spotifyAuthService';
 
 interface SpotifyAdminPanelProps {
-  isDarkMode: boolean;
+  isOpen: boolean;
   onClose: () => void;
+  isDarkMode: boolean;
 }
 
-export const SpotifyAdminPanel: React.FC<SpotifyAdminPanelProps> = ({ isDarkMode, onClose }) => {
+export const SpotifyAdminPanel: React.FC<SpotifyAdminPanelProps> = ({ 
+  isOpen, 
+  onClose, 
+  isDarkMode 
+}) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userInfo, setUserInfo] = useState<any>(null);
   const [playlists, setPlaylists] = useState<SpotifyPlaylist[]>([]);
@@ -28,8 +33,10 @@ export const SpotifyAdminPanel: React.FC<SpotifyAdminPanelProps> = ({ isDarkMode
 
   // Check authentication status on mount
   useEffect(() => {
-    checkAuthStatus();
-  }, []);
+    if (isOpen) {
+      checkAuthStatus();
+    }
+  }, [isOpen]);
 
   // Filter playlists when search query changes
   useEffect(() => {
@@ -109,6 +116,8 @@ export const SpotifyAdminPanel: React.FC<SpotifyAdminPanelProps> = ({ isDarkMode
     window.open(`https://open.spotify.com/playlist/${playlistId}`, '_blank');
   };
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className={`rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
@@ -143,10 +152,7 @@ export const SpotifyAdminPanel: React.FC<SpotifyAdminPanelProps> = ({ isDarkMode
               isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
             }`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            <X className="w-6 h-6" />
           </button>
         </div>
 
@@ -299,10 +305,7 @@ export const SpotifyAdminPanel: React.FC<SpotifyAdminPanelProps> = ({ isDarkMode
                         }`}
                         title="Auswahl aufheben"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="18" y1="6" x2="6" y2="18"></line>
-                          <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
+                        <X className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
