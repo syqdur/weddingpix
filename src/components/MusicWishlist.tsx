@@ -220,21 +220,23 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className={`p-3 rounded-full transition-colors duration-300 ${
-            isDarkMode ? 'bg-green-600' : 'bg-green-500'
-          }`}>
-            <Music className="w-6 h-6 text-white" />
-          </div>
+         <div className={`p-3 rounded-full transition-colors duration-300 ${isDarkMode ? 'bg-green-600' : 'bg-green-500'}`}>
+  <img
+    src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg"
+    alt="Spotify Icon"
+    className="w-6 h-6"
+  />
+</div>
           <div>
             <h3 className={`text-xl font-semibold transition-colors duration-300 ${
               isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              Music Wishlist
+              Musikwünsche
             </h3>
             <p className={`text-sm transition-colors duration-300 ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              Add songs to the "{selectedPlaylist.name}" playlist
+              Füge Songs zur "{selectedPlaylist.name}" Playlist hinzu!
             </p>
           </div>
         </div>
@@ -274,7 +276,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
         <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
           isDarkMode ? 'text-white' : 'text-gray-900'
         }`}>
-          🔍 Search for songs
+          🔍 Suche nach Songs
         </label>
         <div className="relative">
           <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 transition-colors duration-300 ${
@@ -284,7 +286,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by title or artist..."
+            placeholder="Suche nach Titel oder Interpret z.B. Mauro..."
             className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-colors duration-300 ${
               isDarkMode 
                 ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -393,7 +395,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
           <h4 className={`font-semibold transition-colors duration-300 ${
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
-            Current Playlist
+            Aktive Playlist
           </h4>
           <button
             onClick={handleRefresh}
@@ -508,7 +510,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
             <p className={`text-sm transition-colors duration-300 ${
               isDarkMode ? 'text-gray-400' : 'text-gray-600'
             }`}>
-              No tracks in playlist
+              Keine Songs in der Playlist
             </p>
           </div>
         )}
