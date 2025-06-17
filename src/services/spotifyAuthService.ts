@@ -75,27 +75,10 @@ const generateDeviceId = (): string => {
   return deviceId;
 };
 
-// 🔧 FIXED: Simplified redirect URI that matches Spotify app configuration
+// 🔧 FIXED: Simplified redirect URI that matches Spotify app configuration exactly
 const getRedirectUri = (): string => {
-  const currentOrigin = window.location.origin;
-  
-  console.log(`🔍 Current origin: ${currentOrigin}`);
-  
-  // 🎯 PRODUCTION URLS - Use exact deployed URL without /spotify-callback path
-  if (currentOrigin === 'https://kristinundmauro.de') {
-    console.log('✅ Using production domain redirect URI');
-    return 'https://kristinundmauro.de/';
-  } else if (currentOrigin.includes('netlify.app')) {
-    console.log('✅ Using Netlify redirect URI');
-    return `${currentOrigin}/`;
-  } else if (currentOrigin.includes('localhost') || currentOrigin.includes('127.0.0.1')) {
-    console.log('⚠️ Localhost detected - redirecting to production');
-    // 🔧 FIX: Never use localhost for Spotify auth - always redirect to production
-    return 'https://kristinundmauro.de/';
-  } else {
-    console.log('🔄 Unknown origin - using production fallback');
-    return 'https://kristinundmauro.de/';
-  }
+  // Always use the production URL for consistency
+  return 'https://kristinundmauro.de/';
 };
 
 // Secure Token Storage with encryption-like obfuscation
