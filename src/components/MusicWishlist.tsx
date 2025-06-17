@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Search, X, Plus, Trash2, ExternalLink, AlertCircle } from 'lucide-react';
+import { Music, Search, X, Plus, Trash2, ExternalLink, AlertCircle, RefreshCw } from 'lucide-react';
 import { 
   searchTracks, 
   addTrackToPlaylist, 
