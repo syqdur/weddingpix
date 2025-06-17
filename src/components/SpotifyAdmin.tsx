@@ -215,7 +215,7 @@ export const SpotifyAdmin: React.FC<SpotifyAdminProps> = ({ isDarkMode }) => {
             <h4 className={`font-semibold transition-colors duration-300 ${
               isDarkMode ? 'text-green-300' : 'text-green-800'
             }`}>
-              Connected to Spotify
+              Verbunden mit Spotify
             </h4>
             {user && (
               <p className={`text-sm transition-colors duration-300 ${
