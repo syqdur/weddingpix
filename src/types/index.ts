@@ -27,6 +27,22 @@ export interface Like {
   createdAt: string;
 }
 
+// Timeline Types
+export interface TimelineEvent {
+  id: string;
+  title: string;
+  customEventName?: string; // For custom event types
+  date: string;
+  description: string;
+  location?: string;
+  type: 'first_date' | 'first_kiss' | 'first_vacation' | 'engagement' | 'moving_together' | 'anniversary' | 'custom' | 'other';
+  createdBy: string;
+  createdAt: string;
+  mediaUrls?: string[]; // Array of media URLs
+  mediaTypes?: string[]; // Array of media types ('image' or 'video')
+  mediaFileNames?: string[]; // For deletion from storage
+}
+
 // Spotify Types
 export interface SpotifyCredentials {
   id: string;

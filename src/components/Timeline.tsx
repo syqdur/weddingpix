@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Heart, Calendar, MapPin, Camera, Plus, Edit3, Trash2, Save, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Heart, Calendar, MapPin, Camera, Plus, Edit3, Trash2, Save, X, Image, Video, Upload } from 'lucide-react';
 import { 
   collection, 
   addDoc, 
@@ -10,17 +10,22 @@ import {
   doc, 
   updateDoc 
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { db, storage } from '../config/firebase';
 
 interface TimelineEvent {
   id: string;
   title: string;
+  customEventName?: string; // For custom event types
   date: string;
   description: string;
   location?: string;
-  type: 'first_date' | 'first_kiss' | 'first_vacation' | 'engagement' | 'moving_together' | 'anniversary' | 'other';
+  type: 'first_date' | 'first_kiss' | 'first_vacation' | 'engagement' | 'moving_together' | 'anniversary' | 'custom' | 'other';
   createdBy: string;
   createdAt: string;
+  mediaUrls?: string[]; // Array of media URLs
+  mediaTypes?: string[]; // Array of media types ('image' or 'video')
+  mediaFileNames?: string[]; // For deletion from storage
 }
 
 interface TimelineProps {
@@ -36,6 +41,7 @@ const eventTypes = [
   { value: 'moving_together', label: '🏠 Zusammengezogen', icon: '🏠', color: 'green' },
   { value: 'engagement', label: '💍 Verlobung', icon: '💍', color: 'yellow' },
   { value: 'anniversary', label: '🎉 Jahrestag', icon: '🎉', color: 'purple' },
+  { value: 'custom', label: '✨ Eigenes Event', icon: '✨', color: 'indigo' },
   { value: 'other', label: '❤️ Sonstiges', icon: '❤️', color: 'gray' }
 ];
 
@@ -44,8 +50,13 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TimelineEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState({
     title: '',
+    customEventName: '',
     date: '',
     description: '',
     location: '',
@@ -75,13 +86,74 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
   const resetForm = () => {
     setFormData({
       title: '',
+      customEventName: '',
       date: '',
       description: '',
       location: '',
       type: 'other'
     });
+    setSelectedFiles([]);
     setShowAddForm(false);
     setEditingEvent(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    
+    // Validate file types and sizes
+    const validFiles = files.filter(file => {
+      const isValidType = file.type.startsWith('image/') || file.type.startsWith('video/');
+      const isValidSize = file.size <= 100 * 1024 * 1024; // 100MB limit
+      
+      if (!isValidType) {
+        alert(`${file.name} ist kein gültiger Dateityp. Nur Bilder und Videos sind erlaubt.`);
+        return false;
+      }
+      
+      if (!isValidSize) {
+        alert(`${file.name} ist zu groß. Maximale Dateigröße: 100MB.`);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFiles = async (files: File[]): Promise<{ urls: string[], types: string[], fileNames: string[] }> => {
+    const urls: string[] = [];
+    const types: string[] = [];
+    const fileNames: string[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileName = `timeline/${Date.now()}-${i}-${file.name}`;
+      const storageRef = ref(storage, fileName);
+      
+      try {
+        await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(storageRef);
+        
+        urls.push(url);
+        types.push(file.type.startsWith('video/') ? 'video' : 'image');
+        fileNames.push(fileName);
+        
+        setUploadProgress(((i + 1) / files.length) * 100);
+      } catch (error) {
+        console.error(`Error uploading ${file.name}:`, error);
+        throw new Error(`Fehler beim Hochladen von ${file.name}`);
+      }
+    }
+    
+    return { urls, types, fileNames };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,24 +164,44 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
       return;
     }
 
+    if (formData.type === 'custom' && !formData.customEventName.trim()) {
+      alert('Bitte gib einen Namen für dein eigenes Event ein.');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
     try {
+      let mediaData = {};
+      
+      // Upload new files if any
+      if (selectedFiles.length > 0) {
+        const { urls, types, fileNames } = await uploadFiles(selectedFiles);
+        mediaData = {
+          mediaUrls: urls,
+          mediaTypes: types,
+          mediaFileNames: fileNames
+        };
+      }
+
+      const eventData = {
+        title: formData.title.trim(),
+        ...(formData.type === 'custom' && { customEventName: formData.customEventName.trim() }),
+        date: formData.date,
+        description: formData.description.trim(),
+        location: formData.location.trim(),
+        type: formData.type,
+        ...mediaData
+      };
+
       if (editingEvent) {
         // Update existing event
-        await updateDoc(doc(db, 'timeline', editingEvent.id), {
-          title: formData.title.trim(),
-          date: formData.date,
-          description: formData.description.trim(),
-          location: formData.location.trim(),
-          type: formData.type
-        });
+        await updateDoc(doc(db, 'timeline', editingEvent.id), eventData);
       } else {
         // Add new event
         await addDoc(collection(db, 'timeline'), {
-          title: formData.title.trim(),
-          date: formData.date,
-          description: formData.description.trim(),
-          location: formData.location.trim(),
-          type: formData.type,
+          ...eventData,
           createdBy: userName,
           createdAt: new Date().toISOString()
         });
@@ -119,12 +211,16 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     } catch (error) {
       console.error('Error saving timeline event:', error);
       alert('Fehler beim Speichern des Events. Bitte versuche es erneut.');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
   const handleEdit = (event: TimelineEvent) => {
     setFormData({
       title: event.title,
+      customEventName: event.customEventName || '',
       date: event.date,
       description: event.description,
       location: event.location || '',
@@ -140,6 +236,18 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     }
 
     try {
+      // Delete media files from storage
+      if (event.mediaFileNames && event.mediaFileNames.length > 0) {
+        const deletePromises = event.mediaFileNames.map(fileName => {
+          const storageRef = ref(storage, fileName);
+          return deleteObject(storageRef).catch(error => {
+            console.warn(`Could not delete file ${fileName}:`, error);
+          });
+        });
+        await Promise.all(deletePromises);
+      }
+
+      // Delete event from Firestore
       await deleteDoc(doc(db, 'timeline', event.id));
     } catch (error) {
       console.error('Error deleting timeline event:', error);
@@ -147,7 +255,15 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     }
   };
 
-  const getEventTypeInfo = (type: string) => {
+  const getEventTypeInfo = (type: string, customEventName?: string) => {
+    if (type === 'custom' && customEventName) {
+      return {
+        value: 'custom',
+        label: `✨ ${customEventName}`,
+        icon: '✨',
+        color: 'indigo'
+      };
+    }
     return eventTypes.find(t => t.value === type) || eventTypes[eventTypes.length - 1];
   };
 
@@ -170,6 +286,14 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     if (diffInDays < 30) return `vor ${diffInDays} Tagen`;
     if (diffInDays < 365) return `vor ${Math.floor(diffInDays / 30)} Monaten`;
     return `vor ${Math.floor(diffInDays / 365)} Jahren`;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   if (isLoading) {
@@ -208,7 +332,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
               <p className={`text-sm transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                Die wichtigsten Momente unserer Beziehung
+                Die wichtigsten Momente unserer Beziehung mit Fotos & Videos
               </p>
             </div>
           </div>
@@ -232,7 +356,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
       {/* Add/Edit Form */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
+          <div className={`rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
             isDarkMode ? 'bg-gray-800' : 'bg-white'
           }`}>
             <div className="flex items-center justify-between mb-6">
@@ -243,8 +367,11 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
               </h3>
               <button
                 onClick={resetForm}
+                disabled={isUploading}
                 className={`p-2 rounded-full transition-colors duration-300 ${
-                  isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+                  isUploading 
+                    ? 'cursor-not-allowed opacity-50'
+                    : isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
                 }`}
               >
                 <X className="w-5 h-5" />
@@ -262,6 +389,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as TimelineEvent['type'] })}
+                  disabled={isUploading}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
                     isDarkMode 
                       ? 'bg-gray-700 border-gray-600 text-white' 
@@ -276,6 +404,30 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                 </select>
               </div>
 
+              {/* Custom Event Name */}
+              {formData.type === 'custom' && (
+                <div>
+                  <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Event-Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.customEventName}
+                    onChange={(e) => setFormData({ ...formData, customEventName: e.target.value })}
+                    placeholder="z.B. Unser erster Hund, Hauseinweihung, ..."
+                    disabled={isUploading}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
+                    required={formData.type === 'custom'}
+                  />
+                </div>
+              )}
+
               {/* Title */}
               <div>
                 <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
@@ -288,6 +440,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="z.B. Unser erstes Date"
+                  disabled={isUploading}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
                     isDarkMode 
                       ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -308,6 +461,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                   type="date"
                   value={formData.date}
                   onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  disabled={isUploading}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
                     isDarkMode 
                       ? 'bg-gray-700 border-gray-600 text-white' 
@@ -329,6 +483,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                   placeholder="z.B. Restaurant Zur Sonne"
+                  disabled={isUploading}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
                     isDarkMode 
                       ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -349,6 +504,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Erzähle von diesem besonderen Moment..."
                   rows={3}
+                  disabled={isUploading}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none resize-none transition-colors duration-300 ${
                     isDarkMode 
                       ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -357,24 +513,155 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                 />
               </div>
 
+              {/* Media Upload */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Fotos & Videos
+                </label>
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,video/*"
+                  onChange={handleFileSelect}
+                  disabled={isUploading}
+                  className="hidden"
+                />
+                
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className={`w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg transition-all duration-300 ${
+                    isUploading
+                      ? 'cursor-not-allowed opacity-50'
+                      : isDarkMode
+                        ? 'border-gray-600 hover:border-gray-500 hover:bg-gray-700/30'
+                        : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                  }`}
+                >
+                  <Upload className="w-5 h-5" />
+                  <span>Fotos & Videos hinzufügen</span>
+                </button>
+                
+                <p className={`text-xs mt-1 transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                }`}>
+                  Unterstützte Formate: JPG, PNG, GIF, MP4, WebM • Max. 100MB pro Datei
+                </p>
+
+                {/* Selected Files Preview */}
+                {selectedFiles.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <h4 className={`text-sm font-medium transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      Ausgewählte Dateien ({selectedFiles.length}):
+                    </h4>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {selectedFiles.map((file, index) => (
+                        <div key={index} className={`flex items-center justify-between p-2 rounded border transition-colors duration-300 ${
+                          isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+                        }`}>
+                          <div className="flex items-center gap-2 min-w-0">
+                            {file.type.startsWith('video/') ? (
+                              <Video className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                            ) : (
+                              <Image className="w-4 h-4 text-green-500 flex-shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <p className={`text-sm truncate transition-colors duration-300 ${
+                                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                              }`}>
+                                {file.name}
+                              </p>
+                              <p className={`text-xs transition-colors duration-300 ${
+                                isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                              }`}>
+                                {formatFileSize(file.size)}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFile(index)}
+                            disabled={isUploading}
+                            className={`p-1 rounded transition-colors duration-300 ${
+                              isUploading
+                                ? 'cursor-not-allowed opacity-50'
+                                : isDarkMode
+                                  ? 'hover:bg-gray-600 text-red-400'
+                                  : 'hover:bg-red-50 text-red-600'
+                            }`}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload Progress */}
+              {isUploading && (
+                <div className={`p-4 rounded-lg transition-colors duration-300 ${
+                  isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+                }`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-4 h-4 border-2 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className={`text-sm transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      Event wird gespeichert...
+                    </span>
+                  </div>
+                  {uploadProgress > 0 && (
+                    <div className={`w-full h-2 rounded-full overflow-hidden transition-colors duration-300 ${
+                      isDarkMode ? 'bg-gray-600' : 'bg-gray-200'
+                    }`}>
+                      <div 
+                        className="h-full bg-pink-500 transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Buttons */}
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={resetForm}
+                  disabled={isUploading}
                   className={`flex-1 py-2 px-4 rounded-lg transition-colors duration-300 ${
-                    isDarkMode 
-                      ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
-                      : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                    isUploading
+                      ? 'cursor-not-allowed opacity-50'
+                      : isDarkMode 
+                        ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
+                        : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
                   }`}
                 >
                   Abbrechen
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 flex items-center justify-center gap-2 bg-pink-600 hover:bg-pink-700 text-white py-2 px-4 rounded-lg transition-colors"
+                  disabled={isUploading}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors ${
+                    isUploading
+                      ? 'cursor-not-allowed opacity-50 bg-gray-400'
+                      : 'bg-pink-600 hover:bg-pink-700'
+                  } text-white`}
                 >
-                  <Save className="w-4 h-4" />
+                  {isUploading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
                   {editingEvent ? 'Speichern' : 'Hinzufügen'}
                 </button>
               </div>
@@ -415,7 +702,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
             {/* Timeline Events */}
             <div className="space-y-8">
               {events.map((event, index) => {
-                const eventType = getEventTypeInfo(event.type);
+                const eventType = getEventTypeInfo(event.type, event.customEventName);
                 const canEdit = isAdmin || event.createdBy === userName;
 
                 return (
@@ -428,6 +715,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                       eventType.color === 'green' ? 'bg-green-500' :
                       eventType.color === 'yellow' ? 'bg-yellow-500' :
                       eventType.color === 'purple' ? 'bg-purple-500' :
+                      eventType.color === 'indigo' ? 'bg-indigo-500' :
                       isDarkMode ? 'bg-gray-600' : 'bg-gray-400'
                     }`}>
                       {eventType.icon}
@@ -488,19 +776,81 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                       </div>
 
                       {event.description && (
-                        <p className={`text-sm leading-relaxed transition-colors duration-300 ${
+                        <p className={`text-sm leading-relaxed mb-4 transition-colors duration-300 ${
                           isDarkMode ? 'text-gray-300' : 'text-gray-700'
                         }`}>
                           {event.description}
                         </p>
                       )}
 
+                      {/* Media Gallery */}
+                      {event.mediaUrls && event.mediaUrls.length > 0 && (
+                        <div className="mb-4">
+                          <div className={`grid gap-2 ${
+                            event.mediaUrls.length === 1 ? 'grid-cols-1' :
+                            event.mediaUrls.length === 2 ? 'grid-cols-2' :
+                            'grid-cols-2 md:grid-cols-3'
+                          }`}>
+                            {event.mediaUrls.map((url, mediaIndex) => {
+                              const mediaType = event.mediaTypes?.[mediaIndex] || 'image';
+                              
+                              return (
+                                <div key={mediaIndex} className="relative aspect-square rounded-lg overflow-hidden group">
+                                  {mediaType === 'video' ? (
+                                    <video
+                                      src={url}
+                                      className="w-full h-full object-cover cursor-pointer"
+                                      controls
+                                      preload="metadata"
+                                    />
+                                  ) : (
+                                    <img
+                                      src={url}
+                                      alt={`${event.title} - Bild ${mediaIndex + 1}`}
+                                      className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
+                                      onClick={() => window.open(url, '_blank')}
+                                    />
+                                  )}
+                                  
+                                  {/* Media type indicator */}
+                                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <div className="bg-black/60 rounded-full p-1">
+                                      {mediaType === 'video' ? (
+                                        <Video className="w-3 h-3 text-white" />
+                                      ) : (
+                                        <Camera className="w-3 h-3 text-white" />
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          
+                          {event.mediaUrls.length > 3 && (
+                            <p className={`text-xs mt-2 transition-colors duration-300 ${
+                              isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                            }`}>
+                              {event.mediaUrls.length} Medien • Klicke zum Vergrößern
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       {/* Event metadata */}
-                      <div className={`mt-4 pt-3 border-t flex items-center justify-between text-xs transition-colors duration-300 ${
+                      <div className={`pt-3 border-t flex items-center justify-between text-xs transition-colors duration-300 ${
                         isDarkMode ? 'border-gray-700 text-gray-500' : 'border-gray-200 text-gray-500'
                       }`}>
                         <span>Hinzugefügt von {event.createdBy}</span>
-                        <span>{eventType.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span>{eventType.label}</span>
+                          {event.mediaUrls && event.mediaUrls.length > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Camera className="w-3 h-3" />
+                              {event.mediaUrls.length}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
