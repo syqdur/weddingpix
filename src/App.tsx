@@ -5,6 +5,7 @@ import { UploadSection } from './components/UploadSection';
 import { InstagramGallery } from './components/InstagramGallery';
 import { MediaModal } from './components/MediaModal';
 import { AdminPanel } from './components/AdminPanel';
+import { AdminSpotifyIntegration } from './components/AdminSpotifyIntegration';
 import { ProfileHeader } from './components/ProfileHeader';
 import { UnderConstructionPage } from './components/UnderConstructionPage';
 import { StoriesBar } from './components/StoriesBar';
@@ -41,6 +42,7 @@ import {
   Story
 } from './services/liveService';
 import { handleCallbackIfPresent, isSpotifyCallback } from './services/spotifyAuthService';
+import { initializeSpotifyConfig } from './services/spotifyIntegration';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -60,6 +62,7 @@ function App() {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
+  const [showSpotifyAdmin, setShowSpotifyAdmin] = useState(false);
 
   // Handle Spotify callback if present
   useEffect(() => {
@@ -68,6 +71,15 @@ function App() {
       // The SpotifyCallbackHandler component will handle this
     }
   }, []);
+
+  // Initialize Spotify config when admin logs in
+  useEffect(() => {
+    if (isAdmin) {
+      initializeSpotifyConfig('Admin').catch(error => {
+        console.error('Error initializing Spotify config:', error);
+      });
+    }
+  }, [isAdmin]);
 
   // Subscribe to site status changes
   useEffect(() => {
@@ -512,12 +524,21 @@ function App() {
         isDarkMode={isDarkMode}
       />
 
+      {/* Admin Panel */}
       <AdminPanel 
         isDarkMode={isDarkMode} 
         isAdmin={isAdmin}
         onToggleAdmin={setIsAdmin}
         mediaItems={mediaItems}
         siteStatus={siteStatus}
+      />
+
+      {/* Spotify Admin Panel */}
+      <AdminSpotifyIntegration
+        isOpen={showSpotifyAdmin}
+        onClose={() => setShowSpotifyAdmin(false)}
+        isDarkMode={isDarkMode}
+        adminName={userName || 'Admin'}
       />
     </div>
   );
