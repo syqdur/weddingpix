@@ -1,6 +1,6 @@
 # 💖 WeddingPix: Eure interaktive Hochzeitsgalerie & Musikwunsch-Plattform
 
-![WeddingPix Banner](https://images.pexels.com/photos/169196/pexels-photo-169196.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1 "Ein wunderschönes Hochzeitsbanner")
+![WeddingPix Banner](https://i.ibb.co/HyWYH6Q/1.jpg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1 "Ein wunderschönes Hochzeitsbanner")
 _Ein modernes, interaktives Web-Erlebnis für euren besonderen Tag._
 
 ## ✨ Über WeddingPix
@@ -100,7 +100,7 @@ Wir freuen uns über Beiträge! Wenn du Ideen oder Verbesserungen hast, öffne g
 
 ## 📄 Lizenz
 
-Dieses Projekt steht unter der MIT-Lizenz.
+**!! This repository is not open source. Cloning and usage is permitted for educational and study purposes only. Any commercial use, redistribution, or code theft is strictly prohibited. By accessing this repository, you agree to these terms and conditions.**
 
 ---
 
