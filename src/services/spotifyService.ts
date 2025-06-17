@@ -29,6 +29,146 @@ const SPOTIFY_REDIRECT_URI = getRedirectUri();
 const PKCE_CODE_VERIFIER_KEY = 'spotify_pkce_code_verifier';
 const PKCE_STATE_KEY = 'spotify_pkce_state';
 
+// 🚀 NEW: Real-time sync system
+class SpotifyRealTimeSync {
+  private static instance: SpotifyRealTimeSync;
+  private listeners: Set<(tracks: SpotifyApi.PlaylistTrackObject[]) => void> = new Set();
+  private currentTracks: SpotifyApi.PlaylistTrackObject[] = [];
+  private playlistId: string | null = null;
+  private isPolling = false;
+  private pollInterval: NodeJS.Timeout | null = null;
+  private lastSnapshot: string | null = null;
+
+  static getInstance(): SpotifyRealTimeSync {
+    if (!SpotifyRealTimeSync.instance) {
+      SpotifyRealTimeSync.instance = new SpotifyRealTimeSync();
+    }
+    return SpotifyRealTimeSync.instance;
+  }
+
+  // Subscribe to real-time updates
+  subscribe(callback: (tracks: SpotifyApi.PlaylistTrackObject[]) => void): () => void {
+    this.listeners.add(callback);
+    
+    // Immediately send current tracks if available
+    if (this.currentTracks.length > 0) {
+      callback(this.currentTracks);
+    }
+
+    // Return unsubscribe function
+    return () => {
+      this.listeners.delete(callback);
+      if (this.listeners.size === 0) {
+        this.stopPolling();
+      }
+    };
+  }
+
+  // Start monitoring a playlist
+  async startMonitoring(playlistId: string): Promise<void> {
+    console.log(`🎵 === STARTING REAL-TIME MONITORING ===`);
+    console.log(`📋 Playlist ID: ${playlistId}`);
+    
+    this.playlistId = playlistId;
+    
+    // Initial load
+    await this.fetchAndNotify();
+    
+    // Start aggressive polling for instant sync
+    this.startPolling();
+  }
+
+  // Stop monitoring
+  stopPolling(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+      this.isPolling = false;
+      console.log('⏹️ Stopped real-time polling');
+    }
+  }
+
+  // Start aggressive polling
+  private startPolling(): void {
+    if (this.isPolling) return;
+    
+    this.isPolling = true;
+    console.log('🔄 Starting aggressive polling (every 2 seconds)');
+    
+    // Poll every 2 seconds for instant updates
+    this.pollInterval = setInterval(async () => {
+      try {
+        await this.fetchAndNotify();
+      } catch (error) {
+        console.warn('Polling error:', error);
+      }
+    }, 2000); // Very aggressive polling for instant sync
+  }
+
+  // Fetch tracks and notify all listeners
+  private async fetchAndNotify(): Promise<void> {
+    if (!this.playlistId) return;
+
+    try {
+      // Get fresh tracks with cache busting
+      const timestamp = Date.now();
+      const response = await makeSpotifyApiCall(
+        `https://api.spotify.com/v1/playlists/${this.playlistId}/tracks?limit=50&offset=0&_=${timestamp}`
+      );
+      
+      const data = await response.json();
+      const newTracks = data.items;
+
+      // Check if tracks actually changed
+      const hasChanged = this.hasTracksChanged(newTracks);
+      
+      if (hasChanged) {
+        console.log(`🔄 Tracks changed! Notifying ${this.listeners.size} listeners`);
+        this.currentTracks = newTracks;
+        
+        // Notify all listeners immediately
+        this.listeners.forEach(callback => {
+          try {
+            callback(newTracks);
+          } catch (error) {
+            console.error('Listener callback error:', error);
+          }
+        });
+      }
+
+    } catch (error) {
+      console.error('Failed to fetch tracks for real-time sync:', error);
+    }
+  }
+
+  // Check if tracks have actually changed
+  private hasTracksChanged(newTracks: SpotifyApi.PlaylistTrackObject[]): boolean {
+    if (newTracks.length !== this.currentTracks.length) {
+      return true;
+    }
+
+    // Compare track IDs and positions
+    for (let i = 0; i < newTracks.length; i++) {
+      if (newTracks[i].track.id !== this.currentTracks[i]?.track.id) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // Force immediate refresh
+  async forceRefresh(): Promise<void> {
+    console.log('🔄 Force refreshing playlist...');
+    await this.fetchAndNotify();
+  }
+
+  // Get current tracks
+  getCurrentTracks(): SpotifyApi.PlaylistTrackObject[] {
+    return this.currentTracks;
+  }
+}
+
 // Generate authorization URL with PKCE
 export const getAuthorizationUrl = async (): Promise<string> => {
   // Generate code verifier and challenge
@@ -224,6 +364,9 @@ export const getValidCredentials = async (): Promise<SpotifyCredentials | null> 
 // Disconnect Spotify account
 export const disconnectSpotify = async (): Promise<void> => {
   try {
+    // Stop real-time monitoring
+    SpotifyRealTimeSync.getInstance().stopPolling();
+    
     // Get credentials
     const credentials = await getValidCredentials();
     
@@ -390,10 +533,11 @@ export const searchTracks = async (query: string): Promise<SpotifyTrack[]> => {
   }
 };
 
-// Add track to playlist
+// 🚀 NEW: Add track with instant sync
 export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
   try {
-    console.log('🎵 Adding track to playlist:', trackUri);
+    console.log('🎵 === ADDING TRACK WITH INSTANT SYNC ===');
+    console.log('Track URI:', trackUri);
     
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
@@ -401,7 +545,8 @@ export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
     if (!selectedPlaylist) {
       throw new Error('No playlist selected');
     }
-    
+
+    // Add track to playlist
     const response = await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${selectedPlaylist.playlistId}/tracks`, {
       method: 'POST',
       body: JSON.stringify({
@@ -412,6 +557,17 @@ export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
     
     const result = await response.json();
     console.log('✅ Track added successfully:', result);
+
+    // 🚀 INSTANT SYNC: Force immediate refresh
+    const syncManager = SpotifyRealTimeSync.getInstance();
+    
+    // Wait a moment for Spotify to process
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Force immediate refresh
+    await syncManager.forceRefresh();
+    
+    console.log('🚀 Instant sync completed after track add');
     
   } catch (error) {
     console.error('Failed to add track to playlist:', error);
@@ -419,10 +575,11 @@ export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
   }
 };
 
-// Remove track from playlist
+// 🚀 NEW: Remove track with instant sync
 export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> => {
   try {
-    console.log('🗑️ Removing track from playlist:', trackUri);
+    console.log('🗑️ === REMOVING TRACK WITH INSTANT SYNC ===');
+    console.log('Track URI:', trackUri);
     
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
@@ -440,6 +597,17 @@ export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> =
     
     const result = await response.json();
     console.log('✅ Track removed successfully:', result);
+
+    // 🚀 INSTANT SYNC: Force immediate refresh
+    const syncManager = SpotifyRealTimeSync.getInstance();
+    
+    // Wait a moment for Spotify to process
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Force immediate refresh
+    await syncManager.forceRefresh();
+    
+    console.log('🚀 Instant sync completed after track removal');
     
   } catch (error) {
     console.error('Failed to remove track from playlist:', error);
@@ -459,12 +627,12 @@ export const getCurrentUser = async (): Promise<SpotifyApi.CurrentUsersProfileRe
   }
 };
 
-// Get playlist tracks with cache busting
+// 🚀 NEW: Get playlist tracks with real-time sync
 export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.PlaylistTrackObject[]> => {
   try {
-    console.log('📋 Fetching playlist tracks with cache busting...');
+    console.log('📋 Fetching playlist tracks...');
     
-    // 🔧 FIX: Add cache busting parameter but remove problematic headers
+    // Add cache busting parameter
     const timestamp = Date.now();
     const response = await makeSpotifyApiCall(
       `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50&offset=0&_=${timestamp}`
@@ -478,6 +646,27 @@ export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.
     console.error('Failed to get playlist tracks:', error);
     throw error;
   }
+};
+
+// 🚀 NEW: Subscribe to real-time playlist updates
+export const subscribeToPlaylistUpdates = (
+  playlistId: string,
+  callback: (tracks: SpotifyApi.PlaylistTrackObject[]) => void
+): (() => void) => {
+  console.log('🚀 === SUBSCRIBING TO REAL-TIME PLAYLIST UPDATES ===');
+  console.log('Playlist ID:', playlistId);
+  
+  const syncManager = SpotifyRealTimeSync.getInstance();
+  
+  // Start monitoring this playlist
+  syncManager.startMonitoring(playlistId);
+  
+  // Subscribe to updates
+  const unsubscribe = syncManager.subscribe(callback);
+  
+  console.log('✅ Real-time subscription active');
+  
+  return unsubscribe;
 };
 
 // Get playlist snapshot ID for change detection
@@ -551,6 +740,17 @@ export const bulkRemoveTracksFromPlaylist = async (trackUris: string[]): Promise
     }
     
     console.log('✅ Bulk remove completed');
+
+    // 🚀 INSTANT SYNC: Force immediate refresh after bulk operation
+    const syncManager = SpotifyRealTimeSync.getInstance();
+    
+    // Wait a moment for Spotify to process
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Force immediate refresh
+    await syncManager.forceRefresh();
+    
+    console.log('🚀 Instant sync completed after bulk delete');
     
   } catch (error) {
     console.error('Failed to bulk remove tracks from playlist:', error);
