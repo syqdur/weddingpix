@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Search, X, Plus, Trash2, ExternalLink, AlertCircle, RefreshCw, Clock, Heart, Play, Volume2, Check, CheckSquare, Square, Zap } from 'lucide-react';
+import { Music, Search, X, Plus, Trash2, ExternalLink, AlertCircle, RefreshCw, Clock, Heart, Play, Volume2, Check, CheckSquare, Square, Zap, Wifi } from 'lucide-react';
 import { 
   searchTracks, 
   addTrackToPlaylist, 
@@ -35,41 +35,36 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [syncStatus, setSyncStatus] = useState<'connecting' | 'synced' | 'syncing' | 'error'>('connecting');
+  const [syncStatus, setSyncStatus] = useState<'connecting' | 'live' | 'syncing' | 'error'>('connecting');
+  const [operationCount, setOperationCount] = useState(0);
 
-  // 🚀 NEW: Real-time sync with instant updates
+  // 🚀 NEW: Optimistic updates with instant UI feedback
   useEffect(() => {
     if (!selectedPlaylist || !isSpotifyAvailable) return;
 
-    console.log('🚀 === SETTING UP REAL-TIME SYNC ===');
+    console.log('🚀 === SETTING UP OPTIMISTIC UPDATES ===');
     console.log('Playlist:', selectedPlaylist.name);
     
     setSyncStatus('connecting');
 
-    // Subscribe to real-time updates
+    // Subscribe to optimistic updates
     const unsubscribe = subscribeToPlaylistUpdates(
       selectedPlaylist.playlistId,
       (tracks) => {
-        console.log('🚀 Real-time update received:', tracks.length, 'tracks');
+        console.log('🚀 Optimistic update received:', tracks.length, 'tracks');
         setPlaylistTracks(tracks);
         setLastUpdate(new Date());
-        setSyncStatus('synced');
-        
-        // Show brief sync indicator
-        setSyncStatus('syncing');
-        setTimeout(() => setSyncStatus('synced'), 1000);
+        setSyncStatus('live');
       }
     );
 
-    // Initial sync status
+    // Set status to live after initial load
     setTimeout(() => {
-      if (playlistTracks.length > 0) {
-        setSyncStatus('synced');
-      }
-    }, 2000);
+      setSyncStatus('live');
+    }, 1000);
 
     return () => {
-      console.log('🚀 Cleaning up real-time sync');
+      console.log('🚀 Cleaning up optimistic updates');
       unsubscribe();
     };
   }, [selectedPlaylist, isSpotifyAvailable]);
@@ -155,29 +150,33 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setIsAddingTrack(track.id);
     setError(null);
     setSyncStatus('syncing');
+    setOperationCount(prev => prev + 1);
     
     try {
-      console.log('🎵 === ADDING TRACK WITH INSTANT SYNC ===');
+      console.log('🚀 === INSTANT ADD ===');
       console.log('Track:', track.name, 'by', track.artists.map(a => a.name).join(', '));
       
-      // Add track to playlist
+      // Add track to playlist (optimistic update happens inside the service)
       await addTrackToPlaylist(track.uri);
       
       // Show success message
       setShowAddSuccess(true);
-      setTimeout(() => setShowAddSuccess(false), 3000);
+      setTimeout(() => setShowAddSuccess(false), 2000);
       
       // Clear search
       setSearchQuery('');
       setSearchResults([]);
       
-      console.log('✅ Track added successfully with instant sync');
+      console.log('✅ Track added with instant UI update');
+      
+      // Brief syncing indicator
+      setTimeout(() => setSyncStatus('live'), 1000);
       
     } catch (error) {
       console.error('Failed to add track:', error);
       setError('Failed to add track to playlist: ' + (error.message || 'Unknown error'));
       setSyncStatus('error');
-      setTimeout(() => setSyncStatus('synced'), 3000);
+      setTimeout(() => setSyncStatus('live'), 3000);
     } finally {
       setIsAddingTrack(null);
     }
@@ -194,21 +193,25 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setIsRemovingTrack(track.track.id);
     setError(null);
     setSyncStatus('syncing');
+    setOperationCount(prev => prev + 1);
     
     try {
-      console.log('🗑️ === REMOVING TRACK WITH INSTANT SYNC ===');
+      console.log('🚀 === INSTANT REMOVE ===');
       console.log('Track:', track.track.name);
       
-      // Remove track from playlist
+      // Remove track from playlist (optimistic update happens inside the service)
       await removeTrackFromPlaylist(track.track.uri);
       
-      console.log('✅ Track removed successfully with instant sync');
+      console.log('✅ Track removed with instant UI update');
+      
+      // Brief syncing indicator
+      setTimeout(() => setSyncStatus('live'), 1000);
       
     } catch (error) {
       console.error('Failed to remove track:', error);
       setError('Failed to remove track from playlist: ' + (error.message || 'Unknown error'));
       setSyncStatus('error');
-      setTimeout(() => setSyncStatus('synced'), 3000);
+      setTimeout(() => setSyncStatus('live'), 3000);
     } finally {
       setIsRemovingTrack(null);
     }
@@ -270,15 +273,16 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setIsBulkDeleting(true);
     setError(null);
     setSyncStatus('syncing');
+    setOperationCount(prev => prev + tracksToDelete.length);
     
     try {
-      console.log(`🗑️ === BULK DELETE WITH INSTANT SYNC ===`);
+      console.log(`🚀 === INSTANT BULK DELETE ===`);
       console.log(`Deleting ${tracksToDelete.length} tracks...`);
       
       // Extract URIs for bulk deletion
       const trackUris = tracksToDelete.map(track => track.track.uri);
       
-      // Bulk delete with instant sync
+      // Bulk delete with instant UI updates (optimistic updates happen inside the service)
       await bulkRemoveTracksFromPlaylist(trackUris);
       
       // Reset selection
@@ -287,13 +291,16 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
       
       alert(`${tracksToDelete.length} Song${tracksToDelete.length > 1 ? 's' : ''} erfolgreich gelöscht!`);
       
-      console.log('✅ Bulk delete completed with instant sync');
+      console.log('✅ Bulk delete completed with instant UI updates');
+      
+      // Brief syncing indicator
+      setTimeout(() => setSyncStatus('live'), 2000);
       
     } catch (error) {
       console.error('Failed to bulk delete tracks:', error);
       setError('Failed to delete some tracks: ' + (error.message || 'Unknown error'));
       setSyncStatus('error');
-      setTimeout(() => setSyncStatus('synced'), 3000);
+      setTimeout(() => setSyncStatus('live'), 3000);
     } finally {
       setIsBulkDeleting(false);
     }
@@ -314,7 +321,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
       const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
       setPlaylistTracks(tracks);
       setLastUpdate(new Date());
-      setSyncStatus('synced');
+      setSyncStatus('live');
       
       console.log('✅ Manual refresh completed');
       
@@ -322,7 +329,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
       console.error('Failed to refresh tracks:', error);
       setError('Failed to refresh playlist tracks: ' + (error.message || 'Unknown error'));
       setSyncStatus('error');
-      setTimeout(() => setSyncStatus('synced'), 3000);
+      setTimeout(() => setSyncStatus('live'), 3000);
     } finally {
       setIsLoading(false);
     }
@@ -441,26 +448,26 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                 <p className="text-sm text-white opacity-80">
                   {playlistTracks.length} Songs • Hochzeits-Playlist
                 </p>
-                {/* 🚀 NEW: Real-time sync indicator */}
+                {/* 🚀 NEW: Enhanced sync indicator */}
                 <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                   syncStatus === 'connecting' ? 'bg-yellow-500/20 text-yellow-200' :
                   syncStatus === 'syncing' ? 'bg-blue-500/20 text-blue-200' :
-                  syncStatus === 'synced' ? 'bg-green-500/20 text-green-200' :
+                  syncStatus === 'live' ? 'bg-green-500/20 text-green-200' :
                   'bg-red-500/20 text-red-200'
                 }`}>
                   <div className={`w-2 h-2 rounded-full ${
                     syncStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' :
                     syncStatus === 'syncing' ? 'bg-blue-400 animate-pulse' :
-                    syncStatus === 'synced' ? 'bg-green-400 animate-pulse' :
+                    syncStatus === 'live' ? 'bg-green-400 animate-pulse' :
                     'bg-red-400'
                   }`}></div>
                   <span>
                     {syncStatus === 'connecting' ? 'Verbinde...' :
                      syncStatus === 'syncing' ? 'Sync...' :
-                     syncStatus === 'synced' ? 'Live' :
+                     syncStatus === 'live' ? 'Live' :
                      'Fehler'}
                   </span>
-                  {syncStatus === 'synced' && <Zap className="w-3 h-3" />}
+                  {syncStatus === 'live' && <Zap className="w-3 h-3" />}
                 </div>
               </div>
             </div>
@@ -509,7 +516,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
               <Check className="w-4 h-4 text-white" />
             </div>
             <p className="text-sm font-medium">
-              Song erfolgreich zur Playlist hinzugefügt! 🚀 Instant Sync aktiv
+              Song sofort hinzugefügt! 🚀 Instant Sync aktiv
             </p>
           </div>
         </div>
@@ -583,7 +590,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                     onClick={() => handleAddTrack(track)}
                     disabled={isAddingTrack === track.id}
                     className="p-2 rounded-full bg-[#1DB954] text-white hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Zur Playlist hinzufügen"
+                    title="Sofort zur Playlist hinzufügen"
                   >
                     {isAddingTrack === track.id ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -616,24 +623,30 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                 Playlist Songs
               </h4>
               
-              {/* 🚀 NEW: Enhanced sync status with last update time */}
+              {/* 🚀 NEW: Enhanced sync status with operation count */}
               <div className={`flex items-center gap-2 text-xs ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
                 <div className={`w-2 h-2 rounded-full ${
                   syncStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' :
                   syncStatus === 'syncing' ? 'bg-blue-500 animate-pulse' :
-                  syncStatus === 'synced' ? 'bg-green-500 animate-pulse' :
+                  syncStatus === 'live' ? 'bg-green-500 animate-pulse' :
                   'bg-red-500'
                 }`}></div>
                 <span>
                   {syncStatus === 'connecting' ? 'Verbinde...' :
                    syncStatus === 'syncing' ? 'Synchronisiert...' :
-                   syncStatus === 'synced' ? '🚀 Live-Sync' :
+                   syncStatus === 'live' ? '🚀 Instant-Sync' :
                    'Sync-Fehler'}
                 </span>
                 <span>•</span>
                 <span>Update: {lastUpdate.toLocaleTimeString('de-DE')}</span>
+                {operationCount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="text-green-500 font-medium">{operationCount} Änderungen</span>
+                  </>
+                )}
               </div>
               
               {/* Bulk Delete Controls */}
@@ -689,7 +702,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                           ) : (
                             <Trash2 className="w-3 h-3 mr-1" />
                           )}
-                          {selectedTracks.size} löschen
+                          {selectedTracks.size} sofort löschen
                         </button>
                       )}
                     </>
@@ -817,7 +830,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                                     ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' 
                                     : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
                                 }`}
-                                title="Aus Playlist entfernen"
+                                title="Sofort aus Playlist entfernen"
                               >
                                 {isRemovingTrack === item.track.id ? (
                                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>

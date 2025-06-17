@@ -29,24 +29,22 @@ const SPOTIFY_REDIRECT_URI = getRedirectUri();
 const PKCE_CODE_VERIFIER_KEY = 'spotify_pkce_code_verifier';
 const PKCE_STATE_KEY = 'spotify_pkce_state';
 
-// 🚀 NEW: Real-time sync system
-class SpotifyRealTimeSync {
-  private static instance: SpotifyRealTimeSync;
+// 🚀 NEW: Optimistic Update Manager for Instant UI Updates
+class OptimisticUpdateManager {
+  private static instance: OptimisticUpdateManager;
   private listeners: Set<(tracks: SpotifyApi.PlaylistTrackObject[]) => void> = new Set();
   private currentTracks: SpotifyApi.PlaylistTrackObject[] = [];
+  private pendingOperations: Map<string, 'add' | 'remove'> = new Map();
   private playlistId: string | null = null;
-  private isPolling = false;
-  private pollInterval: NodeJS.Timeout | null = null;
-  private lastSnapshot: string | null = null;
 
-  static getInstance(): SpotifyRealTimeSync {
-    if (!SpotifyRealTimeSync.instance) {
-      SpotifyRealTimeSync.instance = new SpotifyRealTimeSync();
+  static getInstance(): OptimisticUpdateManager {
+    if (!OptimisticUpdateManager.instance) {
+      OptimisticUpdateManager.instance = new OptimisticUpdateManager();
     }
-    return SpotifyRealTimeSync.instance;
+    return OptimisticUpdateManager.instance;
   }
 
-  // Subscribe to real-time updates
+  // Subscribe to updates
   subscribe(callback: (tracks: SpotifyApi.PlaylistTrackObject[]) => void): () => void {
     this.listeners.add(callback);
     
@@ -55,117 +53,170 @@ class SpotifyRealTimeSync {
       callback(this.currentTracks);
     }
 
-    // Return unsubscribe function
     return () => {
       this.listeners.delete(callback);
-      if (this.listeners.size === 0) {
-        this.stopPolling();
-      }
     };
   }
 
-  // Start monitoring a playlist
-  async startMonitoring(playlistId: string): Promise<void> {
-    console.log(`🎵 === STARTING REAL-TIME MONITORING ===`);
-    console.log(`📋 Playlist ID: ${playlistId}`);
-    
+  // Set initial tracks
+  setTracks(tracks: SpotifyApi.PlaylistTrackObject[], playlistId: string): void {
+    this.currentTracks = [...tracks];
     this.playlistId = playlistId;
-    
-    // Initial load
-    await this.fetchAndNotify();
-    
-    // Start aggressive polling for instant sync
-    this.startPolling();
+    this.notifyListeners();
   }
 
-  // Stop monitoring
-  stopPolling(): void {
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
-      this.isPolling = false;
-      console.log('⏹️ Stopped real-time polling');
-    }
-  }
-
-  // Start aggressive polling
-  private startPolling(): void {
-    if (this.isPolling) return;
+  // 🚀 INSTANT: Optimistically add track (shows immediately in UI)
+  optimisticallyAddTrack(track: SpotifyTrack): void {
+    console.log('🚀 OPTIMISTIC ADD:', track.name);
     
-    this.isPolling = true;
-    console.log('🔄 Starting aggressive polling (every 2 seconds)');
-    
-    // Poll every 2 seconds for instant updates
-    this.pollInterval = setInterval(async () => {
-      try {
-        await this.fetchAndNotify();
-      } catch (error) {
-        console.warn('Polling error:', error);
+    // Create a mock playlist track object
+    const mockPlaylistTrack: SpotifyApi.PlaylistTrackObject = {
+      added_at: new Date().toISOString(),
+      added_by: {
+        id: 'current_user',
+        type: 'user',
+        uri: 'spotify:user:current_user',
+        href: '',
+        external_urls: { spotify: '' }
+      },
+      is_local: false,
+      track: {
+        id: track.id,
+        name: track.name,
+        artists: track.artists.map(a => ({
+          id: `artist_${a.name}`,
+          name: a.name,
+          type: 'artist',
+          uri: `spotify:artist:${a.name}`,
+          href: '',
+          external_urls: { spotify: '' }
+        })),
+        album: {
+          id: 'album_' + track.album.name,
+          name: track.album.name,
+          images: track.album.images,
+          type: 'album',
+          uri: 'spotify:album:' + track.album.name,
+          href: '',
+          external_urls: { spotify: '' },
+          album_type: 'album',
+          total_tracks: 1,
+          available_markets: [],
+          release_date: '',
+          release_date_precision: 'day'
+        },
+        duration_ms: 180000, // Default 3 minutes
+        explicit: false,
+        external_ids: {},
+        external_urls: { spotify: `https://open.spotify.com/track/${track.id}` },
+        href: '',
+        is_playable: true,
+        popularity: 50,
+        preview_url: null,
+        track_number: 1,
+        type: 'track',
+        uri: track.uri,
+        is_local: false
       }
-    }, 2000); // Very aggressive polling for instant sync
+    };
+
+    // Add to beginning of list for immediate visibility
+    this.currentTracks.unshift(mockPlaylistTrack);
+    this.pendingOperations.set(track.id, 'add');
+    
+    // Notify listeners immediately
+    this.notifyListeners();
   }
 
-  // Fetch tracks and notify all listeners
-  private async fetchAndNotify(): Promise<void> {
-    if (!this.playlistId) return;
-
-    try {
-      // Get fresh tracks with cache busting
-      const timestamp = Date.now();
-      const response = await makeSpotifyApiCall(
-        `https://api.spotify.com/v1/playlists/${this.playlistId}/tracks?limit=50&offset=0&_=${timestamp}`
-      );
-      
-      const data = await response.json();
-      const newTracks = data.items;
-
-      // Check if tracks actually changed
-      const hasChanged = this.hasTracksChanged(newTracks);
-      
-      if (hasChanged) {
-        console.log(`🔄 Tracks changed! Notifying ${this.listeners.size} listeners`);
-        this.currentTracks = newTracks;
-        
-        // Notify all listeners immediately
-        this.listeners.forEach(callback => {
-          try {
-            callback(newTracks);
-          } catch (error) {
-            console.error('Listener callback error:', error);
-          }
-        });
-      }
-
-    } catch (error) {
-      console.error('Failed to fetch tracks for real-time sync:', error);
-    }
+  // 🚀 INSTANT: Optimistically remove track (removes immediately from UI)
+  optimisticallyRemoveTrack(trackId: string): void {
+    console.log('🚀 OPTIMISTIC REMOVE:', trackId);
+    
+    // Remove from current tracks
+    this.currentTracks = this.currentTracks.filter(item => item.track.id !== trackId);
+    this.pendingOperations.set(trackId, 'remove');
+    
+    // Notify listeners immediately
+    this.notifyListeners();
   }
 
-  // Check if tracks have actually changed
-  private hasTracksChanged(newTracks: SpotifyApi.PlaylistTrackObject[]): boolean {
-    if (newTracks.length !== this.currentTracks.length) {
-      return true;
-    }
-
-    // Compare track IDs and positions
-    for (let i = 0; i < newTracks.length; i++) {
-      if (newTracks[i].track.id !== this.currentTracks[i]?.track.id) {
-        return true;
-      }
-    }
-
-    return false;
+  // 🚀 INSTANT: Bulk optimistic remove
+  optimisticallyBulkRemove(trackIds: string[]): void {
+    console.log('🚀 OPTIMISTIC BULK REMOVE:', trackIds.length, 'tracks');
+    
+    // Remove all tracks from current list
+    this.currentTracks = this.currentTracks.filter(item => !trackIds.includes(item.track.id));
+    
+    // Mark all as pending removal
+    trackIds.forEach(id => this.pendingOperations.set(id, 'remove'));
+    
+    // Notify listeners immediately
+    this.notifyListeners();
   }
 
-  // Force immediate refresh
-  async forceRefresh(): Promise<void> {
-    console.log('🔄 Force refreshing playlist...');
-    await this.fetchAndNotify();
+  // Confirm operation completed (remove from pending)
+  confirmOperation(trackId: string): void {
+    this.pendingOperations.delete(trackId);
+  }
+
+  // Revert operation if it failed
+  revertOperation(trackId: string, originalTracks: SpotifyApi.PlaylistTrackObject[]): void {
+    console.log('🔄 REVERTING OPERATION:', trackId);
+    
+    const operation = this.pendingOperations.get(trackId);
+    this.pendingOperations.delete(trackId);
+    
+    if (operation === 'add') {
+      // Remove the optimistically added track
+      this.currentTracks = this.currentTracks.filter(item => item.track.id !== trackId);
+    } else if (operation === 'remove') {
+      // Restore the original tracks
+      this.currentTracks = [...originalTracks];
+    }
+    
+    this.notifyListeners();
   }
 
   // Get current tracks
   getCurrentTracks(): SpotifyApi.PlaylistTrackObject[] {
     return this.currentTracks;
+  }
+
+  // Check if operation is pending
+  isPending(trackId: string): boolean {
+    return this.pendingOperations.has(trackId);
+  }
+
+  // Notify all listeners
+  private notifyListeners(): void {
+    this.listeners.forEach(callback => {
+      try {
+        callback([...this.currentTracks]);
+      } catch (error) {
+        console.error('Listener callback error:', error);
+      }
+    });
+  }
+
+  // Sync with actual Spotify data (background)
+  async syncWithSpotify(): Promise<void> {
+    if (!this.playlistId) return;
+
+    try {
+      console.log('🔄 Background sync with Spotify...');
+      const actualTracks = await getPlaylistTracks(this.playlistId);
+      
+      // Only update if there are no pending operations
+      if (this.pendingOperations.size === 0) {
+        this.currentTracks = actualTracks;
+        this.notifyListeners();
+        console.log('✅ Background sync completed');
+      } else {
+        console.log('⏸️ Skipping sync - pending operations exist');
+      }
+    } catch (error) {
+      console.warn('Background sync failed:', error);
+    }
   }
 }
 
@@ -364,9 +415,6 @@ export const getValidCredentials = async (): Promise<SpotifyCredentials | null> 
 // Disconnect Spotify account
 export const disconnectSpotify = async (): Promise<void> => {
   try {
-    // Stop real-time monitoring
-    SpotifyRealTimeSync.getInstance().stopPolling();
-    
     // Get credentials
     const credentials = await getValidCredentials();
     
@@ -406,16 +454,11 @@ const makeSpotifyApiCall = async (url: string, options: RequestInit = {}): Promi
     throw new Error('Not connected to Spotify');
   }
   
-  // 🔧 FIX: Remove cache-control header that causes CORS issues
+  // 🔧 FIX: Clean headers to avoid CORS issues
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${credentials.accessToken}`,
-    'Content-Type': 'application/json',
-    ...options.headers as Record<string, string>
+    'Content-Type': 'application/json'
   };
-  
-  // Remove any cache-control headers that might cause CORS issues
-  delete headers['Cache-Control'];
-  delete headers['cache-control'];
   
   const response = await fetch(url, {
     ...options,
@@ -533,61 +576,102 @@ export const searchTracks = async (query: string): Promise<SpotifyTrack[]> => {
   }
 };
 
-// 🚀 NEW: Add track with instant sync
+// 🚀 NEW: Add track with INSTANT optimistic update
 export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
+  const updateManager = OptimisticUpdateManager.getInstance();
+  let trackToAdd: SpotifyTrack | null = null;
+  
   try {
-    console.log('🎵 === ADDING TRACK WITH INSTANT SYNC ===');
+    console.log('🚀 === INSTANT ADD WITH OPTIMISTIC UPDATE ===');
     console.log('Track URI:', trackUri);
+    
+    // Extract track ID from URI
+    const trackId = trackUri.split(':').pop() || '';
+    
+    // Get track details for optimistic update
+    try {
+      const response = await makeSpotifyApiCall(`https://api.spotify.com/v1/tracks/${trackId}`);
+      const trackData = await response.json();
+      
+      trackToAdd = {
+        id: trackData.id,
+        name: trackData.name,
+        artists: trackData.artists.map((a: any) => ({ name: a.name })),
+        album: {
+          name: trackData.album.name,
+          images: trackData.album.images
+        },
+        uri: trackData.uri
+      };
+      
+      // 🚀 INSTANT: Show in UI immediately
+      updateManager.optimisticallyAddTrack(trackToAdd);
+      
+    } catch (trackError) {
+      console.warn('Could not get track details for optimistic update:', trackError);
+    }
     
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
-    
     if (!selectedPlaylist) {
       throw new Error('No playlist selected');
     }
 
-    // Add track to playlist
+    // Add track to playlist (background operation)
     const response = await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${selectedPlaylist.playlistId}/tracks`, {
       method: 'POST',
       body: JSON.stringify({
         uris: [trackUri],
-        position: 0 // Add to beginning of playlist for immediate visibility
+        position: 0 // Add to beginning for immediate visibility
       })
     });
     
     const result = await response.json();
-    console.log('✅ Track added successfully:', result);
+    console.log('✅ Track added to Spotify successfully:', result);
 
-    // 🚀 INSTANT SYNC: Force immediate refresh
-    const syncManager = SpotifyRealTimeSync.getInstance();
+    // Confirm the operation
+    if (trackToAdd) {
+      updateManager.confirmOperation(trackToAdd.id);
+    }
     
-    // Wait a moment for Spotify to process
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Force immediate refresh
-    await syncManager.forceRefresh();
-    
-    console.log('🚀 Instant sync completed after track add');
+    // Background sync after a delay
+    setTimeout(() => {
+      updateManager.syncWithSpotify();
+    }, 2000);
     
   } catch (error) {
     console.error('Failed to add track to playlist:', error);
+    
+    // Revert optimistic update on error
+    if (trackToAdd) {
+      const currentTracks = updateManager.getCurrentTracks();
+      updateManager.revertOperation(trackToAdd.id, currentTracks);
+    }
+    
     throw error;
   }
 };
 
-// 🚀 NEW: Remove track with instant sync
+// 🚀 NEW: Remove track with INSTANT optimistic update
 export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> => {
+  const updateManager = OptimisticUpdateManager.getInstance();
+  const trackId = trackUri.split(':').pop() || '';
+  const originalTracks = updateManager.getCurrentTracks();
+  
   try {
-    console.log('🗑️ === REMOVING TRACK WITH INSTANT SYNC ===');
+    console.log('🚀 === INSTANT REMOVE WITH OPTIMISTIC UPDATE ===');
     console.log('Track URI:', trackUri);
+    
+    // 🚀 INSTANT: Remove from UI immediately
+    updateManager.optimisticallyRemoveTrack(trackId);
     
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
-    
     if (!selectedPlaylist) {
       throw new Error('No playlist selected');
     }
     
+    // Remove track from playlist (background operation)
     const response = await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${selectedPlaylist.playlistId}/tracks`, {
       method: 'DELETE',
       body: JSON.stringify({
@@ -596,21 +680,22 @@ export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> =
     });
     
     const result = await response.json();
-    console.log('✅ Track removed successfully:', result);
+    console.log('✅ Track removed from Spotify successfully:', result);
 
-    // 🚀 INSTANT SYNC: Force immediate refresh
-    const syncManager = SpotifyRealTimeSync.getInstance();
+    // Confirm the operation
+    updateManager.confirmOperation(trackId);
     
-    // Wait a moment for Spotify to process
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Force immediate refresh
-    await syncManager.forceRefresh();
-    
-    console.log('🚀 Instant sync completed after track removal');
+    // Background sync after a delay
+    setTimeout(() => {
+      updateManager.syncWithSpotify();
+    }, 2000);
     
   } catch (error) {
     console.error('Failed to remove track from playlist:', error);
+    
+    // Revert optimistic update on error
+    updateManager.revertOperation(trackId, originalTracks);
+    
     throw error;
   }
 };
@@ -627,7 +712,7 @@ export const getCurrentUser = async (): Promise<SpotifyApi.CurrentUsersProfileRe
   }
 };
 
-// 🚀 NEW: Get playlist tracks with real-time sync
+// Get playlist tracks with error handling
 export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.PlaylistTrackObject[]> => {
   try {
     console.log('📋 Fetching playlist tracks...');
@@ -648,83 +733,61 @@ export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.
   }
 };
 
-// 🚀 NEW: Subscribe to real-time playlist updates
+// 🚀 NEW: Subscribe to optimistic updates
 export const subscribeToPlaylistUpdates = (
   playlistId: string,
   callback: (tracks: SpotifyApi.PlaylistTrackObject[]) => void
 ): (() => void) => {
-  console.log('🚀 === SUBSCRIBING TO REAL-TIME PLAYLIST UPDATES ===');
+  console.log('🚀 === SUBSCRIBING TO OPTIMISTIC UPDATES ===');
   console.log('Playlist ID:', playlistId);
   
-  const syncManager = SpotifyRealTimeSync.getInstance();
+  const updateManager = OptimisticUpdateManager.getInstance();
   
-  // Start monitoring this playlist
-  syncManager.startMonitoring(playlistId);
+  // Load initial tracks
+  getPlaylistTracks(playlistId).then(tracks => {
+    updateManager.setTracks(tracks, playlistId);
+    
+    // Start background sync every 10 seconds
+    const syncInterval = setInterval(() => {
+      updateManager.syncWithSpotify();
+    }, 10000);
+    
+    // Store interval for cleanup
+    (updateManager as any).syncInterval = syncInterval;
+  });
   
   // Subscribe to updates
-  const unsubscribe = syncManager.subscribe(callback);
+  const unsubscribe = updateManager.subscribe(callback);
   
-  console.log('✅ Real-time subscription active');
+  console.log('✅ Optimistic update subscription active');
   
-  return unsubscribe;
-};
-
-// Get playlist snapshot ID for change detection
-export const getPlaylistSnapshot = async (playlistId: string): Promise<string | null> => {
-  try {
-    const response = await makeSpotifyApiCall(
-      `https://api.spotify.com/v1/playlists/${playlistId}?fields=snapshot_id`
-    );
-    
-    const data = await response.json();
-    return data.snapshot_id;
-  } catch (error) {
-    console.warn('Failed to get playlist snapshot:', error);
-    return null;
-  }
-};
-
-// Wait for playlist change confirmation
-export const waitForPlaylistChange = async (
-  playlistId: string, 
-  originalSnapshot: string | null,
-  maxWaitTime: number = 5000
-): Promise<boolean> => {
-  const startTime = Date.now();
-  
-  while (Date.now() - startTime < maxWaitTime) {
-    try {
-      const currentSnapshot = await getPlaylistSnapshot(playlistId);
-      
-      if (currentSnapshot && currentSnapshot !== originalSnapshot) {
-        console.log('✅ Playlist change confirmed via snapshot ID');
-        return true;
-      }
-      
-      // Wait 500ms before checking again
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-    } catch (error) {
-      console.warn('Error checking playlist snapshot:', error);
-      break;
+  return () => {
+    unsubscribe();
+    // Clean up sync interval
+    if ((updateManager as any).syncInterval) {
+      clearInterval((updateManager as any).syncInterval);
     }
-  }
-  
-  console.log('⚠️ Playlist change not confirmed within timeout');
-  return false;
+  };
 };
 
-// Bulk remove tracks from playlist with error handling
+// Bulk remove tracks from playlist with optimistic updates
 export const bulkRemoveTracksFromPlaylist = async (trackUris: string[]): Promise<void> => {
+  const updateManager = OptimisticUpdateManager.getInstance();
+  const trackIds = trackUris.map(uri => uri.split(':').pop() || '');
+  const originalTracks = updateManager.getCurrentTracks();
+  
   try {
+    console.log(`🚀 === INSTANT BULK REMOVE WITH OPTIMISTIC UPDATE ===`);
+    console.log(`Removing ${trackUris.length} tracks...`);
+    
+    // 🚀 INSTANT: Remove all tracks from UI immediately
+    updateManager.optimisticallyBulkRemove(trackIds);
+    
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
-    
     if (!selectedPlaylist) {
       throw new Error('No playlist selected');
     }
-    
-    console.log(`🗑️ Bulk removing ${trackUris.length} tracks...`);
     
     // Remove tracks in batches (Spotify API limit is 100 tracks per request)
     const batchSize = 100;
@@ -739,21 +802,22 @@ export const bulkRemoveTracksFromPlaylist = async (trackUris: string[]): Promise
       });
     }
     
-    console.log('✅ Bulk remove completed');
+    console.log('✅ Bulk remove completed in Spotify');
 
-    // 🚀 INSTANT SYNC: Force immediate refresh after bulk operation
-    const syncManager = SpotifyRealTimeSync.getInstance();
+    // Confirm all operations
+    trackIds.forEach(id => updateManager.confirmOperation(id));
     
-    // Wait a moment for Spotify to process
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Force immediate refresh
-    await syncManager.forceRefresh();
-    
-    console.log('🚀 Instant sync completed after bulk delete');
+    // Background sync after a delay
+    setTimeout(() => {
+      updateManager.syncWithSpotify();
+    }, 3000);
     
   } catch (error) {
     console.error('Failed to bulk remove tracks from playlist:', error);
+    
+    // Revert all optimistic updates on error
+    trackIds.forEach(id => updateManager.revertOperation(id, originalTracks));
+    
     throw error;
   }
 };
