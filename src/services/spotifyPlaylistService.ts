@@ -58,7 +58,7 @@ export interface PlaylistExport {
 // This must match EXACTLY what's in your Spotify app settings
 const getRedirectUri = (): string => {
   return 'https://kristinundmauro.de/';
-}
+};
 
 // 🎯 PERSISTENT PLAYLIST SELECTION
 export const getSelectedPlaylist = (): SelectedPlaylist | null => {
