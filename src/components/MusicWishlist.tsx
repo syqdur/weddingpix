@@ -140,7 +140,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
       }
     };
     
-    checkConnectionStatus();
+    checkSpotify();
   }, []);
 
   // Search with debounce
