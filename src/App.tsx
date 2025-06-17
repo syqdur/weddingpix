@@ -10,10 +10,10 @@ import { UnderConstructionPage } from './components/UnderConstructionPage';
 import { StoriesBar } from './components/StoriesBar';
 import { StoriesViewer } from './components/StoriesViewer';
 import { StoryUploadModal } from './components/StoryUploadModal';
+import { MusicRequestsSection } from './components/MusicRequestsSection';
 import { TabNavigation } from './components/TabNavigation';
 import { LiveUserIndicator } from './components/LiveUserIndicator';
-import { SpotifyCallback } from './components/SpotifyCallback';
-import { MusicWishlist } from './components/MusicWishlist';
+import { SpotifyCallbackHandler } from './components/SpotifyCallbackHandler';
 import { WeddingTimeline } from './components/WeddingTimeline';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
@@ -41,6 +41,7 @@ import {
   cleanupExpiredStories,
   Story
 } from './services/liveService';
+import { handleCallbackIfPresent, isSpotifyCallback } from './services/spotifyAuthService';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -61,26 +62,13 @@ function App() {
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const [activeTab, setActiveTab] = useState<'gallery' | 'music' | 'timeline'>('gallery');
 
-  // Listen for tab change events from AdminPanel
+  // Handle Spotify callback if present
   useEffect(() => {
-    const handleTabChange = (event: CustomEvent) => {
-      if (event.detail && event.detail.tab) {
-        setActiveTab(event.detail.tab);
-      }
-    };
-
-    window.addEventListener('tabChange', handleTabChange as EventListener);
-    
-    return () => {
-      window.removeEventListener('tabChange', handleTabChange as EventListener);
-    };
+    if (isSpotifyCallback()) {
+      console.log('🎵 Spotify callback detected, handling...');
+      // The SpotifyCallbackHandler component will handle this
+    }
   }, []);
-
-  // Check if we're on the Spotify callback page
-  const isSpotifyCallback = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.has('code') && urlParams.has('state');
-  };
 
   // Subscribe to site status changes
   useEffect(() => {
@@ -325,7 +313,17 @@ function App() {
 
   // Show Spotify callback handler if on callback page
   if (isSpotifyCallback()) {
-    return <SpotifyCallback isDarkMode={isDarkMode} />;
+    return (
+      <SpotifyCallbackHandler 
+        isDarkMode={isDarkMode}
+        onSuccess={() => {
+          console.log('✅ Spotify authentication successful');
+        }}
+        onError={(error) => {
+          console.error('❌ Spotify authentication failed:', error);
+        }}
+      />
+    );
   }
 
   // Show loading while site status is being fetched
@@ -468,12 +466,16 @@ function App() {
             />
           </>
         ) : activeTab === 'music' ? (
-          <MusicWishlist isDarkMode={isDarkMode} />
+          <MusicRequestsSection
+            userName={userName || ''}
+            deviceId={deviceId}
+            isAdmin={isAdmin}
+            isDarkMode={isDarkMode}
+          />
         ) : (
           <WeddingTimeline 
-            isDarkMode={isDarkMode}
             isAdmin={isAdmin}
-            userName={userName || ''}
+            isDarkMode={isDarkMode}
           />
         )}
       </div>

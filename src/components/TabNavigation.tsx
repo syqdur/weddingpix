@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Music, Calendar, Heart } from 'lucide-react';
+import { Camera, Music, Calendar } from 'lucide-react';
 
 interface TabNavigationProps {
   activeTab: 'gallery' | 'music' | 'timeline';
@@ -27,9 +27,9 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
     },
     {
       id: 'timeline' as const,
-      label: 'Unsere Geschichte',
-      icon: <Heart className="w-5 h-5" />,
-      emoji: '💕'
+      label: 'Timeline',
+      icon: <Calendar className="w-5 h-5" />,
+      emoji: '📅'
     }
   ];
 
