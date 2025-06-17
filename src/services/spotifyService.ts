@@ -7,7 +7,9 @@ import { SpotifyErrorHandler, SpotifyDebugger, SpotifyRetryHandler } from './spo
 // Spotify API Configuration
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '4dbf85a8ca7c43d3b2ddc540194e9387';
 const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || 'acf102b8834d48b497a7e98bf69021f6';
-const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || 'https://kristinundmauro.de/';
+// 🔧 FIX: Dynamic redirect URI based on environment
+const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || 
+  (import.meta.env.DEV ? (typeof window !== 'undefined' ? window.location.origin + '/' : 'http://localhost:5173/') : 'https://kristinundmauro.de/');
 
 // Storage keys for PKCE flow
 const PKCE_CODE_VERIFIER_KEY = 'spotify_pkce_code_verifier';
