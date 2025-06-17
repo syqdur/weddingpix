@@ -2,10 +2,10 @@
 
 /**
  * Generates a cryptographically random code verifier for PKCE
- * @returns A base64url-encoded string of 128 characters
+ * @returns A base64url-encoded string of 43-128 characters
  */
 export function generateCodeVerifier(): string {
-  const array = new Uint8Array(96); // 96 bytes = 128 base64url characters
+  const array = new Uint8Array(32); // 32 bytes = ~43 base64url characters
   crypto.getRandomValues(array);
   return base64URLEncode(array);
 }
@@ -28,35 +28,9 @@ export async function generateCodeChallenge(codeVerifier: string): Promise<strin
  * @returns A base64url-encoded string
  */
 function base64URLEncode(array: Uint8Array): string {
-  const base64 = btoa(String.fromCharCode(...array));
+  const base64 = btoa(String.fromCharCode.apply(null, [...array]));
   return base64
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '');
 }
-
-/**
- * Validates a code verifier according to PKCE specifications
- * @param codeVerifier The code verifier to validate
- * @returns True if valid, false otherwise
- */
-export function validateCodeVerifier(codeVerifier: string): boolean {
-  // PKCE code verifier must be 43-128 characters long
-  // and contain only [A-Z] / [a-z] / [0-9] / "-" / "." / "_" / "~"
-  const validPattern = /^[A-Za-z0-9\-._~]{43,128}$/;
-  return validPattern.test(codeVerifier);
-}
-
-/**
- * Validates a code challenge according to PKCE specifications
- * @param codeChallenge The code challenge to validate
- * @returns True if valid, false otherwise
- */
-export function validateCodeChallenge(codeChallenge: string): boolean {
-  // PKCE code challenge must be 43 characters long (base64url of SHA256)
-  // and contain only [A-Z] / [a-z] / [0-9] / "-" / "_"
-  const validPattern = /^[A-Za-z0-9\-_]{43}$/;
-  return validPattern.test(codeChallenge);
-}
-
-console.log('🔐 PKCE utilities loaded for secure OAuth flow');
