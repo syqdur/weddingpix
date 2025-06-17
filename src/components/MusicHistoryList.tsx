@@ -1,7 +1,7 @@
-import React from 'react';
-import { Music, Heart, ExternalLink, Users, Calendar, Trash2, Star, Play, Volume2, Clock, CheckSquare, Square } from 'lucide-react';
+import React, { useState } from 'react';
+import { Music, Heart, ExternalLink, Users, Calendar, Trash2, Clock, CheckSquare, Square } from 'lucide-react';
 import { MusicRequest } from '../types';
-import { deleteMusicRequest, voteMusicRequest } from '../services/musicService';
+import { deleteMusicRequest, voteMusicRequest, bulkDeleteMusicRequests } from '../services/spotifyIntegration';
 
 interface MusicHistoryListProps {
   requests: MusicRequest[];
@@ -16,10 +16,10 @@ export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
   isAdmin,
   isDarkMode
 }) => {
-  const [deletingRequests, setDeletingRequests] = React.useState<Set<string>>(new Set());
-  const [votingRequests, setVotingRequests] = React.useState<Set<string>>(new Set());
-  const [selectedRequests, setSelectedRequests] = React.useState<Set<string>>(new Set());
-  const [bulkDeleteMode, setBulkDeleteMode] = React.useState(false);
+  const [deletingRequests, setDeletingRequests] = useState<Set<string>>(new Set());
+  const [votingRequests, setVotingRequests] = useState<Set<string>>(new Set());
+  const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
+  const [bulkDeleteMode, setBulkDeleteMode] = useState(false);
 
   const formatDuration = (ms?: number) => {
     if (!ms) return '';
@@ -28,7 +28,7 @@ export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const getTimeAgo = (dateString: string) => {
+  const getTimeAgo = (dateString: string | number) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
@@ -77,7 +77,7 @@ export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
       setDeletingRequests(prev => new Set(prev).add(request.id));
       
       try {
-        await deleteMusicRequest(request.id);
+        await deleteMusicRequest(request.id, currentUser);
         console.log(`✅ Music request deleted: ${request.songTitle}`);
       } catch (error) {
         console.error('Error deleting request:', error);
@@ -92,7 +92,7 @@ export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
     }
   };
 
-  // 🗑️ NEW: Bulk delete functionality
+  // 🗑️ Bulk delete functionality
   const handleBulkDelete = async () => {
     if (selectedRequests.size === 0) {
       alert('Keine Songs ausgewählt.');
@@ -113,26 +113,15 @@ export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
     const confirmMessage = `${selectedRequests.size} Song${selectedRequests.size > 1 ? 's' : ''} wirklich löschen?\n\n${songTitles}\n\n⚠️ Alle Songs werden auch automatisch aus der Spotify-Playlist entfernt!`;
 
     if (window.confirm(confirmMessage)) {
-      const deletePromises = Array.from(selectedRequests).map(async (requestId) => {
-        setDeletingRequests(prev => new Set(prev).add(requestId));
-        try {
-          await deleteMusicRequest(requestId);
-          console.log(`✅ Bulk deleted: ${requestId}`);
-        } catch (error) {
-          console.error(`❌ Error deleting ${requestId}:`, error);
-        } finally {
-          setDeletingRequests(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(requestId);
-            return newSet;
-          });
-        }
-      });
-
-      await Promise.all(deletePromises);
-      setSelectedRequests(new Set());
-      setBulkDeleteMode(false);
-      alert(`✅ ${selectedRequests.size} Song${selectedRequests.size > 1 ? 's' : ''} erfolgreich gelöscht!`);
+      try {
+        const result = await bulkDeleteMusicRequests(Array.from(selectedRequests), currentUser);
+        setSelectedRequests(new Set());
+        setBulkDeleteMode(false);
+        alert(`✅ ${result.success} Song${result.success > 1 ? 's' : ''} erfolgreich gelöscht!`);
+      } catch (error) {
+        console.error('Error bulk deleting:', error);
+        alert('Fehler beim Löschen der Songs. Bitte versuche es erneut.');
+      }
     }
   };
 
@@ -207,7 +196,7 @@ export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* 🗑️ NEW: Bulk Delete Controls */}
+      {/* 🗑️ Bulk Delete Controls */}
       {userDeletableSongs.length > 0 && (
         <div className={`p-4 rounded-xl transition-colors duration-300 ${
           isDarkMode ? 'bg-gray-800/50 border border-gray-700' : 'bg-white border border-gray-200 shadow-sm'
@@ -291,7 +280,7 @@ export const MusicHistoryList: React.FC<MusicHistoryListProps> = ({
                 : 'bg-white border-gray-200 hover:bg-gray-50 shadow-sm'
             } ${isDeleting ? 'opacity-50' : ''} ${isSelected ? 'ring-2 ring-red-500' : ''}`}>
               <div className="flex items-center gap-3">
-                {/* 🗑️ NEW: Selection Checkbox */}
+                {/* 🗑️ Selection Checkbox */}
                 {showCheckbox && (
                   <button
                     onClick={() => toggleSelection(request.id)}

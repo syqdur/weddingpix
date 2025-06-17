@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, History, Music, Sparkles, TrendingUp, Users, Clock, Search, Filter, SortAsc, Award, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
+import { Plus, Music, TrendingUp, Users, Clock, Search, SortAsc, Award, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
 import { MusicRequest } from '../types';
-import { loadMusicRequests } from '../services/musicService';
+import { subscribeMusicRequests } from '../services/spotifyIntegration';
 import { MusicHistoryList } from './MusicHistoryList';
 import { MusicRequestModal } from './MusicRequestModal';
-import { PlaylistExportModal } from './PlaylistExportModal';
 import { subscribeToSharedSpotifyStatus } from '../services/spotifyPlaylistService';
 
 interface MusicRequestsSectionProps {
@@ -21,7 +20,6 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
   isDarkMode
 }) => {
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [allRequests, setAllRequests] = useState<MusicRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +43,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
     console.log('🎵 Setting up music requests subscription...');
     setIsLoading(true);
     
-    const unsubscribe = loadMusicRequests((requests) => {
+    const unsubscribe = subscribeMusicRequests((requests) => {
       console.log(`🎵 Received ${requests.length} music requests`);
       setAllRequests(requests);
       setIsLoading(false);
@@ -98,9 +96,9 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
       switch (sortBy) {
         case 'popular':
           if (a.votes !== b.votes) return b.votes - a.votes;
-          return new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime();
+          return b.requestedAt - a.requestedAt;
         case 'newest':
-          return new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime();
+          return b.requestedAt - a.requestedAt;
         case 'alphabetical':
           return a.songTitle.localeCompare(b.songTitle);
         default:
@@ -356,20 +354,6 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
               <Plus className="w-4 h-4" />
               <span className="font-semibold text-sm">Song hinzufügen</span>
             </button>
-
-            {isAdmin && (
-              <button
-                onClick={() => setShowPlaylistModal(true)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 shadow-lg ${
-                  isDarkMode 
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white' 
-                    : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white'
-                }`}
-              >
-                <History className="w-4 h-4" />
-                <span className="font-semibold text-sm">Verwalten</span>
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -465,7 +449,7 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
                 />
               </div>
             </div>
-
+            
             {/* Sort Options - Compact */}
             <div className="flex gap-1">
               {[
@@ -594,16 +578,6 @@ export const MusicRequestsSection: React.FC<MusicRequestsSectionProps> = ({
         isDarkMode={isDarkMode}
         onSuccess={handleRequestSuccess}
       />
-
-      {/* Playlist Export Modal (Admin only) */}
-      {isAdmin && (
-        <PlaylistExportModal
-          isOpen={showPlaylistModal}
-          onClose={() => setShowPlaylistModal(false)}
-          isDarkMode={isDarkMode}
-          isAdmin={isAdmin}
-        />
-      )}
     </div>
   );
 };

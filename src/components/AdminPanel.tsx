@@ -5,8 +5,8 @@ import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
 import { ShowcaseModal } from './ShowcaseModal';
 import { SpotifyUriModal } from './SpotifyUriModal';
-import { PlaylistExportModal } from './PlaylistExportModal';
 import { UserManagementModal } from './UserManagementModal';
+import { SpotifyAdminPanel } from './admin/SpotifyAdminPanel';
 
 interface AdminPanelProps {
   isDarkMode: boolean;
@@ -217,7 +217,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Admin Controls - Alle Buttons in einer horizontalen Reihe */}
       {isAdmin && (
         <div className="fixed bottom-16 left-4 flex gap-2">
-          {/* 👥 NEW: USER MANAGEMENT BUTTON */}
+          {/* 👥 USER MANAGEMENT BUTTON */}
           <button
             onClick={() => setShowUserManagement(true)}
             className={`p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
@@ -330,7 +330,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* 👥 NEW: USER MANAGEMENT MODAL */}
+      {/* 👥 USER MANAGEMENT MODAL */}
       <UserManagementModal 
         isOpen={showUserManagement}
         onClose={() => setShowUserManagement(false)}
@@ -338,12 +338,64 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       />
 
       {/* 🎵 SPOTIFY ADMIN MODAL */}
-      <PlaylistExportModal 
-        isOpen={showSpotifyAdmin}
-        onClose={() => setShowSpotifyAdmin(false)}
-        isDarkMode={isDarkMode}
-        isAdmin={isAdmin}
-      />
+      {showSpotifyAdmin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className={`rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <div className={`flex items-center justify-between p-6 border-b transition-colors duration-300 ${
+              isDarkMode ? 'border-gray-700' : 'border-gray-200'
+            }`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-3 rounded-full transition-colors duration-300 ${
+                  isDarkMode ? 'bg-green-600' : 'bg-green-500'
+                }`}>
+                  <Music className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className={`text-xl font-semibold transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    Spotify Admin Panel
+                  </h3>
+                  <p className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    Verwalte die Spotify-Integration und Musikwünsche
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSpotifyAdmin(false)}
+                className={`p-2 rounded-full transition-colors duration-300 ${
+                  isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+                }`}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <SpotifyAdminPanel isDarkMode={isDarkMode} adminName="Admin" />
+            </div>
+            
+            <div className={`p-4 border-t text-center transition-colors duration-300 ${
+              isDarkMode ? 'border-gray-700' : 'border-gray-200'
+            }`}>
+              <button
+                onClick={() => setShowSpotifyAdmin(false)}
+                className={`py-2 px-6 rounded-xl transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                }`}
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Spotify URIs Modal */}
       <SpotifyUriModal 
@@ -708,3 +760,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     </>
   );
 };
+
+// X icon component
+const X: React.FC<{ className?: string }> = ({ className }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+);
