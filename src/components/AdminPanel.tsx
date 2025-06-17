@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, AlertTriangle, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code, Music } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
 import { ShowcaseModal } from './ShowcaseModal';
+import { SpotifyAdminPanel } from './SpotifyAdminPanel';
 import { UserManagementModal } from './UserManagementModal';
 
 interface AdminPanelProps {
@@ -28,6 +29,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isUpdatingSiteStatus, setIsUpdatingSiteStatus] = useState(false);
   const [showExternalServices, setShowExternalServices] = useState(false);
   const [showShowcase, setShowShowcase] = useState(false);
+  const [showSpotifyAdmin, setShowSpotifyAdmin] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
 
   const correctPIN = "2407";
@@ -53,7 +55,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   const handleToggleSiteStatus = async () => {
-    if (!isAdmin) return;
+    if (!siteStatus) return;
 
     const action = siteStatus.isUnderConstruction ? 'freischalten' : 'sperren';
     const confirmMessage = siteStatus.isUnderConstruction 
@@ -63,7 +65,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (window.confirm(confirmMessage)) {
       setIsUpdatingSiteStatus(true);
       try {
-        await updateSiteStatus(!siteStatus.isUnderConstruction, 'Admin');
+        await updateSiteStatus(!siteStatus.isUnderConstruction, 'Mauro');
         
         const successMessage = siteStatus.isUnderConstruction
           ? '✅ Website wurde erfolgreich freigeschaltet!\n\n🌐 Alle Besucher können jetzt auf die Galerie zugreifen.'
@@ -213,7 +215,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Admin Controls - Alle Buttons in einer horizontalen Reihe */}
       {isAdmin && (
         <div className="fixed bottom-16 left-4 flex gap-2">
-          {/* 👥 USER MANAGEMENT BUTTON */}
+          {/* USER MANAGEMENT BUTTON */}
           <button
             onClick={() => setShowUserManagement(true)}
             className={`p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
@@ -224,6 +226,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             title="👥 User Management - Alle Benutzer und deren Status anzeigen"
           >
             <Users className="w-5 h-5" />
+          </button>
+
+          {/* SPOTIFY ADMIN BUTTON */}
+          <button
+            onClick={() => setShowSpotifyAdmin(true)}
+            className={`p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
+              isDarkMode
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-green-500 hover:bg-green-600 text-white'
+            }`}
+            title="🎵 Spotify Admin - Account verbinden und Playlist verwalten"
+          >
+            <Music className="w-5 h-5" />
           </button>
 
           {/* Showcase Button */}
@@ -300,10 +315,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       )}
 
-      {/* 👥 USER MANAGEMENT MODAL */}
+      {/* USER MANAGEMENT MODAL */}
       <UserManagementModal 
         isOpen={showUserManagement}
         onClose={() => setShowUserManagement(false)}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* SPOTIFY ADMIN MODAL */}
+      <SpotifyAdminPanel 
+        isOpen={showSpotifyAdmin}
+        onClose={() => setShowSpotifyAdmin(false)}
         isDarkMode={isDarkMode}
       />
 
@@ -552,6 +574,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 isDarkMode ? 'text-gray-300' : 'text-gray-600'
               }`}>
                 <li>• 👥 User Management - Alle Benutzer und Status anzeigen</li>
+                <li>• 🎵 Spotify-Account verbinden und Playlist verwalten</li>
                 <li>• Website für alle freischalten/sperren</li>
                 <li>• Medien und Kommentare löschen</li>
                 <li>• Deutsche Fotobuch-Services</li>
@@ -661,20 +684,3 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     </>
   );
 };
-
-// X icon component
-const X: React.FC<{ className?: string }> = ({ className }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <line x1="18" y1="6" x2="6" y2="18"></line>
-    <line x1="6" y1="6" x2="18" y2="18"></line>
-  </svg>
-);
