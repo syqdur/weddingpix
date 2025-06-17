@@ -54,10 +54,9 @@ export interface PlaylistExport {
   totalTracks: number;
 }
 
-// 🔧 FIXED: Correct redirect URI detection for production
+// CRITICAL FIX: Always return the exact same redirect URI that's configured in Spotify
+// This must match EXACTLY what's in your Spotify app settings
 const getRedirectUri = (): string => {
-  // CRITICAL FIX: Always return the exact same redirect URI that's configured in Spotify
-  // This must match EXACTLY what's in your Spotify app settings
   return 'https://kristinundmauro.de/';
 }
 

@@ -75,10 +75,8 @@ const generateDeviceId = (): string => {
   return deviceId;
 };
 
-// 🔧 FIXED: Simplified redirect URI that matches Spotify app configuration
+// CRITICAL FIX: Always return the exact same redirect URI that's configured in Spotify
 const getRedirectUri = (): string => {
-  // CRITICAL FIX: Always return the exact same redirect URI that's configured in Spotify
-  // This must match EXACTLY what's in your Spotify app settings
   return 'https://kristinundmauro.de/';
 }
 
