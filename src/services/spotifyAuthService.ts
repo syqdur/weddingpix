@@ -1,5 +1,6 @@
 // Spotify Authentication Service
 import { v4 as uuidv4 } from 'uuid';
+import { storeSharedSpotifyTokens, getValidSharedAccessToken, isSharedSpotifyAvailable } from './spotifyTokenService';
 
 // Spotify API Configuration
 const SPOTIFY_CLIENT_ID = '4dbf85a8ca7c43d3b2ddc540194e9387';
@@ -72,9 +73,9 @@ const getStoredAccessToken = (): string | null => {
 };
 
 const storeTokens = (accessToken: string, expiresIn: number, refreshToken?: string) => {
-  // Store tokens for 30 days instead of the default expiry time
-  const thirtyDaysInSeconds = 30 * 24 * 60 * 60;
-  const expiryTime = Date.now() + (thirtyDaysInSeconds * 1000);
+  // Store tokens for 40 days instead of the default expiry time
+  const fortyDaysInSeconds = 40 * 24 * 60 * 60;
+  const expiryTime = Date.now() + (fortyDaysInSeconds * 1000);
   
   localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
   localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
@@ -83,7 +84,7 @@ const storeTokens = (accessToken: string, expiresIn: number, refreshToken?: stri
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
   
-  console.log(`🔑 Tokens stored for 30 days (extended from ${Math.floor(expiresIn / 60)} minutes)`);
+  console.log(`🔑 Tokens stored for 40 days (extended from ${Math.floor(expiresIn / 60)} minutes)`);
 };
 
 export const clearStoredTokens = () => {
@@ -116,7 +117,7 @@ export const setSelectedPlaylist = (playlist: { id: string; name: string }) => {
   console.log(`🎵 Selected playlist: ${playlist.name} (${playlist.id})`);
 };
 
-// Authentication Status
+// Authentication Status - ENHANCED to check both local and shared tokens
 export const isSpotifyAuthenticated = (): boolean => {
   const token = getStoredAccessToken();
   const userInfo = getStoredUserInfo();
@@ -203,19 +204,18 @@ export const handleSpotifyCallback = async (): Promise<boolean> => {
     // Store tokens with extended expiry
     storeTokens(tokenData.access_token, tokenData.expires_in, tokenData.refresh_token);
     
-    // Get user info
-    const userResponse = await fetch('https://api.spotify.com/v1/me', {
-      headers: {
-        'Authorization': `Bearer ${tokenData.access_token}`
-      }
-    });
-    
-    if (userResponse.ok) {
-      const userData = await userResponse.json();
-      storeUserInfo(userData);
-      console.log(`✅ User info loaded: ${userData.display_name}`);
-    } else {
-      console.warn('⚠️ Could not load user info, but auth was successful');
+    // Store shared tokens for all users
+    const userInfo = await fetchUserInfo(tokenData.access_token);
+    if (userInfo) {
+      storeUserInfo(userInfo);
+      
+      // Store shared tokens for all users
+      await storeSharedSpotifyTokens(
+        tokenData.access_token,
+        tokenData.refresh_token,
+        tokenData.expires_in,
+        userInfo.display_name
+      );
     }
     
     // Clean URL
@@ -229,6 +229,29 @@ export const handleSpotifyCallback = async (): Promise<boolean> => {
     clearStoredTokens();
     alert(`Spotify Authentifizierung fehlgeschlagen: ${error.message}`);
     return false;
+  }
+};
+
+// Fetch user info
+const fetchUserInfo = async (accessToken: string): Promise<SpotifyUserInfo | null> => {
+  try {
+    const userResponse = await fetch('https://api.spotify.com/v1/me', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    if (userResponse.ok) {
+      const userData = await userResponse.json();
+      console.log(`✅ User info loaded: ${userData.display_name}`);
+      return userData;
+    } else {
+      console.warn('⚠️ Could not load user info');
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Error fetching user info:', error);
+    return null;
   }
 };
 
@@ -275,16 +298,32 @@ const refreshAccessToken = async (): Promise<string | null> => {
   }
 };
 
-// Get Valid Access Token
+// Get Valid Access Token - ENHANCED to try shared token if local token fails
 export const getValidAccessToken = async (): Promise<string | null> => {
+  // Try local admin token first
   let token = getStoredAccessToken();
   
   if (!token) {
-    console.log('🔄 No valid token, trying to refresh...');
+    console.log('🔄 No local token, trying to refresh...');
     token = await refreshAccessToken();
   }
   
-  return token;
+  if (token) {
+    console.log('✅ Using local admin token');
+    return token;
+  }
+  
+  // Try shared token for all users
+  console.log('🔄 No local token, trying shared token...');
+  const sharedToken = await getValidSharedAccessToken();
+  
+  if (sharedToken) {
+    console.log('✅ Using shared token');
+    return sharedToken;
+  }
+  
+  console.log('❌ No valid tokens available');
+  return null;
 };
 
 // API Methods
