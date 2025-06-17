@@ -312,18 +312,6 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     });
   };
 
-  const getTimeAgo = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diffInDays === 0) return 'Heute';
-    if (diffInDays === 1) return 'Gestern';
-    if (diffInDays < 30) return `vor ${diffInDays} Tagen`;
-    if (diffInDays < 365) return `vor ${Math.floor(diffInDays / 30)} Monaten`;
-    return `vor ${Math.floor(diffInDays / 365)} Jahren`;
-  };
-
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -774,7 +762,6 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                             }`}>
                               <Calendar className="w-4 h-4" />
                               <span>{formatDate(event.date)}</span>
-                              <span className="text-xs opacity-75">({getTimeAgo(event.date)})</span>
                             </div>
                             {event.location && (
                               <div className={`flex items-center gap-1 transition-colors duration-300 ${
