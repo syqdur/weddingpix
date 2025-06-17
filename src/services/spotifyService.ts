@@ -3,6 +3,7 @@ import { collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc } 
 import { db } from '../config/firebase';
 import { SpotifyCredentials, SelectedPlaylist, SpotifyTrack } from '../types';
 import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
+import { SpotifyErrorHandler, SpotifyDebugger, SpotifyRetryHandler } from './spotifyErrorHandler';
 
 // Spotify API Configuration
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '4dbf85a8ca7c43d3b2ddc540194e9387';
@@ -22,39 +23,50 @@ const PKCE_STATE_KEY = 'spotify_pkce_state';
 
 // Generate authorization URL with PKCE
 export const getAuthorizationUrl = async (): Promise<string> => {
-  // Generate code verifier and challenge
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = await generateCodeChallenge(codeVerifier);
-  
-  // Generate random state
-  const state = Math.random().toString(36).substring(2, 15);
-  
-  // Store code verifier and state in localStorage
-  localStorage.setItem(PKCE_CODE_VERIFIER_KEY, codeVerifier);
-  localStorage.setItem(PKCE_STATE_KEY, state);
-  
-  // Define scopes
-  const scopes = [
-    'playlist-read-private',
-    'playlist-read-collaborative',
-    'playlist-modify-public',
-    'playlist-modify-private',
-    'user-read-private',
-    'user-read-email'
-  ];
-  
-  // Build authorization URL with PKCE parameters
-  const params = new URLSearchParams({
-    client_id: SPOTIFY_CLIENT_ID,
-    response_type: 'code',
-    redirect_uri: SPOTIFY_REDIRECT_URI,
-    code_challenge_method: 'S256',
-    code_challenge: codeChallenge,
-    state: state,
-    scope: scopes.join(' ')
-  });
-  
-  return `https://accounts.spotify.com/authorize?${params.toString()}`;
+  try {
+    // Debug environment configuration
+    SpotifyDebugger.logEnvironmentConfig();
+    SpotifyDebugger.validateRedirectUri();
+    
+    // Generate code verifier and challenge
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+    
+    // Generate random state
+    const state = Math.random().toString(36).substring(2, 15);
+    
+    // Store code verifier and state in localStorage
+    localStorage.setItem(PKCE_CODE_VERIFIER_KEY, codeVerifier);
+    localStorage.setItem(PKCE_STATE_KEY, state);
+    
+    // Define scopes
+    const scopes = [
+      'playlist-read-private',
+      'playlist-read-collaborative',
+      'playlist-modify-public',
+      'playlist-modify-private',
+      'user-read-private',
+      'user-read-email'
+    ];
+    
+    // Build authorization URL with PKCE parameters
+    const params = new URLSearchParams({
+      client_id: SPOTIFY_CLIENT_ID,
+      response_type: 'code',
+      redirect_uri: SPOTIFY_REDIRECT_URI,
+      code_challenge_method: 'S256',
+      code_challenge: codeChallenge,
+      state: state,
+      scope: scopes.join(' ')
+    });
+    
+    return `https://accounts.spotify.com/authorize?${params.toString()}`;
+  } catch (error) {
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'get_auth_url'
+    });
+    throw spotifyError;
+  }
 };
 
 // Exchange authorization code for tokens
@@ -72,24 +84,29 @@ export const exchangeCodeForTokens = async (code: string, state: string): Promis
       throw new Error('Code verifier not found.');
     }
     
-    // Exchange code for tokens
-    const response = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        client_id: SPOTIFY_CLIENT_ID,
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: SPOTIFY_REDIRECT_URI,
-        code_verifier: codeVerifier
-      })
+    // Exchange code for tokens with retry mechanism
+    const response = await SpotifyRetryHandler.withRetry(async () => {
+      return await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          client_id: SPOTIFY_CLIENT_ID,
+          grant_type: 'authorization_code',
+          code: code,
+          redirect_uri: SPOTIFY_REDIRECT_URI,
+          code_verifier: codeVerifier
+        })
+      });
     });
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Token exchange failed: ${errorData.error_description || response.statusText}`);
+      const error = new Error(`Token exchange failed: ${errorData.error_description || response.statusText}`);
+      (error as any).status = response.status;
+      (error as any).body = errorData;
+      throw error;
     }
     
     const data = await response.json();
@@ -117,8 +134,12 @@ export const exchangeCodeForTokens = async (code: string, state: string): Promis
       ...credentials
     };
   } catch (error) {
-    console.error('Token exchange error:', error);
-    throw error;
+    const urlParams = new URLSearchParams(window.location.search);
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'oauth_callback',
+      urlParams
+    });
+    throw spotifyError;
   }
 };
 
@@ -128,8 +149,10 @@ export const refreshAccessToken = async (credentials: SpotifyCredentials): Promi
     // Set refresh token
     spotifyApi.setRefreshToken(credentials.refreshToken);
     
-    // Refresh access token
-    const data = await spotifyApi.refreshAccessToken();
+    // Refresh access token with retry mechanism
+    const data = await SpotifyRetryHandler.withRetry(async () => {
+      return await spotifyApi.refreshAccessToken();
+    });
     
     // Calculate new expiry time
     const expiresAt = Date.now() + (data.body.expires_in * 1000);
@@ -152,12 +175,14 @@ export const refreshAccessToken = async (credentials: SpotifyCredentials): Promi
       ...updatedCredentials
     };
   } catch (error) {
-    console.error('Failed to refresh access token:', error);
-    throw error;
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'refresh_token'
+    });
+    throw spotifyError;
   }
 };
 
-// Get valid credentials
+// Get valid credentials with automatic refresh
 export const getValidCredentials = async (): Promise<SpotifyCredentials | null> => {
   try {
     // Query for credentials
@@ -180,12 +205,16 @@ export const getValidCredentials = async (): Promise<SpotifyCredentials | null> 
     
     if (now + tokenExpiryBuffer >= credentials.expiresAt) {
       // Token is expired or about to expire, refresh it
+      console.log('🔄 Token expiring soon, refreshing...');
       return await refreshAccessToken(credentials);
     }
     
     return credentials;
   } catch (error) {
-    console.error('Failed to get valid credentials:', error);
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'get_credentials'
+    });
+    console.error('Failed to get valid credentials:', spotifyError);
     return null;
   }
 };
@@ -202,9 +231,16 @@ export const disconnectSpotify = async (): Promise<void> => {
     
     // Delete credentials from Firestore
     await deleteDoc(doc(db, 'spotifyCredentials', credentials.id));
+    
+    // Clear any cached tokens
+    localStorage.removeItem(PKCE_CODE_VERIFIER_KEY);
+    localStorage.removeItem(PKCE_STATE_KEY);
+    
   } catch (error) {
-    console.error('Failed to disconnect Spotify:', error);
-    throw error;
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'disconnect'
+    });
+    throw spotifyError;
   }
 };
 
@@ -219,7 +255,7 @@ export const isSpotifyConnected = async (): Promise<boolean> => {
   }
 };
 
-// Get user's playlists
+// Get user's playlists with error handling
 export const getUserPlaylists = async (): Promise<SpotifyApi.PlaylistObjectSimplified[]> => {
   try {
     const credentials = await getValidCredentials();
@@ -231,12 +267,18 @@ export const getUserPlaylists = async (): Promise<SpotifyApi.PlaylistObjectSimpl
     // Set access token
     spotifyApi.setAccessToken(credentials.accessToken);
     
-    // Get user's playlists
-    const data = await spotifyApi.getUserPlaylists({ limit: 50 });
+    // Get user's playlists with retry mechanism
+    const data = await SpotifyRetryHandler.withRetry(async () => {
+      return await spotifyApi.getUserPlaylists({ limit: 50 });
+    });
+    
     return data.body.items;
   } catch (error) {
-    console.error('Failed to get user playlists:', error);
-    throw error;
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'get_playlists',
+      requiredScope: 'playlist-read-private'
+    });
+    throw spotifyError;
   }
 };
 
@@ -279,8 +321,10 @@ export const saveSelectedPlaylist = async (playlistId: string, name: string): Pr
       ...newPlaylist
     };
   } catch (error) {
-    console.error('Failed to save selected playlist:', error);
-    throw error;
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'save_playlist'
+    });
+    throw spotifyError;
   }
 };
 
@@ -299,12 +343,15 @@ export const getSelectedPlaylist = async (): Promise<SelectedPlaylist | null> =>
       ...playlistSnapshot.docs[0].data()
     } as SelectedPlaylist;
   } catch (error) {
-    console.error('Failed to get selected playlist:', error);
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'get_selected_playlist'
+    });
+    console.error('Failed to get selected playlist:', spotifyError);
     return null;
   }
 };
 
-// Search for tracks
+// Search for tracks with error handling
 export const searchTracks = async (query: string): Promise<SpotifyTrack[]> => {
   try {
     const credentials = await getValidCredentials();
@@ -316,8 +363,10 @@ export const searchTracks = async (query: string): Promise<SpotifyTrack[]> => {
     // Set access token
     spotifyApi.setAccessToken(credentials.accessToken);
     
-    // Search for tracks
-    const data = await spotifyApi.searchTracks(query, { limit: 20 });
+    // Search for tracks with retry mechanism
+    const data = await SpotifyRetryHandler.withRetry(async () => {
+      return await spotifyApi.searchTracks(query, { limit: 20 });
+    });
     
     // Map to our SpotifyTrack interface
     return data.body.tracks.items.map(track => ({
@@ -331,12 +380,15 @@ export const searchTracks = async (query: string): Promise<SpotifyTrack[]> => {
       uri: track.uri
     }));
   } catch (error) {
-    console.error('Failed to search tracks:', error);
-    throw error;
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'search_tracks',
+      requiredScope: 'user-read-private'
+    });
+    throw spotifyError;
   }
 };
 
-// Add track to playlist
+// Add track to playlist with error handling
 export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
   try {
     const credentials = await getValidCredentials();
@@ -355,15 +407,20 @@ export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
     // Set access token
     spotifyApi.setAccessToken(credentials.accessToken);
     
-    // Add track to playlist
-    await spotifyApi.addTracksToPlaylist(selectedPlaylist.playlistId, [trackUri]);
+    // Add track to playlist with retry mechanism
+    await SpotifyRetryHandler.withRetry(async () => {
+      return await spotifyApi.addTracksToPlaylist(selectedPlaylist.playlistId, [trackUri]);
+    });
   } catch (error) {
-    console.error('Failed to add track to playlist:', error);
-    throw error;
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'add_track',
+      requiredScope: 'playlist-modify-public playlist-modify-private'
+    });
+    throw spotifyError;
   }
 };
 
-// Remove track from playlist
+// Remove track from playlist with error handling
 export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> => {
   try {
     const credentials = await getValidCredentials();
@@ -382,15 +439,20 @@ export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> =
     // Set access token
     spotifyApi.setAccessToken(credentials.accessToken);
     
-    // Remove track from playlist
-    await spotifyApi.removeTracksFromPlaylist(selectedPlaylist.playlistId, [{ uri: trackUri }]);
+    // Remove track from playlist with retry mechanism
+    await SpotifyRetryHandler.withRetry(async () => {
+      return await spotifyApi.removeTracksFromPlaylist(selectedPlaylist.playlistId, [{ uri: trackUri }]);
+    });
   } catch (error) {
-    console.error('Failed to remove track from playlist:', error);
-    throw error;
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'remove_track',
+      requiredScope: 'playlist-modify-public playlist-modify-private'
+    });
+    throw spotifyError;
   }
 };
 
-// Get current user profile
+// Get current user profile with error handling
 export const getCurrentUser = async (): Promise<SpotifyApi.CurrentUsersProfileResponse | null> => {
   try {
     const credentials = await getValidCredentials();
@@ -402,16 +464,23 @@ export const getCurrentUser = async (): Promise<SpotifyApi.CurrentUsersProfileRe
     // Set access token
     spotifyApi.setAccessToken(credentials.accessToken);
     
-    // Get current user
-    const data = await spotifyApi.getMe();
+    // Get current user with retry mechanism
+    const data = await SpotifyRetryHandler.withRetry(async () => {
+      return await spotifyApi.getMe();
+    });
+    
     return data.body;
   } catch (error) {
-    console.error('Failed to get current user:', error);
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'get_user',
+      requiredScope: 'user-read-private'
+    });
+    console.error('Failed to get current user:', spotifyError);
     return null;
   }
 };
 
-// Get playlist tracks
+// Get playlist tracks with error handling
 export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.PlaylistTrackObject[]> => {
   try {
     const credentials = await getValidCredentials();
@@ -423,16 +492,22 @@ export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.
     // Set access token
     spotifyApi.setAccessToken(credentials.accessToken);
     
-    // Get playlist tracks
-    const data = await spotifyApi.getPlaylistTracks(playlistId);
+    // Get playlist tracks with retry mechanism
+    const data = await SpotifyRetryHandler.withRetry(async () => {
+      return await spotifyApi.getPlaylistTracks(playlistId);
+    });
+    
     return data.body.items;
   } catch (error) {
-    console.error('Failed to get playlist tracks:', error);
-    throw error;
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'get_playlist_tracks',
+      requiredScope: 'playlist-read-private'
+    });
+    throw spotifyError;
   }
 };
 
-// Bulk remove tracks from playlist
+// Bulk remove tracks from playlist with error handling
 export const bulkRemoveTracksFromPlaylist = async (trackUris: string[]): Promise<void> => {
   try {
     const credentials = await getValidCredentials();
@@ -455,13 +530,26 @@ export const bulkRemoveTracksFromPlaylist = async (trackUris: string[]): Promise
     const batchSize = 100;
     for (let i = 0; i < trackUris.length; i += batchSize) {
       const batch = trackUris.slice(i, i + batchSize);
-      await spotifyApi.removeTracksFromPlaylist(
-        selectedPlaylist.playlistId, 
-        batch.map(uri => ({ uri }))
-      );
+      
+      await SpotifyRetryHandler.withRetry(async () => {
+        return await spotifyApi.removeTracksFromPlaylist(
+          selectedPlaylist.playlistId, 
+          batch.map(uri => ({ uri }))
+        );
+      });
     }
   } catch (error) {
-    console.error('Failed to bulk remove tracks from playlist:', error);
-    throw error;
+    const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
+      operation: 'bulk_remove_tracks',
+      requiredScope: 'playlist-modify-public playlist-modify-private'
+    });
+    throw spotifyError;
   }
+};
+
+// Test Spotify API connection (for debugging)
+export const testSpotifyConnection = async (): Promise<void> => {
+  SpotifyDebugger.logEnvironmentConfig();
+  await SpotifyDebugger.testSpotifyConnection();
+  SpotifyDebugger.validateRedirectUri();
 };
