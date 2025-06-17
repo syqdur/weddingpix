@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Search, X, Plus, Trash2, ExternalLink, AlertCircle, RefreshCw } from 'lucide-react';
+import { Music, Search, X, Plus, Trash2, ExternalLink, AlertCircle, RefreshCw, Clock, Heart, Play, Volume2 } from 'lucide-react';
 import { 
   searchTracks, 
   addTrackToPlaylist, 
@@ -25,6 +25,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   const [selectedPlaylist, setSelectedPlaylist] = useState<{ id: string; name: string } | null>(null);
   const [isAddingTrack, setIsAddingTrack] = useState<string | null>(null);
   const [isRemovingTrack, setIsRemovingTrack] = useState<string | null>(null);
+  const [showAddSuccess, setShowAddSuccess] = useState(false);
 
   // Check if Spotify is connected and load playlist tracks
   useEffect(() => {
@@ -95,6 +96,10 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     try {
       await addTrackToPlaylist(track.uri);
       
+      // Show success message
+      setShowAddSuccess(true);
+      setTimeout(() => setShowAddSuccess(false), 3000);
+      
       // Refresh playlist tracks
       if (selectedPlaylist) {
         const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
@@ -157,28 +162,39 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     }
   };
 
+  // Format duration
+  const formatDuration = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
   if (!isSpotifyAvailable) {
     return (
-      <div className={`p-6 rounded-xl border transition-colors duration-300 ${
-        isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'
+      <div className={`p-6 transition-colors duration-300 ${
+        isDarkMode ? 'bg-black' : 'bg-[#121212]'
       }`}>
-        <div className="text-center py-8">
-          <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-colors duration-300 ${
-            isDarkMode ? 'bg-yellow-600' : 'bg-yellow-500'
-          }`}>
-            <Music className="w-8 h-8 text-white" />
+        <div className="text-center py-12">
+          <div className="w-16 h-16 mx-auto mb-6">
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg"
+              alt="Spotify Logo"
+              className="w-full h-full"
+            />
           </div>
           
-          <h3 className={`text-xl font-semibold mb-2 transition-colors duration-300 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            Spotify Not Connected
+          <h3 className="text-xl font-bold mb-2 text-white">
+            Spotify nicht verbunden
           </h3>
           
-          <p className={`text-sm mb-6 max-w-md mx-auto transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
-            An admin needs to connect a Spotify account and select a playlist before music requests can be made.
+          <p className="text-sm mb-6 max-w-md mx-auto text-gray-400">
+            Ein Administrator muss zuerst ein Spotify-Konto verbinden und eine Playlist auswählen, bevor Musikwünsche möglich sind.
           </p>
         </div>
       </div>
@@ -187,26 +203,24 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
 
   if (!selectedPlaylist) {
     return (
-      <div className={`p-6 rounded-xl border transition-colors duration-300 ${
-        isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'
+      <div className={`p-6 transition-colors duration-300 ${
+        isDarkMode ? 'bg-black' : 'bg-[#121212]'
       }`}>
-        <div className="text-center py-8">
-          <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-colors duration-300 ${
-            isDarkMode ? 'bg-yellow-600' : 'bg-yellow-500'
-          }`}>
-            <Music className="w-8 h-8 text-white" />
+        <div className="text-center py-12">
+          <div className="w-16 h-16 mx-auto mb-6">
+            <img
+              src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg"
+              alt="Spotify Logo"
+              className="w-full h-full"
+            />
           </div>
           
-          <h3 className={`text-xl font-semibold mb-2 transition-colors duration-300 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            No Playlist Selected
+          <h3 className="text-xl font-bold mb-2 text-white">
+            Keine Playlist ausgewählt
           </h3>
           
-          <p className={`text-sm mb-6 max-w-md mx-auto transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}>
-            An admin needs to select a playlist before music requests can be made.
+          <p className="text-sm mb-6 max-w-md mx-auto text-gray-400">
+            Ein Administrator muss zuerst eine Playlist auswählen, bevor Musikwünsche möglich sind.
           </p>
         </div>
       </div>
@@ -214,129 +228,107 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   }
 
   return (
-    <div className={`p-6 rounded-xl border transition-colors duration-300 ${
-      isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'
+    <div className={`transition-colors duration-300 ${
+      isDarkMode ? 'bg-black' : 'bg-[#121212]'
     }`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-         <div className={`p-3 rounded-full transition-colors duration-300 ${isDarkMode ? 'bg-green-600' : 'bg-green-500'}`}>
-  <img
-    src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg"
-    alt="Spotify Icon"
-    className="w-6 h-6"
-  />
-</div>
-          <div>
-            <h3 className={`text-xl font-semibold transition-colors duration-300 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              Musikwünsche
-            </h3>
-            <p className={`text-sm transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Füge Songs zur "{selectedPlaylist.name}" Playlist hinzu!
+      {/* Header with gradient */}
+      <div className="bg-gradient-to-b from-[#1DB954] to-transparent pt-6 pb-12 px-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 shadow-lg rounded-md overflow-hidden">
+              <img
+                src="https://upload.wikimedia.org/wikipedia/commons/8/84/Spotify_icon.svg"
+                alt="Spotify Logo"
+                className="w-full h-full bg-[#1DB954] p-2"
+              />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-white opacity-90">Playlist</p>
+              <h3 className="text-2xl font-bold text-white">
+                {selectedPlaylist.name}
+              </h3>
+              <p className="text-sm text-white opacity-80 mt-1">
+                {playlistTracks.length} Songs • Hochzeits-Playlist
+              </p>
+            </div>
+          </div>
+          <a
+            href={`https://open.spotify.com/playlist/${selectedPlaylist.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-2 rounded-full bg-[#1DB954] text-white hover:bg-opacity-80 transition-colors"
+            title="In Spotify öffnen"
+          >
+            <ExternalLink className="w-5 h-5" />
+          </a>
+        </div>
+
+        {/* Search Section */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Suche nach Songs oder Interpreten..."
+            className="w-full pl-10 pr-10 py-3 bg-white bg-opacity-10 border border-white border-opacity-10 rounded-full text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-white hover:bg-opacity-10"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Success Message */}
+      {showAddSuccess && (
+        <div className="mx-6 mb-4 p-3 bg-[#1DB954] bg-opacity-20 border border-[#1DB954] border-opacity-30 rounded-lg">
+          <div className="flex items-center gap-2">
+            <div className="p-1 rounded-full bg-[#1DB954]">
+              <Check className="w-4 h-4 text-white" />
+            </div>
+            <p className="text-sm font-medium text-[#1DB954]">
+              Song erfolgreich zur Playlist hinzugefügt!
             </p>
           </div>
         </div>
-        <a
-          href={`https://open.spotify.com/playlist/${selectedPlaylist.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`p-2 rounded-lg transition-colors duration-300 ${
-            isDarkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'
-          } text-white`}
-          title="Open in Spotify"
-        >
-          <ExternalLink className="w-5 h-5" />
-        </a>
-      </div>
+      )}
 
       {/* Error Display */}
       {error && (
-        <div className={`mb-6 p-4 rounded-xl border transition-colors duration-300 ${
-          isDarkMode ? 'bg-red-900/20 border-red-700/30' : 'bg-red-50 border-red-200'
-        }`}>
+        <div className="mx-6 mb-4 p-3 bg-red-900 bg-opacity-20 border border-red-500 border-opacity-30 rounded-lg">
           <div className="flex items-center gap-2">
-            <AlertCircle className={`w-5 h-5 transition-colors duration-300 ${
-              isDarkMode ? 'text-red-400' : 'text-red-600'
-            }`} />
-            <p className={`text-sm transition-colors duration-300 ${
-              isDarkMode ? 'text-red-300' : 'text-red-700'
-            }`}>
+            <AlertCircle className="w-5 h-5 text-red-500" />
+            <p className="text-sm text-red-400">
               {error}
             </p>
           </div>
         </div>
       )}
 
-      {/* Search Section */}
-      <div className="mb-6">
-        <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-          isDarkMode ? 'text-white' : 'text-gray-900'
-        }`}>
-          🔍 Suche nach Songs
-        </label>
-        <div className="relative">
-          <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-500'
-          }`} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Suche nach Titel oder Interpret z.B. Mauro..."
-            className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-colors duration-300 ${
-              isDarkMode 
-                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-            }`}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-colors duration-300 ${
-                isDarkMode ? 'hover:bg-gray-600 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
-              }`}
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-        
-        {isSearching && (
-          <div className="mt-2 flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className={`text-sm transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Suche...
-            </span>
+      {/* Content Area */}
+      <div className="px-6 -mt-6">
+        {/* Search Results */}
+        {isSearching ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-8 h-8 border-4 border-[#1DB954] border-t-transparent rounded-full animate-spin"></div>
           </div>
-        )}
-      </div>
-
-      {/* Search Results */}
-      {searchResults.length > 0 && (
-        <div className="mb-6">
-          <h4 className={`font-semibold mb-3 transition-colors duration-300 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            Search Results
-          </h4>
-          <div className="max-h-60 overflow-y-auto space-y-2">
-            {searchResults.map((track) => (
-              <div
-                key={track.id}
-                className={`p-3 rounded-lg border transition-all duration-300 ${
-                  isDarkMode 
-                    ? 'bg-gray-700/50 border-gray-600 hover:bg-gray-700' 
-                    : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
+        ) : searchResults.length > 0 ? (
+          <div className="mb-8">
+            <h4 className="text-white text-lg font-bold mb-4">
+              Suchergebnisse
+            </h4>
+            <div className="space-y-2">
+              {searchResults.map((track) => (
+                <div
+                  key={track.id}
+                  className="p-3 rounded-md bg-white bg-opacity-5 hover:bg-opacity-10 transition-all duration-200 flex items-center gap-3"
+                >
+                  <div className="w-12 h-12 rounded overflow-hidden bg-gray-800 flex-shrink-0">
                     {track.album?.images?.[0] ? (
                       <img 
                         src={track.album.images[0].url} 
@@ -350,14 +342,10 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h5 className={`font-medium truncate transition-colors duration-300 ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
+                    <h5 className="font-medium truncate text-white">
                       {track.name}
                     </h5>
-                    <p className={`text-xs truncate transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
+                    <p className="text-xs truncate text-gray-400">
                       {track.artists.map(a => a.name).join(', ')}
                       {track.album && ` • ${track.album.name}`}
                     </p>
@@ -365,16 +353,8 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                   <button
                     onClick={() => handleAddTrack(track)}
                     disabled={isAddingTrack === track.id}
-                    className={`p-2 rounded-lg transition-colors duration-300 ${
-                      isAddingTrack === track.id
-                        ? 'cursor-not-allowed opacity-50'
-                        : ''
-                    } ${
-                      isDarkMode 
-                        ? 'bg-green-600 hover:bg-green-700 text-white' 
-                        : 'bg-green-500 hover:bg-green-600 text-white'
-                    }`}
-                    title="Add to playlist"
+                    className="p-2 rounded-full bg-[#1DB954] text-white hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Zur Playlist hinzufügen"
                   >
                     {isAddingTrack === track.id ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -383,137 +363,129 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                     )}
                   </button>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Playlist Tracks */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h4 className={`font-semibold transition-colors duration-300 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
-          }`}>
-            Aktive Playlist
-          </h4>
-          <button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className={`p-2 rounded-lg transition-colors duration-300 ${
-              isLoading
-                ? 'cursor-not-allowed opacity-50'
-                : ''
-            } ${
-              isDarkMode 
-                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                : 'bg-blue-500 hover:bg-blue-600 text-white'
-            }`}
-            title="Refresh playlist"
-          >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <RefreshCw className="w-5 h-5" />
-            )}
-          </button>
-        </div>
-
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : playlistTracks.length > 0 ? (
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {playlistTracks.map((item) => (
-              <div
-                key={`${item.track.id}-${item.added_at}`}
-                className={`p-3 rounded-lg border transition-all duration-300 ${
-                  isDarkMode 
-                    ? 'bg-gray-700/50 border-gray-600 hover:bg-gray-700' 
-                    : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-300 flex-shrink-0">
-                    {item.track.album?.images?.[0] ? (
-                      <img 
-                        src={item.track.album.images[0].url} 
-                        alt={item.track.album.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Music className="w-5 h-5 text-gray-500" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h5 className={`font-medium truncate transition-colors duration-300 ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {item.track.name}
-                    </h5>
-                    <p className={`text-xs truncate transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
-                      {item.track.artists.map(a => a.name).join(', ')}
-                      {item.track.album && ` • ${item.track.album.name}`}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={item.track.external_urls.spotify}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`p-2 rounded-lg transition-colors duration-300 ${
-                        isDarkMode
-                          ? 'bg-gray-600 hover:bg-gray-500 text-gray-300'
-                          : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                      }`}
-                      title="Open in Spotify"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                    <button
-                      onClick={() => handleRemoveTrack(item)}
-                      disabled={isRemovingTrack === item.track.id}
-                      className={`p-2 rounded-lg transition-colors duration-300 ${
-                        isRemovingTrack === item.track.id
-                          ? 'cursor-not-allowed opacity-50'
-                          : ''
-                      } ${
-                        isDarkMode 
-                          ? 'bg-red-600 hover:bg-red-700 text-white' 
-                          : 'bg-red-500 hover:bg-red-600 text-white'
-                      }`}
-                      title="Remove from playlist"
-                    >
-                      {isRemovingTrack === item.track.id ? (
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className={`p-8 text-center rounded-lg border transition-colors duration-300 ${
-            isDarkMode ? 'bg-gray-700/30 border-gray-600' : 'bg-gray-50 border-gray-200'
-          }`}>
-            <Music className={`w-12 h-12 mx-auto mb-3 transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-500' : 'text-gray-400'
-            }`} />
-            <p className={`text-sm transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Keine Songs in der Playlist
+        ) : searchQuery ? (
+          <div className="text-center py-8">
+            <Music className="w-12 h-12 mx-auto mb-3 text-gray-500" />
+            <p className="text-gray-400">
+              Keine Ergebnisse für "{searchQuery}" gefunden
             </p>
           </div>
-        )}
+        ) : null}
+
+        {/* Playlist Tracks */}
+        <div className="pb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-white text-lg font-bold">
+              Playlist Songs
+            </h4>
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="p-2 rounded-full bg-white bg-opacity-10 text-white hover:bg-opacity-20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Playlist aktualisieren"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <RefreshCw className="w-5 h-5" />
+              )}
+            </button>
+          </div>
+
+          {/* Table Header */}
+          <div className="grid grid-cols-[16px_1fr_auto_auto] gap-4 px-4 py-2 border-b border-white border-opacity-10 text-xs font-medium uppercase text-gray-400">
+            <div>#</div>
+            <div>Titel</div>
+            <div>Hinzugefügt am</div>
+            <div className="flex justify-center">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-4 border-[#1DB954] border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : playlistTracks.length > 0 ? (
+            <div className="space-y-1 mt-2">
+              {playlistTracks.map((item, index) => (
+                <div
+                  key={`${item.track.id}-${item.added_at}`}
+                  className="grid grid-cols-[16px_1fr_auto_auto] gap-4 px-4 py-2 rounded-md hover:bg-white hover:bg-opacity-10 transition-all duration-200 items-center group"
+                >
+                  <div className="text-gray-400 text-sm">{index + 1}</div>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded overflow-hidden bg-gray-800 flex-shrink-0">
+                      {item.track.album?.images?.[0] ? (
+                        <img 
+                          src={item.track.album.images[0].url} 
+                          alt={item.track.album.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Music className="w-4 h-4 text-gray-500" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <h5 className="font-medium truncate text-white">
+                        {item.track.name}
+                      </h5>
+                      <p className="text-xs truncate text-gray-400">
+                        {item.track.artists.map(a => a.name).join(', ')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {formatDate(item.added_at)}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">
+                      {formatDuration(item.track.duration_ms)}
+                    </span>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleRemoveTrack(item)}
+                        disabled={isRemovingTrack === item.track.id}
+                        className="p-1.5 rounded-full hover:bg-white hover:bg-opacity-10 text-gray-400 hover:text-white transition-colors"
+                        title="Aus Playlist entfernen"
+                      >
+                        {isRemovingTrack === item.track.id ? (
+                          <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
+                      </button>
+                      <a
+                        href={item.track.external_urls.spotify}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-full hover:bg-white hover:bg-opacity-10 text-gray-400 hover:text-white transition-colors"
+                        title="In Spotify öffnen"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Music className="w-12 h-12 mx-auto mb-3 text-gray-500" />
+              <p className="text-gray-400">
+                Keine Songs in der Playlist
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Suche nach Songs und füge sie zur Playlist hinzu
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
