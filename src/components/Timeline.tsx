@@ -877,7 +877,6 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                       <div className={`pt-3 border-t flex items-center justify-between text-xs transition-colors duration-300 ${
                         isDarkMode ? 'border-gray-700 text-gray-500' : 'border-gray-200 text-gray-500'
                       }`}>
-                        <span>Hinzugefügt von {event.createdBy}</span>
                         <div className="flex items-center gap-2">
                           <span>{eventType.label}</span>
                           {event.mediaUrls && event.mediaUrls.length > 0 && (
