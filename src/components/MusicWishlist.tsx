@@ -23,7 +23,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSpotifyAvailable, setIsSpotifyAvailable] = useState(false);
-  const [selectedPlaylist, setSelectedPlaylist] = useState<{ id: string; name: string } | null>(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<{ id: string; name: string; playlistId: string } | null>(null);
   const [isAddingTrack, setIsAddingTrack] = useState<string | null>(null);
   const [isRemovingTrack, setIsRemovingTrack] = useState<string | null>(null);
   const [showAddSuccess, setShowAddSuccess] = useState(false);
@@ -33,25 +33,73 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [syncStatus, setSyncStatus] = useState<'syncing' | 'synced' | 'error'>('synced');
 
-  // 🔧 FIX: Auto-refresh playlist every 5 seconds for instant sync
+  // 🔧 FIX: Enhanced auto-refresh with immediate sync detection
   useEffect(() => {
     if (!selectedPlaylist || !isSpotifyAvailable) return;
 
-    const refreshInterval = setInterval(async () => {
+    let refreshInterval: NodeJS.Timeout;
+    let immediateRefreshTimeout: NodeJS.Timeout;
+
+    const performRefresh = async (isImmediate = false) => {
       try {
-        console.log('🔄 Auto-refreshing playlist for instant sync...');
+        if (isImmediate) {
+          setSyncStatus('syncing');
+          console.log('🔄 Immediate sync check after user action...');
+        }
+        
         const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
         setPlaylistTracks(tracks);
         setLastRefresh(new Date());
+        setSyncStatus('synced');
+        
+        if (isImmediate) {
+          console.log('✅ Immediate sync completed successfully');
+        }
       } catch (error) {
         console.warn('Auto-refresh failed:', error);
+        setSyncStatus('error');
         // Don't show error for auto-refresh failures
       }
-    }, 5000); // Refresh every 5 seconds
+    };
 
-    return () => clearInterval(refreshInterval);
+    // Initial refresh
+    performRefresh();
+
+    // Set up regular auto-refresh every 3 seconds for better responsiveness
+    refreshInterval = setInterval(() => {
+      performRefresh();
+    }, 3000);
+
+    // Cleanup function
+    return () => {
+      if (refreshInterval) clearInterval(refreshInterval);
+      if (immediateRefreshTimeout) clearTimeout(immediateRefreshTimeout);
+    };
   }, [selectedPlaylist, isSpotifyAvailable]);
+
+  // 🔧 FIX: Immediate refresh trigger function
+  const triggerImmediateRefresh = async (delay = 500) => {
+    setSyncStatus('syncing');
+    
+    // Wait a bit for Spotify to process the change
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    if (selectedPlaylist) {
+      try {
+        console.log('🔄 Triggering immediate playlist refresh...');
+        const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
+        setPlaylistTracks(tracks);
+        setLastRefresh(new Date());
+        setSyncStatus('synced');
+        console.log('✅ Immediate refresh completed');
+      } catch (error) {
+        console.error('Immediate refresh failed:', error);
+        setSyncStatus('error');
+      }
+    }
+  };
 
   // Check if Spotify is connected and load playlist tracks
   useEffect(() => {
@@ -126,7 +174,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, isSpotifyAvailable]);
 
-  // 🔧 FIX: Enhanced add track with immediate refresh
+  // 🔧 FIX: Enhanced add track with multiple refresh attempts
   const handleAddTrack = async (track: SpotifyTrack) => {
     if (isAddingTrack) return;
     
@@ -141,19 +189,17 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
       setShowAddSuccess(true);
       setTimeout(() => setShowAddSuccess(false), 3000);
       
-      // 🔧 FIX: Immediate refresh after adding track
-      if (selectedPlaylist) {
-        try {
-          console.log('🔄 Immediately refreshing playlist after add...');
-          const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
-          setPlaylistTracks(tracks);
-          setLastRefresh(new Date());
-          console.log('✅ Playlist refreshed successfully');
-        } catch (refreshError) {
-          console.error('Failed to refresh playlist tracks:', refreshError);
-          // Don't show error here as the add was successful
-        }
-      }
+      // 🔧 FIX: Multiple refresh attempts for instant sync
+      console.log('🔄 Starting immediate sync sequence...');
+      
+      // First immediate refresh
+      await triggerImmediateRefresh(200);
+      
+      // Second refresh after 1 second to ensure sync
+      setTimeout(() => triggerImmediateRefresh(0), 1000);
+      
+      // Third refresh after 2 seconds as final backup
+      setTimeout(() => triggerImmediateRefresh(0), 2000);
       
       // Clear search
       setSearchQuery('');
@@ -161,6 +207,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     } catch (error) {
       console.error('Failed to add track:', error);
       setError('Failed to add track to playlist: ' + (error.message || 'Unknown error'));
+      setSyncStatus('error');
     } finally {
       setIsAddingTrack(null);
     }
@@ -182,21 +229,16 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
       await removeTrackFromPlaylist(track.track.uri);
       
       // 🔧 FIX: Immediate refresh after removing track
-      if (selectedPlaylist) {
-        try {
-          console.log('🔄 Immediately refreshing playlist after remove...');
-          const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
-          setPlaylistTracks(tracks);
-          setLastRefresh(new Date());
-          console.log('✅ Playlist refreshed successfully');
-        } catch (refreshError) {
-          console.error('Failed to refresh playlist tracks:', refreshError);
-          setError('Track was removed, but failed to refresh playlist');
-        }
-      }
+      console.log('🔄 Starting immediate sync after remove...');
+      await triggerImmediateRefresh(200);
+      
+      // Backup refresh
+      setTimeout(() => triggerImmediateRefresh(0), 1000);
+      
     } catch (error) {
       console.error('Failed to remove track:', error);
       setError('Failed to remove track from playlist: ' + (error.message || 'Unknown error'));
+      setSyncStatus('error');
     } finally {
       setIsRemovingTrack(null);
     }
@@ -272,18 +314,11 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
       }
       
       // 🔧 FIX: Immediate refresh after bulk delete
-      if (selectedPlaylist) {
-        try {
-          console.log('🔄 Immediately refreshing playlist after bulk delete...');
-          const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
-          setPlaylistTracks(tracks);
-          setLastRefresh(new Date());
-          console.log('✅ Playlist refreshed successfully');
-        } catch (refreshError) {
-          console.error('Failed to refresh playlist tracks:', refreshError);
-          setError('Some tracks were removed, but failed to refresh playlist');
-        }
-      }
+      console.log('🔄 Starting immediate sync after bulk delete...');
+      await triggerImmediateRefresh(500);
+      
+      // Backup refresh
+      setTimeout(() => triggerImmediateRefresh(0), 1500);
       
       // Reset selection
       setSelectedTracks(new Set());
@@ -293,6 +328,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     } catch (error) {
       console.error('Failed to bulk delete tracks:', error);
       setError('Failed to delete some tracks: ' + (error.message || 'Unknown error'));
+      setSyncStatus('error');
     } finally {
       setIsBulkDeleting(false);
     }
@@ -304,16 +340,19 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     
     setIsLoading(true);
     setError(null);
+    setSyncStatus('syncing');
     
     try {
       console.log('🔄 Manual refresh triggered...');
       const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
       setPlaylistTracks(tracks);
       setLastRefresh(new Date());
+      setSyncStatus('synced');
       console.log('✅ Manual refresh completed');
     } catch (error) {
       console.error('Failed to refresh tracks:', error);
       setError('Failed to refresh playlist tracks: ' + (error.message || 'Unknown error'));
+      setSyncStatus('error');
     } finally {
       setIsLoading(false);
     }
@@ -434,7 +473,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
             </div>
           </div>
           <a
-            href={`https://open.spotify.com/playlist/${selectedPlaylist.id}`}
+            href={`https://open.spotify.com/playlist/${selectedPlaylist.playlistId}`}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 rounded-full bg-[#1DB954] text-white hover:bg-opacity-80 transition-colors"
@@ -584,12 +623,20 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                 Playlist Songs
               </h4>
               
-              {/* 🔧 FIX: Auto-refresh indicator */}
+              {/* 🔧 FIX: Enhanced sync status indicator */}
               <div className={`flex items-center gap-2 text-xs ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span>Live-Sync</span>
+                <div className={`w-2 h-2 rounded-full ${
+                  syncStatus === 'syncing' ? 'bg-yellow-500 animate-pulse' :
+                  syncStatus === 'synced' ? 'bg-green-500 animate-pulse' :
+                  'bg-red-500'
+                }`}></div>
+                <span>
+                  {syncStatus === 'syncing' ? 'Synchronisiert...' :
+                   syncStatus === 'synced' ? 'Live-Sync' :
+                   'Sync-Fehler'}
+                </span>
                 <span>•</span>
                 <span>Letztes Update: {lastRefresh.toLocaleTimeString('de-DE')}</span>
               </div>
