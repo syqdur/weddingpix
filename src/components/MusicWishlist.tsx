@@ -178,7 +178,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   if (!isSpotifyAvailable) {
     return (
       <div className={`p-6 transition-colors duration-300 ${
-        isDarkMode ? 'bg-black' : 'bg-[#121212]'
+        isDarkMode ? 'bg-gray-900' : 'bg-white'
       }`}>
         <div className="text-center py-12">
           <div className="w-16 h-16 mx-auto mb-6">
@@ -189,11 +189,15 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
             />
           </div>
           
-          <h3 className="text-xl font-bold mb-2 text-white">
+          <h3 className={`text-xl font-bold mb-2 transition-colors duration-300 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
             Spotify nicht verbunden
           </h3>
           
-          <p className="text-sm mb-6 max-w-md mx-auto text-gray-400">
+          <p className={`text-sm mb-6 max-w-md mx-auto transition-colors duration-300 ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
             Ein Administrator muss zuerst ein Spotify-Konto verbinden und eine Playlist auswählen, bevor Musikwünsche möglich sind.
           </p>
         </div>
@@ -204,7 +208,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   if (!selectedPlaylist) {
     return (
       <div className={`p-6 transition-colors duration-300 ${
-        isDarkMode ? 'bg-black' : 'bg-[#121212]'
+        isDarkMode ? 'bg-gray-900' : 'bg-white'
       }`}>
         <div className="text-center py-12">
           <div className="w-16 h-16 mx-auto mb-6">
@@ -215,11 +219,15 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
             />
           </div>
           
-          <h3 className="text-xl font-bold mb-2 text-white">
+          <h3 className={`text-xl font-bold mb-2 transition-colors duration-300 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
             Keine Playlist ausgewählt
           </h3>
           
-          <p className="text-sm mb-6 max-w-md mx-auto text-gray-400">
+          <p className={`text-sm mb-6 max-w-md mx-auto transition-colors duration-300 ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
             Ein Administrator muss zuerst eine Playlist auswählen, bevor Musikwünsche möglich sind.
           </p>
         </div>
@@ -229,7 +237,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
 
   return (
     <div className={`transition-colors duration-300 ${
-      isDarkMode ? 'bg-black' : 'bg-[#121212]'
+      isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
     }`}>
       {/* Header with gradient */}
       <div className="bg-gradient-to-b from-[#1DB954] to-transparent pt-6 pb-12 px-6">
@@ -271,14 +279,14 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Suche nach Songs oder Interpreten..."
-            className="w-full pl-10 pr-10 py-3 bg-white bg-opacity-10 border border-white border-opacity-10 rounded-full text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
+            className="w-full pl-10 pr-10 py-3 bg-white bg-opacity-90 border border-gray-200 rounded-full text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#1DB954] focus:border-transparent"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-white hover:bg-opacity-10"
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-gray-200"
             >
-              <X className="w-5 h-5 text-white" />
+              <X className="w-5 h-5 text-gray-500" />
             </button>
           )}
         </div>
@@ -300,10 +308,10 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
 
       {/* Error Display */}
       {error && (
-        <div className="mx-6 mb-4 p-3 bg-red-900 bg-opacity-20 border border-red-500 border-opacity-30 rounded-lg">
+        <div className="mx-6 mb-4 p-3 bg-red-100 border border-red-300 rounded-lg">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-red-500" />
-            <p className="text-sm text-red-400">
+            <p className="text-sm text-red-600">
               {error}
             </p>
           </div>
@@ -319,16 +327,16 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
           </div>
         ) : searchResults.length > 0 ? (
           <div className="mb-8">
-            <h4 className="text-white text-lg font-bold mb-4">
+            <h4 className="text-gray-800 text-lg font-bold mb-4">
               Suchergebnisse
             </h4>
             <div className="space-y-2">
               {searchResults.map((track) => (
                 <div
                   key={track.id}
-                  className="p-3 rounded-md bg-white bg-opacity-5 hover:bg-opacity-10 transition-all duration-200 flex items-center gap-3"
+                  className="p-3 rounded-md bg-white shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-3"
                 >
-                  <div className="w-12 h-12 rounded overflow-hidden bg-gray-800 flex-shrink-0">
+                  <div className="w-12 h-12 rounded overflow-hidden bg-gray-100 flex-shrink-0">
                     {track.album?.images?.[0] ? (
                       <img 
                         src={track.album.images[0].url} 
@@ -337,15 +345,15 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Music className="w-5 h-5 text-gray-500" />
+                        <Music className="w-5 h-5 text-gray-400" />
                       </div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h5 className="font-medium truncate text-white">
+                    <h5 className="font-medium truncate text-gray-800">
                       {track.name}
                     </h5>
-                    <p className="text-xs truncate text-gray-400">
+                    <p className="text-xs truncate text-gray-500">
                       {track.artists.map(a => a.name).join(', ')}
                       {track.album && ` • ${track.album.name}`}
                     </p>
@@ -368,8 +376,8 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
           </div>
         ) : searchQuery ? (
           <div className="text-center py-8">
-            <Music className="w-12 h-12 mx-auto mb-3 text-gray-500" />
-            <p className="text-gray-400">
+            <Music className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+            <p className="text-gray-600">
               Keine Ergebnisse für "{searchQuery}" gefunden
             </p>
           </div>
@@ -378,17 +386,17 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
         {/* Playlist Tracks */}
         <div className="pb-8">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="text-white text-lg font-bold">
+            <h4 className="text-gray-800 text-lg font-bold">
               Playlist Songs
             </h4>
             <button
               onClick={handleRefresh}
               disabled={isLoading}
-              className="p-2 rounded-full bg-white bg-opacity-10 text-white hover:bg-opacity-20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Playlist aktualisieren"
             >
               {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-gray-700 border-t-transparent rounded-full animate-spin"></div>
               ) : (
                 <RefreshCw className="w-5 h-5" />
               )}
@@ -396,7 +404,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
           </div>
 
           {/* Table Header */}
-          <div className="grid grid-cols-[16px_1fr_auto_auto] gap-4 px-4 py-2 border-b border-white border-opacity-10 text-xs font-medium uppercase text-gray-400">
+          <div className="grid grid-cols-[16px_1fr_auto_auto] gap-4 px-4 py-2 border-b border-gray-200 text-xs font-medium uppercase text-gray-500">
             <div>#</div>
             <div>Titel</div>
             <div>Hinzugefügt am</div>
@@ -414,11 +422,11 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
               {playlistTracks.map((item, index) => (
                 <div
                   key={`${item.track.id}-${item.added_at}`}
-                  className="grid grid-cols-[16px_1fr_auto_auto] gap-4 px-4 py-2 rounded-md hover:bg-white hover:bg-opacity-10 transition-all duration-200 items-center group"
+                  className="grid grid-cols-[16px_1fr_auto_auto] gap-4 px-4 py-2 rounded-md hover:bg-gray-100 transition-all duration-200 items-center group"
                 >
-                  <div className="text-gray-400 text-sm">{index + 1}</div>
+                  <div className="text-gray-500 text-sm">{index + 1}</div>
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded overflow-hidden bg-gray-800 flex-shrink-0">
+                    <div className="w-10 h-10 rounded overflow-hidden bg-gray-100 flex-shrink-0">
                       {item.track.album?.images?.[0] ? (
                         <img 
                           src={item.track.album.images[0].url} 
@@ -427,35 +435,35 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <Music className="w-4 h-4 text-gray-500" />
+                          <Music className="w-4 h-4 text-gray-400" />
                         </div>
                       )}
                     </div>
                     <div className="min-w-0">
-                      <h5 className="font-medium truncate text-white">
+                      <h5 className="font-medium truncate text-gray-800">
                         {item.track.name}
                       </h5>
-                      <p className="text-xs truncate text-gray-400">
+                      <p className="text-xs truncate text-gray-500">
                         {item.track.artists.map(a => a.name).join(', ')}
                       </p>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-gray-500">
                     {formatDate(item.added_at)}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-gray-500">
                       {formatDuration(item.track.duration_ms)}
                     </span>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleRemoveTrack(item)}
                         disabled={isRemovingTrack === item.track.id}
-                        className="p-1.5 rounded-full hover:bg-white hover:bg-opacity-10 text-gray-400 hover:text-white transition-colors"
+                        className="p-1.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
                         title="Aus Playlist entfernen"
                       >
                         {isRemovingTrack === item.track.id ? (
-                          <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
                         ) : (
                           <Trash2 className="w-4 h-4" />
                         )}
@@ -464,7 +472,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                         href={item.track.external_urls.spotify}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-1.5 rounded-full hover:bg-white hover:bg-opacity-10 text-gray-400 hover:text-white transition-colors"
+                        className="p-1.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
                         title="In Spotify öffnen"
                       >
                         <ExternalLink className="w-4 h-4" />
@@ -475,9 +483,9 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12">
-              <Music className="w-12 h-12 mx-auto mb-3 text-gray-500" />
-              <p className="text-gray-400">
+            <div className="text-center py-12 bg-white rounded-lg shadow-sm mt-4">
+              <Music className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p className="text-gray-600 font-medium">
                 Keine Songs in der Playlist
               </p>
               <p className="text-sm text-gray-500 mt-2">
