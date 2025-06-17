@@ -14,7 +14,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ isDarkMode }) => {
         <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200">
           <img 
             src="https://i.ibb.co/PvXjwss4/profil.jpg" 
-            alt="Maurizio & Kristin"
+            alt="Maurizio & Kristin Test"
             className="w-full h-full object-cover"
           />
         </div>
