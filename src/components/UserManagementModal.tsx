@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, Smartphone, Wifi, WifiOff, Music, Clock, RefreshCw, Shield, CheckCircle, XCircle, Globe, Eye } from 'lucide-react';
+import { X, Users, Smartphone, Wifi, WifiOff, Clock, RefreshCw, XCircle, Eye } from 'lucide-react';
 import { 
   collection, 
   query, 
@@ -9,7 +9,6 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { getSharedSpotifyStatus, isSharedSpotifyAvailable } from '../services/spotifyTokenService';
 
 interface UserManagementModalProps {
   isOpen: boolean;
@@ -30,8 +29,6 @@ interface UserInfo {
   deviceId: string;
   lastSeen: string;
   isOnline: boolean;
-  hasSpotifyAccess: boolean;
-  tokenType: 'admin' | 'shared' | 'none';
   contributionCount: number;
   lastActivity: string;
 }
@@ -46,10 +43,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [error, setError] = useState<string | null>(null);
-  const [sharedSpotifyStatus, setSharedSpotifyStatus] = useState<{
-    isAvailable: boolean;
-    authenticatedBy: string | null;
-  }>({ isAvailable: false, authenticatedBy: null });
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
@@ -67,7 +60,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadUserData();
-      loadSharedSpotifyStatus();
     }
   }, [isOpen]);
 
@@ -133,15 +125,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     }
   }, [isOpen]);
 
-  const loadSharedSpotifyStatus = async () => {
-    try {
-      const status = await getSharedSpotifyStatus();
-      setSharedSpotifyStatus(status);
-    } catch (error) {
-      console.error('❌ Error loading shared Spotify status:', error);
-    }
-  };
-
   const loadUserData = async () => {
     if (!isOpen) return;
 
@@ -153,10 +136,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       // Get all media items to count contributions
       const mediaQuery = query(collection(db, 'media'), orderBy('uploadedAt', 'desc'));
       const mediaSnapshot = await getDocs(mediaQuery);
-      
-      // Get all music requests to count music contributions
-      const musicQuery = query(collection(db, 'music_requests'), orderBy('requestedAt', 'desc'));
-      const musicSnapshot = await getDocs(musicQuery);
       
       // Aggregate user data
       const userMap = new Map<string, UserInfo>();
@@ -174,8 +153,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                 deviceId: data.deviceId,
                 lastSeen: data.uploadedAt,
                 isOnline: false,
-                hasSpotifyAccess: false,
-                tokenType: 'none',
                 contributionCount: 0,
                 lastActivity: data.uploadedAt
               });
@@ -194,43 +171,10 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
         }
       });
       
-      // Process music contributions
-      musicSnapshot.docs.forEach(doc => {
-        try {
-          const data = doc.data();
-          if (data && data.requestedBy && data.deviceId && data.requestedAt) {
-            const key = `${data.requestedBy}-${data.deviceId}`;
-            
-            if (!userMap.has(key)) {
-              userMap.set(key, {
-                userName: data.requestedBy,
-                deviceId: data.deviceId,
-                lastSeen: data.requestedAt,
-                isOnline: false,
-                hasSpotifyAccess: false,
-                tokenType: 'none',
-                contributionCount: 0,
-                lastActivity: data.requestedAt
-              });
-            }
-            
-            const user = userMap.get(key)!;
-            user.contributionCount++;
-            
-            // Update last activity if this is more recent
-            if (new Date(data.requestedAt) > new Date(user.lastActivity)) {
-              user.lastActivity = data.requestedAt;
-            }
-          }
-        } catch (docError) {
-          console.warn('Error processing music document:', docError);
-        }
-      });
-      
       // Convert to array and update with live status
       const allUsers = Array.from(userMap.values());
       
-      // Update online status and Spotify access
+      // Update online status
       allUsers.forEach(user => {
         try {
           // Check if user is currently online
@@ -238,21 +182,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
           user.isOnline = !!liveUser;
           if (liveUser) {
             user.lastSeen = liveUser.lastSeen;
-          }
-          
-          // Check Spotify access
-          const hasLocalSpotifyToken = localStorage.getItem('spotify_access_token') !== null;
-          const hasSharedSpotifyAccess = sharedSpotifyStatus.isAvailable;
-          
-          if (hasLocalSpotifyToken) {
-            user.hasSpotifyAccess = true;
-            user.tokenType = 'admin';
-          } else if (hasSharedSpotifyAccess) {
-            user.hasSpotifyAccess = true;
-            user.tokenType = 'shared';
-          } else {
-            user.hasSpotifyAccess = false;
-            user.tokenType = 'none';
           }
         } catch (userError) {
           console.warn('Error processing user data:', userError);
@@ -269,7 +198,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
       
       console.log(`👥 Loaded ${allUsers.length} total users`);
       console.log(`🟢 ${allUsers.filter(u => u.isOnline).length} currently online`);
-      console.log(`🎵 ${allUsers.filter(u => u.hasSpotifyAccess).length} have Spotify access`);
       
       setUsers(allUsers);
       
@@ -301,21 +229,9 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
     }
   };
 
-  const getTokenTypeInfo = (tokenType: string) => {
-    switch (tokenType) {
-      case 'admin':
-        return { label: 'Admin Token', color: 'text-purple-500', icon: <Shield className="w-3 h-3" /> };
-      case 'shared':
-        return { label: 'Shared Token', color: 'text-blue-500', icon: <Globe className="w-3 h-3" /> };
-      default:
-        return { label: 'Kein Token', color: 'text-gray-500', icon: <XCircle className="w-3 h-3" /> };
-    }
-  };
-
   const stats = {
     totalUsers: users.length,
     onlineUsers: users.filter(u => u.isOnline).length,
-    spotifyUsers: users.filter(u => u.hasSpotifyAccess).length,
     totalContributions: users.reduce((sum, u) => sum + u.contributionCount, 0)
   };
 
@@ -394,7 +310,7 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
           )}
 
           {/* Statistics Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-3 gap-4 mb-6">
             <div className={`p-4 rounded-xl transition-colors duration-300 ${
               isDarkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-gray-50 border border-gray-200'
             }`}>
@@ -449,31 +365,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               isDarkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-gray-50 border border-gray-200'
             }`}>
               <div className="flex items-center gap-2 mb-2">
-                <Music className={`w-4 h-4 transition-colors duration-300 ${
-                  isDarkMode ? 'text-purple-400' : 'text-purple-600'
-                }`} />
-                <span className={`text-sm font-medium transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}>
-                  Spotify
-                </span>
-              </div>
-              <div className={`text-2xl font-bold transition-colors duration-300 ${
-                isDarkMode ? 'text-purple-400' : 'text-purple-600'
-              }`}>
-                {stats.spotifyUsers}
-              </div>
-              <div className={`text-xs transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-500' : 'text-gray-500'
-              }`}>
-                Mit Zugang
-              </div>
-            </div>
-
-            <div className={`p-4 rounded-xl transition-colors duration-300 ${
-              isDarkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-gray-50 border border-gray-200'
-            }`}>
-              <div className="flex items-center gap-2 mb-2">
                 <Eye className={`w-4 h-4 transition-colors duration-300 ${
                   isDarkMode ? 'text-pink-400' : 'text-pink-600'
                 }`} />
@@ -495,29 +386,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Shared Spotify Status */}
-          {sharedSpotifyStatus.isAvailable && (
-            <div className={`p-4 rounded-xl mb-6 transition-colors duration-300 ${
-              isDarkMode ? 'bg-green-900/20 border border-green-700/30' : 'bg-green-50 border border-green-200'
-            }`}>
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className={`w-5 h-5 transition-colors duration-300 ${
-                  isDarkMode ? 'text-green-400' : 'text-green-600'
-                }`} />
-                <span className={`font-semibold transition-colors duration-300 ${
-                  isDarkMode ? 'text-green-300' : 'text-green-800'
-                }`}>
-                  🌍 Shared Spotify Integration aktiv
-                </span>
-              </div>
-              <p className={`text-sm transition-colors duration-300 ${
-                isDarkMode ? 'text-green-200' : 'text-green-700'
-              }`}>
-                Eingerichtet von {sharedSpotifyStatus.authenticatedBy} - Alle Benutzer haben Spotify-Zugang
-              </p>
-            </div>
-          )}
 
           {/* Last Update Info */}
           <div className={`flex items-center justify-between mb-4 text-sm transition-colors duration-300 ${
@@ -573,11 +441,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                       <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider transition-colors duration-300 ${
                         isDarkMode ? 'text-gray-300' : 'text-gray-500'
                       }`}>
-                        Spotify
-                      </th>
-                      <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-500'
-                      }`}>
                         Aktivität
                       </th>
                       <th className={`px-4 py-3 text-left text-xs font-medium uppercase tracking-wider transition-colors duration-300 ${
@@ -591,8 +454,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                     isDarkMode ? 'divide-gray-700' : 'divide-gray-200'
                   }`}>
                     {users.map((user, index) => {
-                      const tokenInfo = getTokenTypeInfo(user.tokenType);
-                      
                       return (
                         <tr key={`${user.userName}-${user.deviceId}`} className={`transition-colors duration-300 ${
                           isDarkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50'
@@ -649,35 +510,6 @@ export const UserManagementModal: React.FC<UserManagementModalProps> = ({
                               isDarkMode ? 'text-gray-500' : 'text-gray-500'
                             }`}>
                               {formatTimeAgo(user.lastSeen)}
-                            </div>
-                          </td>
-
-                          {/* Spotify Access */}
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-2">
-                              {user.hasSpotifyAccess ? (
-                                <>
-                                  <Music className="w-4 h-4 text-green-500" />
-                                  <span className={`text-sm font-medium transition-colors duration-300 ${
-                                    isDarkMode ? 'text-green-400' : 'text-green-600'
-                                  }`}>
-                                    Verfügbar
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <XCircle className="w-4 h-4 text-gray-500" />
-                                  <span className={`text-sm transition-colors duration-300 ${
-                                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                                  }`}>
-                                    Nicht verfügbar
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                            <div className={`flex items-center gap-1 mt-1 text-xs ${tokenInfo.color}`}>
-                              {tokenInfo.icon}
-                              <span>{tokenInfo.label}</span>
                             </div>
                           </td>
 
