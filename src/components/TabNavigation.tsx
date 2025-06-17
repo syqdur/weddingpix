@@ -27,7 +27,7 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
     },
     {
       id: 'timeline' as const,
-      label: 'Timeline',
+      label: 'Wir',
       icon: <Calendar className="w-5 h-5" />,
       emoji: '📅'
     }
