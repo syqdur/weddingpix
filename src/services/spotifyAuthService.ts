@@ -75,24 +75,19 @@ const generateDeviceId = (): string => {
   return deviceId;
 };
 
-// 🔧 FIXED: Simplified redirect URI that matches Spotify app configuration exactly
 const getRedirectUri = (): string => {
-  // Always use the production URL for consistency
   return 'https://kristinundmauro.de/';
 };
 
-// Secure Token Storage with encryption-like obfuscation
 const secureStorage = {
   set: (key: string, value: string): void => {
     try {
-      // Simple obfuscation (not real encryption, but better than plain text)
       const obfuscated = btoa(encodeURIComponent(value));
       localStorage.setItem(key, obfuscated);
     } catch (error) {
       console.error('Error storing secure data:', error);
     }
   },
-  
   get: (key: string): string | null => {
     try {
       const obfuscated = localStorage.getItem(key);
@@ -103,11 +98,9 @@ const secureStorage = {
       return null;
     }
   },
-  
   remove: (key: string): void => {
     localStorage.removeItem(key);
   },
-  
   clear: (): void => {
     Object.values(STORAGE_KEYS).forEach(key => {
       localStorage.removeItem(key);
@@ -115,7 +108,6 @@ const secureStorage = {
   }
 };
 
-// Token Management
 export class SpotifyTokenManager {
   private static instance: SpotifyTokenManager;
   private refreshPromise: Promise<string> | null = null;
@@ -139,8 +131,7 @@ export class SpotifyTokenManager {
     const expiry = parseInt(expiryStr);
     const now = Date.now();
     
-    // Check if token expires within the next 5 minutes
-    if (now >= expiry - 300000) {
+    if (now >= expiry - 300000) { // 5 minutes buffer
       console.log('🔄 Token expired or expiring soon, refreshing...');
       return this.refreshAccessToken();
     }
@@ -150,16 +141,12 @@ export class SpotifyTokenManager {
   }
 
   private async refreshAccessToken(): Promise<string | null> {
-    // Prevent multiple simultaneous refresh attempts
     if (this.refreshPromise) {
       return this.refreshPromise;
     }
-
     this.refreshPromise = this.performTokenRefresh();
-    
     try {
-      const result = await this.refreshPromise;
-      return result;
+      return await this.refreshPromise;
     } finally {
       this.refreshPromise = null;
     }
@@ -167,21 +154,17 @@ export class SpotifyTokenManager {
 
   private async performTokenRefresh(): Promise<string | null> {
     const refreshToken = secureStorage.get(STORAGE_KEYS.REFRESH_TOKEN);
-    
     if (!refreshToken) {
       console.log('❌ No refresh token available');
-      this.clearTokens();
+      this.clearTokens(); // Clear all tokens as refresh is not possible
       return null;
     }
 
     try {
       console.log('🔄 Refreshing Spotify access token...');
-      
       const response = await fetch(`${SPOTIFY_ACCOUNTS_BASE}/api/token`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
           refresh_token: refreshToken,
@@ -191,51 +174,33 @@ export class SpotifyTokenManager {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        
         if (response.status === 400 && errorData.error === 'invalid_grant') {
-          console.log('❌ Refresh token invalid, clearing tokens');
-          this.clearTokens();
-          throw new SpotifyAuthError('Refresh token expired. Please re-authenticate.');
+          console.error('❌ Refresh token invalid or expired. Clearing tokens.');
+          this.clearTokens(); // Clear tokens as refresh token is bad
+          throw new SpotifyAuthError('Refresh token invalid. Please re-authenticate.');
         }
-        
         throw new SpotifyAPIError(
           `Token refresh failed: ${errorData.error_description || response.statusText}`,
-          response.status,
-          errorData.error
+          response.status, errorData.error
         );
       }
 
       const data = await response.json();
-      
-      // Store new tokens
-      this.storeTokens(
-        data.access_token,
-        data.refresh_token || refreshToken, // Use new refresh token if provided
-        data.expires_in
-      );
-
+      this.storeTokens(data.access_token, data.refresh_token || refreshToken, data.expires_in);
       console.log('✅ Token refreshed successfully');
       return data.access_token;
-
     } catch (error) {
       console.error('❌ Token refresh failed:', error);
-      
-      if (error instanceof SpotifyAuthError || error instanceof SpotifyAPIError) {
-        throw error;
-      }
-      
-      // Network or other errors
-      throw new SpotifyAuthError('Network error during token refresh. Please check your connection.');
+      if (error instanceof SpotifyAuthError || error instanceof SpotifyAPIError) throw error;
+      throw new SpotifyAuthError('Network error during token refresh.');
     }
   }
 
   storeTokens(accessToken: string, refreshToken: string, expiresIn: number): void {
-    const expiryTime = Date.now() + (expiresIn * 1000) - 60000; // 1 minute buffer
-    
+    const expiryTime = Date.now() + (expiresIn * 1000) - 60000; // 1 minute buffer before actual expiry
     secureStorage.set(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
     secureStorage.set(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
     secureStorage.set(STORAGE_KEYS.TOKEN_EXPIRY, expiryTime.toString());
-    
     console.log(`🔑 Tokens stored, expires in ${Math.floor(expiresIn / 60)} minutes`);
   }
 
@@ -247,12 +212,7 @@ export class SpotifyTokenManager {
   getStoredUser(): SpotifyUser | null {
     const userStr = secureStorage.get(STORAGE_KEYS.USER_INFO);
     if (!userStr) return null;
-    
-    try {
-      return JSON.parse(userStr);
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(userStr); } catch { return null; }
   }
 
   storeUser(user: SpotifyUser): void {
@@ -260,7 +220,6 @@ export class SpotifyTokenManager {
   }
 }
 
-// Main Authentication Service
 export class SpotifyAuthService {
   private tokenManager: SpotifyTokenManager;
   private authStateListeners: Set<(state: SpotifyAuthState) => void> = new Set();
@@ -269,12 +228,10 @@ export class SpotifyAuthService {
     this.tokenManager = SpotifyTokenManager.getInstance();
   }
 
-  // Authentication State Management
   async getAuthState(): Promise<SpotifyAuthState> {
     const token = await this.tokenManager.getValidAccessToken();
     const user = this.tokenManager.getStoredUser();
     const expiryStr = secureStorage.get(STORAGE_KEYS.TOKEN_EXPIRY);
-    
     return {
       isAuthenticated: !!token && !!user,
       user,
@@ -285,13 +242,8 @@ export class SpotifyAuthService {
 
   onAuthStateChange(callback: (state: SpotifyAuthState) => void): () => void {
     this.authStateListeners.add(callback);
-    
-    // Immediately call with current state
     this.getAuthState().then(callback);
-    
-    return () => {
-      this.authStateListeners.delete(callback);
-    };
+    return () => { this.authStateListeners.delete(callback); };
   }
 
   private notifyAuthStateChange(): void {
@@ -300,19 +252,14 @@ export class SpotifyAuthService {
     });
   }
 
-  // PKCE Authentication Flow
   async initiateAuth(): Promise<void> {
     try {
       console.log('🚀 Starting Spotify PKCE authentication...');
-      
       const codeVerifier = generateCodeVerifier();
       const codeChallenge = await generateCodeChallenge(codeVerifier);
       const state = generateDeviceId();
       const redirectUri = getRedirectUri();
-      
       console.log(`🔗 Using redirect URI: ${redirectUri}`);
-      
-      // Store PKCE parameters
       secureStorage.set(STORAGE_KEYS.CODE_VERIFIER, codeVerifier);
       secureStorage.set(STORAGE_KEYS.AUTH_STATE, state);
       
@@ -324,24 +271,16 @@ export class SpotifyAuthService {
         code_challenge: codeChallenge,
         state: state,
         scope: [
-          'playlist-modify-public',
-          'playlist-modify-private',
-          'playlist-read-private',
-          'playlist-read-collaborative',
-          'user-read-private',
-          'user-read-email',
-          'user-library-read',
-          'user-library-modify'
+          'playlist-modify-public', 'playlist-modify-private',
+          'playlist-read-private', 'playlist-read-collaborative',
+          'user-read-private', 'user-read-email',
+          'user-library-read', 'user-library-modify'
         ].join(' '),
         show_dialog: 'true'
       });
-
       const authUrl = `${SPOTIFY_ACCOUNTS_BASE}/authorize?${params.toString()}`;
-      console.log('🔗 Redirecting to Spotify auth...');
       console.log(`🔗 Auth URL: ${authUrl}`);
-      
       window.location.href = authUrl;
-      
     } catch (error) {
       console.error('❌ Auth initiation failed:', error);
       throw new SpotifyAuthError('Failed to initiate authentication');
@@ -351,31 +290,17 @@ export class SpotifyAuthService {
   async handleAuthCallback(code: string, state: string): Promise<boolean> {
     try {
       console.log('🔄 Processing Spotify auth callback...');
-      console.log(`🔑 Code: ${code.substring(0, 20)}...`);
-      console.log(`🔑 State: ${state}`);
-      
-      // Verify state parameter
       const storedState = secureStorage.get(STORAGE_KEYS.AUTH_STATE);
-      console.log(`🔑 Stored state: ${storedState}`);
-      
-      if (state !== storedState) {
-        throw new SpotifyAuthError('Invalid state parameter. Possible CSRF attack.');
-      }
+      if (state !== storedState) throw new SpotifyAuthError('Invalid state parameter.');
       
       const codeVerifier = secureStorage.get(STORAGE_KEYS.CODE_VERIFIER);
-      if (!codeVerifier) {
-        throw new SpotifyAuthError('Missing code verifier. Please restart authentication.');
-      }
+      if (!codeVerifier) throw new SpotifyAuthError('Missing code verifier.');
       
       const redirectUri = getRedirectUri();
       console.log(`🔄 Using redirect URI for token exchange: ${redirectUri}`);
-      
-      // Exchange code for tokens
       const response = await fetch(`${SPOTIFY_ACCOUNTS_BASE}/api/token`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           client_id: SPOTIFY_CLIENT_ID,
           grant_type: 'authorization_code',
@@ -386,64 +311,33 @@ export class SpotifyAuthService {
       });
 
       console.log(`🔄 Token exchange response status: ${response.status}`);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ Token exchange error:', errorData);
-        
-        let errorMessage = 'Token exchange failed';
-        
+        let errMsg = `Authentifizierungsfehler: ${errorData.error_description || errorData.error || 'Unknown error'}`;
         if (response.status === 400) {
-          if (errorData.error === 'invalid_grant') {
-            errorMessage = 'Ungültiger Authentifizierungscode. Bitte versuche es erneut.';
-          } else if (errorData.error === 'invalid_request') {
-            errorMessage = 'Ungültige Anfrage. Redirect URI stimmt möglicherweise nicht überein.';
-          } else {
-            errorMessage = `Authentifizierungsfehler: ${errorData.error_description || errorData.error}`;
-          }
+            if (errorData.error === 'invalid_grant') errMsg = 'Ungültiger Code oder Redirect URI. Bitte erneut versuchen.';
+            else if (errorData.error === 'invalid_request') errMsg = 'Ungültige Anfrage. Details prüfen.';
         }
-        
-        throw new SpotifyAPIError(
-          errorMessage,
-          response.status,
-          errorData.error
-        );
+        throw new SpotifyAPIError(errMsg, response.status, errorData.error);
       }
 
       const tokenData = await response.json();
       console.log('✅ Token exchange successful');
+      this.tokenManager.storeTokens(tokenData.access_token, tokenData.refresh_token, tokenData.expires_in);
       
-      // Store tokens
-      this.tokenManager.storeTokens(
-        tokenData.access_token,
-        tokenData.refresh_token,
-        tokenData.expires_in
-      );
+      const user = await this.getCurrentUser(); // Fetch and store user info
+      if (user) this.tokenManager.storeUser(user);
       
-      // Get and store user info
-      const user = await this.getCurrentUser();
-      if (user) {
-        this.tokenManager.storeUser(user);
-        console.log(`✅ User info stored: ${user.display_name}`);
-      }
-      
-      // Clean up PKCE parameters
       secureStorage.remove(STORAGE_KEYS.CODE_VERIFIER);
       secureStorage.remove(STORAGE_KEYS.AUTH_STATE);
-      
       console.log('✅ Authentication successful');
       this.notifyAuthStateChange();
-      
       return true;
-      
     } catch (error) {
       console.error('❌ Auth callback failed:', error);
-      this.tokenManager.clearTokens();
-      
-      if (error instanceof SpotifyAuthError || error instanceof SpotifyAPIError) {
-        throw error;
-      }
-      
+      this.tokenManager.clearTokens(); // Clear tokens on any callback failure
+      if (error instanceof SpotifyAuthError || error instanceof SpotifyAPIError) throw error;
       throw new SpotifyAuthError('Authentication failed. Please try again.');
     }
   }
@@ -460,68 +354,80 @@ export class SpotifyAuthService {
     options: RequestInit = {},
     retryCount = 0
   ): Promise<T> {
-    const maxRetries = 3;
+    // console.log('makeAPIRequest called with endpoint:', endpoint, 'and options:', JSON.parse(JSON.stringify(options))); // For debugging
+
     const token = await this.tokenManager.getValidAccessToken();
-    
     if (!token) {
+      console.error('makeAPIRequest: No valid access token. Throwing error.');
       throw new SpotifyAuthError('No valid access token. Please authenticate.');
     }
 
+    const maxRetries = 3;
     try {
+      // ** THE FIX IS HERE **
+      // Ensure Authorization and Content-Type are correctly set and take precedence
+      const finalHeaders = {
+        ...options.headers, // Spread custom headers from options first
+        'Authorization': `Bearer ${token}`, // Then explicitly set/overwrite Authorization
+        // 'Content-Type' will be set based on whether options.body exists, or defaults if not.
+        // For JSON POST/PUT, Content-Type: application/json is common.
+        // For GET/DELETE or if options.body is not a string/FormData, Content-Type might not be needed or set differently.
+      };
+      
+      // Set Content-Type to application/json if there's a body and it's not FormData
+      // and no Content-Type was already provided in options.headers
+      if (options.body && !(options.body instanceof FormData) && !finalHeaders['Content-Type'] && !finalHeaders['content-type']) {
+        finalHeaders['Content-Type'] = 'application/json';
+      }
+      
+      // console.log('makeAPIRequest: Final headers being sent to fetch:', finalHeaders); // For debugging
+
       const response = await fetch(`${SPOTIFY_API_BASE}${endpoint}`, {
-        ...options,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        ...options, // Spread original options (method, body, etc.)
+        headers: finalHeaders, // Use the carefully constructed finalHeaders
       });
 
-      // Handle rate limiting
       if (response.status === 429) {
         const retryAfter = parseInt(response.headers.get('Retry-After') || '60');
-        throw new SpotifyRateLimitError(
-          `Rate limit exceeded. Retry after ${retryAfter} seconds.`,
-          retryAfter
-        );
+        throw new SpotifyRateLimitError(`Rate limit exceeded. Retry after ${retryAfter} seconds.`, retryAfter);
       }
 
-      // Handle token expiration
       if (response.status === 401) {
         if (retryCount < maxRetries) {
-          console.log('🔄 Token expired, refreshing and retrying...');
-          await this.tokenManager.getValidAccessToken(); // This will refresh if needed
-          return this.makeAPIRequest(endpoint, options, retryCount + 1);
+          console.log('🔄 Token expired or invalid, refreshing and retrying API request...');
+          await this.tokenManager.refreshAccessToken(); // Attempt to refresh the token
+          return this.makeAPIRequest(endpoint, options, retryCount + 1); // Retry the request
         } else {
+          this.tokenManager.clearTokens(); // Clear tokens after multiple failed retries
           throw new SpotifyAuthError('Authentication failed after retries. Please re-authenticate.');
         }
       }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorData = await response.json().catch(() => ({ error: { message: response.statusText } }));
         throw new SpotifyAPIError(
-          `API request failed: ${errorData.error?.message || response.statusText}`,
-          response.status,
-          errorData.error?.reason
+          `API request to ${endpoint} failed: ${errorData.error?.message || response.statusText}`,
+          response.status, errorData.error?.reason
         );
+      }
+      
+      // Handle cases where response might be empty (e.g., 204 No Content for DELETE)
+      if (response.status === 204 || response.status === 202) {
+          return undefined as T; // Or an appropriate success indicator
       }
 
       return response.json();
-      
     } catch (error) {
-      if (error instanceof SpotifyRateLimitError || 
-          error instanceof SpotifyAuthError || 
-          error instanceof SpotifyAPIError) {
+      if (error instanceof SpotifyRateLimitError || error instanceof SpotifyAuthError || error instanceof SpotifyAPIError) {
         throw error;
       }
-      
-      // Network errors
+      // Handle network errors with retry
       if (retryCount < maxRetries) {
-        console.log(`🔄 Network error, retrying... (${retryCount + 1}/${maxRetries})`);
+        console.warn(`🔄 Network error for ${endpoint}, retrying... (${retryCount + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
         return this.makeAPIRequest(endpoint, options, retryCount + 1);
       }
-      
+      console.error(`❌ Network error for ${endpoint} after ${maxRetries} retries:`, error);
       throw new SpotifyAPIError('Network error. Please check your connection.');
     }
   }
@@ -537,66 +443,56 @@ export class SpotifyAuthService {
 
   async getUserPlaylists(): Promise<SpotifyPlaylist[]> {
     try {
-      const response = await this.makeAPIRequest<{
-        items: SpotifyPlaylist[];
-        total: number;
-      }>('/me/playlists?limit=50');
-      
+      const response = await this.makeAPIRequest<{ items: SpotifyPlaylist[]; total: number; }>('/me/playlists?limit=50');
       return response.items;
     } catch (error) {
       console.error('❌ Failed to get user playlists:', error);
-      throw error;
+      throw error; // Re-throw to be handled by the caller
     }
   }
 
   async addTracksToPlaylist(playlistId: string, trackUris: string[]): Promise<void> {
     if (trackUris.length === 0) return;
-    
     try {
-      // Split into batches of 100 (Spotify limit)
       const batches = [];
       for (let i = 0; i < trackUris.length; i += 100) {
         batches.push(trackUris.slice(i, i + 100));
       }
-      
       for (const batch of batches) {
+        // makeAPIRequest will set Content-Type to application/json because options.body is a string
         await this.makeAPIRequest(`/playlists/${playlistId}/tracks`, {
           method: 'POST',
           body: JSON.stringify({ uris: batch }),
         });
       }
-      
-      console.log(`✅ Added ${trackUris.length} tracks to playlist`);
+      console.log(`✅ Added ${trackUris.length} tracks to playlist ${playlistId}`);
     } catch (error) {
-      console.error('❌ Failed to add tracks to playlist:', error);
+      console.error(`❌ Failed to add tracks to playlist ${playlistId}:`, error);
       throw error;
     }
   }
 
   async removeTracksFromPlaylist(playlistId: string, trackUris: string[]): Promise<void> {
     if (trackUris.length === 0) return;
-    
     try {
       const tracks = trackUris.map(uri => ({ uri }));
-      
+      // makeAPIRequest will set Content-Type to application/json
       await this.makeAPIRequest(`/playlists/${playlistId}/tracks`, {
         method: 'DELETE',
         body: JSON.stringify({ tracks }),
       });
-      
-      console.log(`✅ Removed ${trackUris.length} tracks from playlist`);
+      console.log(`✅ Removed ${trackUris.length} tracks from playlist ${playlistId}`);
     } catch (error) {
-      console.error('❌ Failed to remove tracks from playlist:', error);
+      console.error(`❌ Failed to remove tracks from playlist ${playlistId}:`, error);
       throw error;
     }
   }
 
   async searchTracks(query: string, limit = 20): Promise<any[]> {
     try {
-      const response = await this.makeAPIRequest<{
-        tracks: { items: any[] };
-      }>(`/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&market=DE`);
-      
+      const response = await this.makeAPIRequest<{ tracks: { items: any[] }; }>(
+        `/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&market=DE`
+      ); // No body, so Content-Type is not set by default, which is fine for GET
       return response.tracks.items;
     } catch (error) {
       console.error('❌ Failed to search tracks:', error);
@@ -605,20 +501,13 @@ export class SpotifyAuthService {
   }
 }
 
-// Singleton instance
 export const spotifyAuth = new SpotifyAuthService();
 
-// 🔧 FIXED: Better callback detection
 export const isSpotifyCallback = (): boolean => {
   const urlParams = new URLSearchParams(window.location.search);
-  const hasCode = urlParams.has('code');
-  const hasState = urlParams.has('state');
-  
-  console.log(`🔍 Checking for Spotify callback: code=${hasCode}, state=${hasState}`);
-  return hasCode && hasState;
+  return urlParams.has('code') && urlParams.has('state');
 };
 
-// Auto-handle callback if on callback page
 export const handleCallbackIfPresent = async (): Promise<boolean> => {
   if (!isSpotifyCallback()) {
     console.log('🔍 No Spotify callback detected');
@@ -626,47 +515,34 @@ export const handleCallbackIfPresent = async (): Promise<boolean> => {
   }
   
   console.log('🔄 Spotify callback detected, processing...');
-  
   const urlParams = new URLSearchParams(window.location.search);
   const code = urlParams.get('code');
   const state = urlParams.get('state');
   const error = urlParams.get('error');
-  
+
   if (error) {
-    console.error('❌ Spotify auth error:', error);
     const errorDescription = urlParams.get('error_description') || error;
+    console.error('❌ Spotify auth error on callback:', errorDescription);
     throw new SpotifyAuthError(`Spotify Authentifizierung fehlgeschlagen: ${errorDescription}`);
   }
-  
-  if (!code) {
-    throw new SpotifyAuthError('Kein Authentifizierungscode erhalten. Bitte versuche es erneut.');
-  }
-  
-  if (!state) {
-    throw new SpotifyAuthError('Kein State-Parameter erhalten. Bitte versuche es erneut.');
+  if (!code || !state) {
+    console.error('❌ Missing code or state in callback.');
+    throw new SpotifyAuthError('Unvollständige Authentifizierungsdaten erhalten.');
   }
   
   try {
     const success = await spotifyAuth.handleAuthCallback(code, state);
-    
     if (success) {
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
+      window.history.replaceState({}, document.title, window.location.pathname); // Clean URL
       console.log('✅ Spotify callback handled successfully');
     }
-    
     return success;
-  } catch (error) {
-    console.error('❌ Callback handling failed:', error);
-    throw error;
+  } catch (err) {
+    console.error('❌ Callback handling failed:', err);
+    // Ensure spotifyAuth.handleAuthCallback re-throws specific errors for UI to catch
+    throw err; 
   }
 };
 
 console.log('🔑 === PERSISTENT SPOTIFY AUTH SERVICE INITIALIZED ===');
-console.log('✅ PKCE Authentication Flow');
-console.log('✅ Automatic Token Refresh');
-console.log('✅ Secure Token Storage');
-console.log('✅ Error Handling & Retry Logic');
-console.log('✅ Rate Limit Handling');
-console.log('✅ Cross-Session Persistence');
 console.log(`🔗 Redirect URI: ${getRedirectUri()}`);
