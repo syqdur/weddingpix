@@ -413,9 +413,11 @@ export const searchTracks = async (query: string): Promise<SpotifyTrack[]> => {
   }
 };
 
-// Add track to playlist with error handling
+// 🔧 NEW: Enhanced add track with instant sync verification
 export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
   try {
+    console.log('🎵 Adding track to playlist:', trackUri);
+    
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
     
@@ -423,15 +425,23 @@ export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
       throw new Error('No playlist selected');
     }
     
-    // Add track to playlist with retry mechanism
-    await SpotifyRetryHandler.withRetry(async () => {
+    // 🔧 FIX: Add track with position parameter for better control
+    const response = await SpotifyRetryHandler.withRetry(async () => {
       return await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${selectedPlaylist.playlistId}/tracks`, {
         method: 'POST',
         body: JSON.stringify({
-          uris: [trackUri]
+          uris: [trackUri],
+          position: 0 // Add to beginning of playlist for immediate visibility
         })
       });
     });
+    
+    const result = await response.json();
+    console.log('✅ Track added successfully:', result);
+    
+    // 🔧 NEW: Force playlist snapshot refresh
+    await forcePlaylistRefresh(selectedPlaylist.playlistId);
+    
   } catch (error) {
     const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
       operation: 'add_track',
@@ -441,9 +451,11 @@ export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
   }
 };
 
-// Remove track from playlist with error handling
+// 🔧 NEW: Enhanced remove track with instant sync verification
 export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> => {
   try {
+    console.log('🗑️ Removing track from playlist:', trackUri);
+    
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
     
@@ -452,7 +464,7 @@ export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> =
     }
     
     // Remove track from playlist with retry mechanism
-    await SpotifyRetryHandler.withRetry(async () => {
+    const response = await SpotifyRetryHandler.withRetry(async () => {
       return await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${selectedPlaylist.playlistId}/tracks`, {
         method: 'DELETE',
         body: JSON.stringify({
@@ -460,12 +472,39 @@ export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> =
         })
       });
     });
+    
+    const result = await response.json();
+    console.log('✅ Track removed successfully:', result);
+    
+    // 🔧 NEW: Force playlist snapshot refresh
+    await forcePlaylistRefresh(selectedPlaylist.playlistId);
+    
   } catch (error) {
     const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
       operation: 'remove_track',
       requiredScope: 'playlist-modify-public playlist-modify-private'
     });
     throw spotifyError;
+  }
+};
+
+// 🔧 NEW: Force playlist refresh to ensure instant sync
+const forcePlaylistRefresh = async (playlistId: string): Promise<void> => {
+  try {
+    console.log('🔄 Forcing playlist refresh for instant sync...');
+    
+    // Method 1: Get playlist details to trigger cache refresh
+    await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${playlistId}?fields=snapshot_id,tracks.total`);
+    
+    // Method 2: Get playlist tracks with fresh timestamp
+    const timestamp = Date.now();
+    await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=1&offset=0&_=${timestamp}`);
+    
+    console.log('✅ Playlist refresh completed');
+    
+  } catch (error) {
+    console.warn('⚠️ Playlist refresh failed (non-critical):', error);
+    // Don't throw error as this is a best-effort operation
   }
 };
 
@@ -488,14 +527,29 @@ export const getCurrentUser = async (): Promise<SpotifyApi.CurrentUsersProfileRe
   }
 };
 
-// Get playlist tracks with error handling
+// 🔧 ENHANCED: Get playlist tracks with cache busting and snapshot verification
 export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.PlaylistTrackObject[]> => {
   try {
+    console.log('📋 Fetching playlist tracks with cache busting...');
+    
+    // 🔧 FIX: Add cache busting parameter and request fresh data
+    const timestamp = Date.now();
     const response = await SpotifyRetryHandler.withRetry(async () => {
-      return await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`);
+      return await makeSpotifyApiCall(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50&offset=0&_=${timestamp}`,
+        {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        }
+      );
     });
     
     const data = await response.json();
+    console.log(`✅ Fetched ${data.items.length} tracks from playlist`);
+    
     return data.items;
   } catch (error) {
     const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
@@ -504,6 +558,51 @@ export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.
     });
     throw spotifyError;
   }
+};
+
+// 🔧 NEW: Get playlist snapshot ID for change detection
+export const getPlaylistSnapshot = async (playlistId: string): Promise<string | null> => {
+  try {
+    const response = await makeSpotifyApiCall(
+      `https://api.spotify.com/v1/playlists/${playlistId}?fields=snapshot_id`
+    );
+    
+    const data = await response.json();
+    return data.snapshot_id;
+  } catch (error) {
+    console.warn('Failed to get playlist snapshot:', error);
+    return null;
+  }
+};
+
+// 🔧 NEW: Wait for playlist change confirmation
+export const waitForPlaylistChange = async (
+  playlistId: string, 
+  originalSnapshot: string | null,
+  maxWaitTime: number = 5000
+): Promise<boolean> => {
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < maxWaitTime) {
+    try {
+      const currentSnapshot = await getPlaylistSnapshot(playlistId);
+      
+      if (currentSnapshot && currentSnapshot !== originalSnapshot) {
+        console.log('✅ Playlist change confirmed via snapshot ID');
+        return true;
+      }
+      
+      // Wait 500ms before checking again
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+    } catch (error) {
+      console.warn('Error checking playlist snapshot:', error);
+      break;
+    }
+  }
+  
+  console.log('⚠️ Playlist change not confirmed within timeout');
+  return false;
 };
 
 // Bulk remove tracks from playlist with error handling
@@ -515,6 +614,11 @@ export const bulkRemoveTracksFromPlaylist = async (trackUris: string[]): Promise
     if (!selectedPlaylist) {
       throw new Error('No playlist selected');
     }
+    
+    console.log(`🗑️ Bulk removing ${trackUris.length} tracks...`);
+    
+    // Get original snapshot for change verification
+    const originalSnapshot = await getPlaylistSnapshot(selectedPlaylist.playlistId);
     
     // Remove tracks in batches (Spotify API limit is 100 tracks per request)
     const batchSize = 100;
@@ -530,6 +634,15 @@ export const bulkRemoveTracksFromPlaylist = async (trackUris: string[]): Promise
         });
       });
     }
+    
+    // Wait for change confirmation
+    await waitForPlaylistChange(selectedPlaylist.playlistId, originalSnapshot);
+    
+    // Force refresh
+    await forcePlaylistRefresh(selectedPlaylist.playlistId);
+    
+    console.log('✅ Bulk remove completed with sync verification');
+    
   } catch (error) {
     const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
       operation: 'bulk_remove_tracks',

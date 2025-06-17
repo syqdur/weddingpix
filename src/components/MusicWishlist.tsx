@@ -7,7 +7,9 @@ import {
   getSelectedPlaylist,
   getPlaylistTracks,
   isSpotifyConnected,
-  getCurrentUser
+  getCurrentUser,
+  getPlaylistSnapshot,
+  waitForPlaylistChange
 } from '../services/spotifyService';
 import { SpotifyTrack } from '../types';
 
@@ -34,69 +36,59 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [syncStatus, setSyncStatus] = useState<'syncing' | 'synced' | 'error'>('synced');
+  const [currentSnapshot, setCurrentSnapshot] = useState<string | null>(null);
 
-  // 🔧 FIX: Enhanced auto-refresh with immediate sync detection
-  useEffect(() => {
-    if (!selectedPlaylist || !isSpotifyAvailable) return;
-
-    let refreshInterval: NodeJS.Timeout;
-    let immediateRefreshTimeout: NodeJS.Timeout;
-
-    const performRefresh = async (isImmediate = false) => {
-      try {
-        if (isImmediate) {
-          setSyncStatus('syncing');
-          console.log('🔄 Immediate sync check after user action...');
-        }
-        
-        const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
-        setPlaylistTracks(tracks);
-        setLastRefresh(new Date());
-        setSyncStatus('synced');
-        
-        if (isImmediate) {
-          console.log('✅ Immediate sync completed successfully');
-        }
-      } catch (error) {
-        console.warn('Auto-refresh failed:', error);
-        setSyncStatus('error');
-        // Don't show error for auto-refresh failures
-      }
-    };
-
-    // Initial refresh
-    performRefresh();
-
-    // Set up regular auto-refresh every 3 seconds for better responsiveness
-    refreshInterval = setInterval(() => {
-      performRefresh();
-    }, 3000);
-
-    // Cleanup function
-    return () => {
-      if (refreshInterval) clearInterval(refreshInterval);
-      if (immediateRefreshTimeout) clearTimeout(immediateRefreshTimeout);
-    };
-  }, [selectedPlaylist, isSpotifyAvailable]);
-
-  // 🔧 FIX: Immediate refresh trigger function
-  const triggerImmediateRefresh = async (delay = 500) => {
+  // 🔧 NEW: Enhanced instant sync with snapshot verification
+  const triggerInstantSync = async (operation: string = 'unknown') => {
+    if (!selectedPlaylist) return;
+    
+    console.log(`🔄 === INSTANT SYNC: ${operation.toUpperCase()} ===`);
     setSyncStatus('syncing');
     
-    // Wait a bit for Spotify to process the change
-    await new Promise(resolve => setTimeout(resolve, delay));
-    
-    if (selectedPlaylist) {
+    try {
+      // Step 1: Wait for Spotify to process the change (with snapshot verification)
+      console.log('⏳ Step 1: Waiting for Spotify to process change...');
+      const changeConfirmed = await waitForPlaylistChange(
+        selectedPlaylist.playlistId, 
+        currentSnapshot, 
+        3000 // 3 second timeout
+      );
+      
+      if (changeConfirmed) {
+        console.log('✅ Change confirmed via snapshot verification');
+      } else {
+        console.log('⚠️ Change not confirmed, proceeding anyway...');
+      }
+      
+      // Step 2: Fetch fresh playlist data with cache busting
+      console.log('📋 Step 2: Fetching fresh playlist data...');
+      const freshTracks = await getPlaylistTracks(selectedPlaylist.playlistId);
+      
+      // Step 3: Update local state
+      console.log('💾 Step 3: Updating local state...');
+      setPlaylistTracks(freshTracks);
+      setLastRefresh(new Date());
+      
+      // Step 4: Update current snapshot
+      const newSnapshot = await getPlaylistSnapshot(selectedPlaylist.playlistId);
+      setCurrentSnapshot(newSnapshot);
+      
+      setSyncStatus('synced');
+      console.log(`✅ === INSTANT SYNC COMPLETED: ${operation.toUpperCase()} ===`);
+      
+    } catch (error) {
+      console.error(`❌ Instant sync failed for ${operation}:`, error);
+      setSyncStatus('error');
+      
+      // Fallback: try basic refresh
       try {
-        console.log('🔄 Triggering immediate playlist refresh...');
-        const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
-        setPlaylistTracks(tracks);
+        const fallbackTracks = await getPlaylistTracks(selectedPlaylist.playlistId);
+        setPlaylistTracks(fallbackTracks);
         setLastRefresh(new Date());
         setSyncStatus('synced');
-        console.log('✅ Immediate refresh completed');
-      } catch (error) {
-        console.error('Immediate refresh failed:', error);
-        setSyncStatus('error');
+        console.log('✅ Fallback sync successful');
+      } catch (fallbackError) {
+        console.error('❌ Fallback sync also failed:', fallbackError);
       }
     }
   };
@@ -127,10 +119,15 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
           
           if (playlist) {
             try {
-              // Load playlist tracks
+              // Load playlist tracks and snapshot
               const tracks = await getPlaylistTracks(playlist.playlistId);
               setPlaylistTracks(tracks);
               setLastRefresh(new Date());
+              
+              // Get initial snapshot
+              const snapshot = await getPlaylistSnapshot(playlist.playlistId);
+              setCurrentSnapshot(snapshot);
+              
             } catch (playlistError) {
               console.error('Failed to load playlist tracks:', playlistError);
               setError('Failed to load playlist tracks. The playlist may no longer exist or you may not have access to it.');
@@ -147,6 +144,46 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     
     checkSpotify();
   }, []);
+
+  // 🔧 ENHANCED: Smart auto-refresh with snapshot monitoring
+  useEffect(() => {
+    if (!selectedPlaylist || !isSpotifyAvailable) return;
+
+    let refreshInterval: NodeJS.Timeout;
+
+    const performSmartRefresh = async () => {
+      try {
+        // Check if snapshot has changed (indicating external changes)
+        const latestSnapshot = await getPlaylistSnapshot(selectedPlaylist.playlistId);
+        
+        if (latestSnapshot && latestSnapshot !== currentSnapshot) {
+          console.log('🔄 External playlist change detected, refreshing...');
+          setSyncStatus('syncing');
+          
+          const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
+          setPlaylistTracks(tracks);
+          setLastRefresh(new Date());
+          setCurrentSnapshot(latestSnapshot);
+          setSyncStatus('synced');
+          
+          console.log('✅ Auto-refresh completed due to external change');
+        }
+        
+      } catch (error) {
+        console.warn('Smart refresh failed:', error);
+        setSyncStatus('error');
+        // Reset to synced after a moment
+        setTimeout(() => setSyncStatus('synced'), 2000);
+      }
+    };
+
+    // Smart refresh every 5 seconds (checks for external changes)
+    refreshInterval = setInterval(performSmartRefresh, 5000);
+
+    return () => {
+      if (refreshInterval) clearInterval(refreshInterval);
+    };
+  }, [selectedPlaylist, isSpotifyAvailable, currentSnapshot]);
 
   // Search with debounce
   useEffect(() => {
@@ -174,7 +211,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, isSpotifyAvailable]);
 
-  // 🔧 FIX: Enhanced add track with multiple refresh attempts
+  // 🔧 ENHANCED: Add track with instant sync verification
   const handleAddTrack = async (track: SpotifyTrack) => {
     if (isAddingTrack) return;
     
@@ -182,28 +219,23 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setError(null);
     
     try {
-      console.log('🎵 Adding track to playlist:', track.name);
+      console.log('🎵 === ADDING TRACK WITH INSTANT SYNC ===');
+      console.log('Track:', track.name, 'by', track.artists.map(a => a.name).join(', '));
+      
+      // Add track to playlist
       await addTrackToPlaylist(track.uri);
       
       // Show success message
       setShowAddSuccess(true);
       setTimeout(() => setShowAddSuccess(false), 3000);
       
-      // 🔧 FIX: Multiple refresh attempts for instant sync
-      console.log('🔄 Starting immediate sync sequence...');
-      
-      // First immediate refresh
-      await triggerImmediateRefresh(200);
-      
-      // Second refresh after 1 second to ensure sync
-      setTimeout(() => triggerImmediateRefresh(0), 1000);
-      
-      // Third refresh after 2 seconds as final backup
-      setTimeout(() => triggerImmediateRefresh(0), 2000);
+      // 🔧 NEW: Trigger instant sync with verification
+      await triggerInstantSync('add_track');
       
       // Clear search
       setSearchQuery('');
       setSearchResults([]);
+      
     } catch (error) {
       console.error('Failed to add track:', error);
       setError('Failed to add track to playlist: ' + (error.message || 'Unknown error'));
@@ -213,7 +245,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     }
   };
 
-  // 🔧 FIX: Enhanced remove track with immediate refresh
+  // 🔧 ENHANCED: Remove track with instant sync verification
   const handleRemoveTrack = async (track: SpotifyApi.PlaylistTrackObject) => {
     if (isRemovingTrack) return;
     
@@ -225,15 +257,14 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setError(null);
     
     try {
-      console.log('🗑️ Removing track from playlist:', track.track.name);
+      console.log('🗑️ === REMOVING TRACK WITH INSTANT SYNC ===');
+      console.log('Track:', track.track.name);
+      
+      // Remove track from playlist
       await removeTrackFromPlaylist(track.track.uri);
       
-      // 🔧 FIX: Immediate refresh after removing track
-      console.log('🔄 Starting immediate sync after remove...');
-      await triggerImmediateRefresh(200);
-      
-      // Backup refresh
-      setTimeout(() => triggerImmediateRefresh(0), 1000);
+      // 🔧 NEW: Trigger instant sync with verification
+      await triggerInstantSync('remove_track');
       
     } catch (error) {
       console.error('Failed to remove track:', error);
@@ -273,7 +304,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setSelectedTracks(new Set());
   };
 
-  // 🔧 FIX: Enhanced bulk delete with immediate refresh
+  // 🔧 ENHANCED: Bulk delete with instant sync verification
   const handleBulkDelete = async () => {
     if (selectedTracks.size === 0) {
       alert('Keine Songs ausgewählt.');
@@ -301,7 +332,8 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setError(null);
     
     try {
-      console.log(`🗑️ Bulk deleting ${tracksToDelete.length} tracks...`);
+      console.log(`🗑️ === BULK DELETE WITH INSTANT SYNC ===`);
+      console.log(`Deleting ${tracksToDelete.length} tracks...`);
       
       // Delete tracks one by one
       for (const track of tracksToDelete) {
@@ -313,18 +345,15 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
         }
       }
       
-      // 🔧 FIX: Immediate refresh after bulk delete
-      console.log('🔄 Starting immediate sync after bulk delete...');
-      await triggerImmediateRefresh(500);
-      
-      // Backup refresh
-      setTimeout(() => triggerImmediateRefresh(0), 1500);
+      // 🔧 NEW: Trigger instant sync with verification
+      await triggerInstantSync('bulk_delete');
       
       // Reset selection
       setSelectedTracks(new Set());
       setBulkDeleteMode(false);
       
       alert(`${tracksToDelete.length} Song${tracksToDelete.length > 1 ? 's' : ''} erfolgreich gelöscht!`);
+      
     } catch (error) {
       console.error('Failed to bulk delete tracks:', error);
       setError('Failed to delete some tracks: ' + (error.message || 'Unknown error'));
@@ -334,7 +363,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     }
   };
 
-  // 🔧 FIX: Manual refresh with visual feedback
+  // 🔧 ENHANCED: Manual refresh with instant sync
   const handleRefresh = async () => {
     if (!selectedPlaylist) return;
     
@@ -343,12 +372,13 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setSyncStatus('syncing');
     
     try {
-      console.log('🔄 Manual refresh triggered...');
-      const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
-      setPlaylistTracks(tracks);
-      setLastRefresh(new Date());
-      setSyncStatus('synced');
+      console.log('🔄 === MANUAL REFRESH WITH INSTANT SYNC ===');
+      
+      // Trigger instant sync
+      await triggerInstantSync('manual_refresh');
+      
       console.log('✅ Manual refresh completed');
+      
     } catch (error) {
       console.error('Failed to refresh tracks:', error);
       setError('Failed to refresh playlist tracks: ' + (error.message || 'Unknown error'));
@@ -623,7 +653,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                 Playlist Songs
               </h4>
               
-              {/* 🔧 FIX: Enhanced sync status indicator */}
+              {/* 🔧 ENHANCED: Sync status indicator with snapshot info */}
               <div className={`flex items-center gap-2 text-xs ${
                 isDarkMode ? 'text-gray-400' : 'text-gray-600'
               }`}>
@@ -638,7 +668,15 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                    'Sync-Fehler'}
                 </span>
                 <span>•</span>
-                <span>Letztes Update: {lastRefresh.toLocaleTimeString('de-DE')}</span>
+                <span>Update: {lastRefresh.toLocaleTimeString('de-DE')}</span>
+                {currentSnapshot && (
+                  <>
+                    <span>•</span>
+                    <span title={`Snapshot: ${currentSnapshot}`}>
+                      ID: {currentSnapshot.substring(0, 8)}...
+                    </span>
+                  </>
+                )}
               </div>
               
               {/* Bulk Delete Controls */}
