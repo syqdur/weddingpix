@@ -856,6 +856,31 @@ export const syncPlaylistWithDatabase = async (databaseRequests: MusicRequest[])
     
     console.log(`📊 Playlist has ${playlistTrackIds.size} tracks`);
     
+    // Find tracks that are in database but not in Spotify (should be added)
+    const tracksToAdd = Array.from(databaseSpotifyIds).filter(id => !playlistTrackIds.has(id));
+    
+    if (tracksToAdd.length > 0) {
+      console.log(`🎵 Found ${tracksToAdd.length} tracks to add to Spotify playlist`);
+      
+      // Find the corresponding music requests
+      const requestsToAdd = databaseRequests.filter(r => 
+        r.spotifyId && tracksToAdd.includes(r.spotifyId)
+      );
+      
+      // Add them to the playlist
+      const addResult = await addToSelectedPlaylist(playlistId, requestsToAdd);
+      
+      if (addResult.success > 0) {
+        console.log(`✅ Added ${addResult.success} tracks to Spotify playlist`);
+      }
+      
+      if (addResult.errors.length > 0) {
+        console.warn(`⚠️ Some tracks could not be added: ${addResult.errors.join(', ')}`);
+      }
+    } else {
+      console.log('✅ All database tracks are already in Spotify playlist');
+    }
+    
     // Find tracks that are in Spotify but not in database (should be removed)
     const tracksToRemove = Array.from(playlistTrackIds).filter(id => !databaseSpotifyIds.has(id));
     
