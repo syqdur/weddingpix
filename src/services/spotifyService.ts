@@ -431,3 +431,37 @@ export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.
     throw error;
   }
 };
+
+// Bulk remove tracks from playlist
+export const bulkRemoveTracksFromPlaylist = async (trackUris: string[]): Promise<void> => {
+  try {
+    const credentials = await getValidCredentials();
+    
+    if (!credentials) {
+      throw new Error('Not connected to Spotify');
+    }
+    
+    // Get selected playlist
+    const selectedPlaylist = await getSelectedPlaylist();
+    
+    if (!selectedPlaylist) {
+      throw new Error('No playlist selected');
+    }
+    
+    // Set access token
+    spotifyApi.setAccessToken(credentials.accessToken);
+    
+    // Remove tracks in batches (Spotify API limit is 100 tracks per request)
+    const batchSize = 100;
+    for (let i = 0; i < trackUris.length; i += batchSize) {
+      const batch = trackUris.slice(i, i + batchSize);
+      await spotifyApi.removeTracksFromPlaylist(
+        selectedPlaylist.playlistId, 
+        batch.map(uri => ({ uri }))
+      );
+    }
+  } catch (error) {
+    console.error('Failed to bulk remove tracks from playlist:', error);
+    throw error;
+  }
+};

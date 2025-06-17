@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Search, X, Plus, Trash2, ExternalLink, AlertCircle, RefreshCw, Clock, Heart, Play, Volume2, Check } from 'lucide-react';
+import { Music, Search, X, Plus, Trash2, ExternalLink, AlertCircle, RefreshCw, Clock, Heart, Play, Volume2, Check, CheckSquare, Square } from 'lucide-react';
 import { 
   searchTracks, 
   addTrackToPlaylist, 
   removeTrackFromPlaylist,
   getSelectedPlaylist,
   getPlaylistTracks,
-  isSpotifyConnected
+  isSpotifyConnected,
+  getCurrentUser
 } from '../services/spotifyService';
 import { SpotifyTrack } from '../types';
 
@@ -26,6 +27,11 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   const [isAddingTrack, setIsAddingTrack] = useState<string | null>(null);
   const [isRemovingTrack, setIsRemovingTrack] = useState<string | null>(null);
   const [showAddSuccess, setShowAddSuccess] = useState(false);
+  const [currentUser, setCurrentUser] = useState<SpotifyApi.CurrentUsersProfileResponse | null>(null);
+  const [bulkDeleteMode, setBulkDeleteMode] = useState(false);
+  const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set());
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Check if Spotify is connected and load playlist tracks
   useEffect(() => {
@@ -39,6 +45,14 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
         setIsSpotifyAvailable(connected);
         
         if (connected) {
+          // Get current user
+          const user = await getCurrentUser();
+          setCurrentUser(user);
+          
+          // Check if user is admin (simplified check - in a real app, you'd have a proper admin check)
+          // For now, we'll assume any authenticated user is an admin
+          setIsAdmin(!!user);
+          
           // Get selected playlist
           const playlist = await getSelectedPlaylist();
           setSelectedPlaylist(playlist);
@@ -159,6 +173,97 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     }
   };
 
+  // Toggle track selection for bulk delete
+  const toggleTrackSelection = (trackId: string) => {
+    setSelectedTracks(prev => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(trackId)) {
+        newSelection.delete(trackId);
+      } else {
+        newSelection.add(trackId);
+      }
+      return newSelection;
+    });
+  };
+
+  // Select all tracks
+  const selectAllTracks = () => {
+    // If admin, select all tracks
+    // If regular user, only select tracks added by the user
+    const trackIds = playlistTracks
+      .filter(item => isAdmin || (currentUser && item.added_by.id === currentUser.id))
+      .map(item => item.track.id);
+    
+    setSelectedTracks(new Set(trackIds));
+  };
+
+  // Deselect all tracks
+  const deselectAllTracks = () => {
+    setSelectedTracks(new Set());
+  };
+
+  // Bulk delete selected tracks
+  const handleBulkDelete = async () => {
+    if (selectedTracks.size === 0) {
+      alert('Keine Songs ausgewählt.');
+      return;
+    }
+    
+    // Filter tracks that can be deleted
+    const tracksToDelete = playlistTracks.filter(item => 
+      selectedTracks.has(item.track.id) && 
+      (isAdmin || (currentUser && item.added_by.id === currentUser.id))
+    );
+    
+    if (tracksToDelete.length === 0) {
+      alert('Keine der ausgewählten Songs können gelöscht werden.');
+      return;
+    }
+    
+    const confirmMessage = `${tracksToDelete.length} Song${tracksToDelete.length > 1 ? 's' : ''} wirklich löschen?`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+    
+    setIsBulkDeleting(true);
+    setError(null);
+    
+    try {
+      // Delete tracks one by one
+      for (const track of tracksToDelete) {
+        try {
+          await removeTrackFromPlaylist(track.track.uri);
+        } catch (error) {
+          console.error(`Failed to remove track ${track.track.name}:`, error);
+          // Continue with other tracks
+        }
+      }
+      
+      // Refresh playlist tracks
+      if (selectedPlaylist) {
+        try {
+          const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
+          setPlaylistTracks(tracks);
+        } catch (refreshError) {
+          console.error('Failed to refresh playlist tracks:', refreshError);
+          setError('Some tracks were removed, but failed to refresh playlist');
+        }
+      }
+      
+      // Reset selection
+      setSelectedTracks(new Set());
+      setBulkDeleteMode(false);
+      
+      alert(`${tracksToDelete.length} Song${tracksToDelete.length > 1 ? 's' : ''} erfolgreich gelöscht!`);
+    } catch (error) {
+      console.error('Failed to bulk delete tracks:', error);
+      setError('Failed to delete some tracks: ' + (error.message || 'Unknown error'));
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   // Refresh playlist tracks
   const handleRefresh = async () => {
     if (!selectedPlaylist) return;
@@ -188,6 +293,18 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  // Check if user can delete a track
+  const canDeleteTrack = (track: SpotifyApi.PlaylistTrackObject) => {
+    return isAdmin || (currentUser && track.added_by.id === currentUser.id);
+  };
+
+  // Count deletable tracks
+  const getDeletableTracksCount = () => {
+    return playlistTracks.filter(item => 
+      isAdmin || (currentUser && item.added_by.id === currentUser.id)
+    ).length;
   };
 
   if (!isSpotifyAvailable) {
@@ -423,11 +540,75 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
         {/* Playlist Tracks */}
         <div className="pb-8">
           <div className="flex items-center justify-between mb-4">
-            <h4 className={`text-lg font-bold ${
-              isDarkMode ? 'text-white' : 'text-gray-800'
-            }`}>
-              Playlist Songs
-            </h4>
+            <div className="flex items-center gap-4">
+              <h4 className={`text-lg font-bold ${
+                isDarkMode ? 'text-white' : 'text-gray-800'
+              }`}>
+                Playlist Songs
+              </h4>
+              
+              {/* Bulk Delete Controls */}
+              {getDeletableTracksCount() > 0 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setBulkDeleteMode(!bulkDeleteMode)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                      bulkDeleteMode
+                        ? 'bg-red-500 text-white'
+                        : isDarkMode
+                          ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                          : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                    }`}
+                  >
+                    {bulkDeleteMode ? 'Auswahl beenden' : 'Mehrere löschen'}
+                  </button>
+                  
+                  {bulkDeleteMode && (
+                    <>
+                      <span className={`text-xs ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        {selectedTracks.size} von {getDeletableTracksCount()} ausgewählt
+                      </span>
+                      
+                      <button
+                        onClick={selectAllTracks}
+                        className={`text-xs px-2 py-1 rounded transition-colors ${
+                          isDarkMode ? 'text-blue-400 hover:bg-gray-700' : 'text-blue-600 hover:bg-blue-50'
+                        }`}
+                      >
+                        Alle
+                      </button>
+                      
+                      <button
+                        onClick={deselectAllTracks}
+                        className={`text-xs px-2 py-1 rounded transition-colors ${
+                          isDarkMode ? 'text-gray-400 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        Keine
+                      </button>
+                      
+                      {selectedTracks.size > 0 && (
+                        <button
+                          onClick={handleBulkDelete}
+                          disabled={isBulkDeleting}
+                          className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-red-500 hover:bg-red-600 text-white transition-colors"
+                        >
+                          {isBulkDeleting ? (
+                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                          ) : (
+                            <Trash2 className="w-3 h-3 mr-1" />
+                          )}
+                          {selectedTracks.size} löschen
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+            
             <button
               onClick={handleRefresh}
               disabled={isLoading}
@@ -447,10 +628,10 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
           </div>
 
           {/* Table Header */}
-          <div className={`grid grid-cols-[16px_1fr_auto_auto] gap-4 px-4 py-2 border-b text-xs font-medium uppercase ${
+          <div className={`grid ${bulkDeleteMode ? 'grid-cols-[auto_1fr_auto_auto]' : 'grid-cols-[16px_1fr_auto_auto]'} gap-4 px-4 py-2 border-b text-xs font-medium uppercase ${
             isDarkMode ? 'border-gray-700 text-gray-400' : 'border-gray-200 text-gray-500'
           }`}>
-            <div>#</div>
+            {bulkDeleteMode ? <div></div> : <div>#</div>}
             <div>Titel</div>
             <div>Hinzugefügt am</div>
             <div className="flex justify-center">
@@ -465,88 +646,116 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
           ) : playlistTracks.length > 0 ? (
             <div className="max-h-[400px] overflow-y-auto">
               <div className="space-y-1 mt-2">
-                {playlistTracks.map((item, index) => (
-                  <div
-                    key={`${item.track.id}-${item.added_at}`}
-                    className={`grid grid-cols-[16px_1fr_auto_auto] gap-4 px-4 py-2 rounded-md items-center group ${
-                      isDarkMode 
-                        ? 'hover:bg-gray-800 text-white' 
-                        : 'hover:bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    <div className={`text-sm ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                    }`}>{index + 1}</div>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded overflow-hidden bg-gray-100 flex-shrink-0">
-                        {item.track.album?.images?.[0] ? (
-                          <img 
-                            src={item.track.album.images[0].url} 
-                            alt={item.track.album.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Music className="w-4 h-4 text-gray-400" />
+                {playlistTracks.map((item, index) => {
+                  const isSelected = selectedTracks.has(item.track.id);
+                  const canDelete = canDeleteTrack(item);
+                  const showCheckbox = bulkDeleteMode && canDelete;
+                  
+                  return (
+                    <div
+                      key={`${item.track.id}-${item.added_at}`}
+                      className={`grid ${bulkDeleteMode ? 'grid-cols-[auto_1fr_auto_auto]' : 'grid-cols-[16px_1fr_auto_auto]'} gap-4 px-4 py-2 rounded-md items-center group ${
+                        isDarkMode 
+                          ? `hover:bg-gray-800 text-white ${isSelected ? 'bg-gray-800 ring-1 ring-[#1DB954]' : ''}` 
+                          : `hover:bg-gray-100 text-gray-800 ${isSelected ? 'bg-gray-100 ring-1 ring-[#1DB954]' : ''}`
+                      }`}
+                    >
+                      {bulkDeleteMode ? (
+                        <div>
+                          {showCheckbox && (
+                            <button
+                              onClick={() => toggleTrackSelection(item.track.id)}
+                              className={`p-1 rounded transition-colors ${
+                                isSelected
+                                  ? 'text-[#1DB954]'
+                                  : isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
+                              }`}
+                            >
+                              {isSelected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className={`text-sm ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                        }`}>{index + 1}</div>
+                      )}
+                      
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded overflow-hidden bg-gray-100 flex-shrink-0">
+                          {item.track.album?.images?.[0] ? (
+                            <img 
+                              src={item.track.album.images[0].url} 
+                              alt={item.track.album.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Music className="w-4 h-4 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h5 className="font-medium truncate">
+                            {item.track.name}
+                          </h5>
+                          <p className={`text-xs truncate ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                          }`}>
+                            {item.track.artists.map(a => a.name).join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className={`text-xs ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        {formatDate(item.added_at)}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
+                          {formatDuration(item.track.duration_ms)}
+                        </span>
+                        {!bulkDeleteMode && (
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {canDelete && (
+                              <button
+                                onClick={() => handleRemoveTrack(item)}
+                                disabled={isRemovingTrack === item.track.id}
+                                className={`p-1.5 rounded-full transition-colors ${
+                                  isDarkMode 
+                                    ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' 
+                                    : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
+                                }`}
+                                title="Aus Playlist entfernen"
+                              >
+                                {isRemovingTrack === item.track.id ? (
+                                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
+                            <a
+                              href={item.track.external_urls.spotify}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`p-1.5 rounded-full transition-colors ${
+                                isDarkMode 
+                                  ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' 
+                                  : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
+                              }`}
+                              title="In Spotify öffnen"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
                           </div>
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <h5 className="font-medium truncate">
-                          {item.track.name}
-                        </h5>
-                        <p className={`text-xs truncate ${
-                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                        }`}>
-                          {item.track.artists.map(a => a.name).join(', ')}
-                        </p>
-                      </div>
                     </div>
-                    <div className={`text-xs ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                    }`}>
-                      {formatDate(item.added_at)}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                      }`}>
-                        {formatDuration(item.track.duration_ms)}
-                      </span>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={() => handleRemoveTrack(item)}
-                          disabled={isRemovingTrack === item.track.id}
-                          className={`p-1.5 rounded-full transition-colors ${
-                            isDarkMode 
-                              ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' 
-                              : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
-                          }`}
-                          title="Aus Playlist entfernen"
-                        >
-                          {isRemovingTrack === item.track.id ? (
-                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
-                        <a
-                          href={item.track.external_urls.spotify}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`p-1.5 rounded-full transition-colors ${
-                            isDarkMode 
-                              ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' 
-                              : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
-                          }`}
-                          title="In Spotify öffnen"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : (
