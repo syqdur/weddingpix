@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Search, Plus, CheckCircle, AlertTriangle, Loader, ExternalLink } from 'lucide-react';
+import { Search, Plus, CheckCircle, AlertTriangle, Loader, Music } from 'lucide-react';
 import { SpotifyTrack } from '../types';
 import { 
   searchSpotifyTracks, 

@@ -27,7 +27,7 @@ export interface Like {
   createdAt: string;
 }
 
-// New Music Request Types
+// Music Request Types
 export interface MusicRequest {
   id: string;
   songTitle: string;
@@ -37,9 +37,9 @@ export interface MusicRequest {
   spotifyId?: string;
   requestedBy: string;
   deviceId: string;
-  requestedAt: string;
+  requestedAt: number; // Changed from string to number
   message?: string;
-  status: 'pending' | 'approved' | 'played' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected';
   votes: number;
   votedBy: string[]; // Array of deviceIds who voted
   albumArt?: string;
