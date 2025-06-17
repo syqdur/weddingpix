@@ -14,6 +14,7 @@ import { TabNavigation } from './components/TabNavigation';
 import { LiveUserIndicator } from './components/LiveUserIndicator';
 import { SpotifyCallback } from './components/SpotifyCallback';
 import { MusicWishlist } from './components/MusicWishlist';
+import { WeddingTimeline } from './components/WeddingTimeline';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -58,7 +59,22 @@ function App() {
   const [showStoriesViewer, setShowStoriesViewer] = useState(false);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'music' | 'timeline'>('gallery');
+
+  // Listen for tab change events from AdminPanel
+  useEffect(() => {
+    const handleTabChange = (event: CustomEvent) => {
+      if (event.detail && event.detail.tab) {
+        setActiveTab(event.detail.tab);
+      }
+    };
+
+    window.addEventListener('tabChange', handleTabChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('tabChange', handleTabChange as EventListener);
+    };
+  }, []);
 
   // Check if we're on the Spotify callback page
   const isSpotifyCallback = () => {
@@ -397,19 +413,21 @@ function App() {
       }`}>
         <ProfileHeader isDarkMode={isDarkMode} />
         
-        {/* Stories Bar */}
-        <StoriesBar
-          stories={stories}
-          currentUser={userName || ''}
-          onAddStory={() => setShowStoryUpload(true)}
-          onViewStory={handleViewStory}
-          isDarkMode={isDarkMode}
-        />
+        {/* Stories Bar - Only show on gallery tab */}
+        {activeTab === 'gallery' && (
+          <StoriesBar
+            stories={stories}
+            currentUser={userName || ''}
+            onAddStory={() => setShowStoryUpload(true)}
+            onViewStory={handleViewStory}
+            isDarkMode={isDarkMode}
+          />
+        )}
         
         {/* Tab Navigation */}
         <TabNavigation 
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab)}
+          onTabChange={setActiveTab}
           isDarkMode={isDarkMode}
         />
 
@@ -449,8 +467,14 @@ function App() {
               isDarkMode={isDarkMode}
             />
           </>
-        ) : (
+        ) : activeTab === 'music' ? (
           <MusicWishlist isDarkMode={isDarkMode} />
+        ) : (
+          <WeddingTimeline 
+            isDarkMode={isDarkMode}
+            isAdmin={isAdmin}
+            userName={userName || ''}
+          />
         )}
       </div>
 

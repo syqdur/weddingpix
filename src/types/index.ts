@@ -52,3 +52,16 @@ export interface SpotifyTrack {
   };
   uri: string;
 }
+
+// Timeline Types
+export interface TimelineEvent {
+  id: string;
+  title: string;
+  date: string;
+  description: string;
+  imageUrl?: string;
+  mediaType?: 'image' | 'video';
+  uploadedBy: string;
+  createdAt: string;
+  position?: 'left' | 'right'; // For alternating display
+}
