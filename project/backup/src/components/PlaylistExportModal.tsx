@@ -1149,19 +1149,3 @@ export const PlaylistExportModal: React.FC<PlaylistExportModalProps> = ({
     </div>
   );
 };
-
-const openSpotifyPlaylist = (tracks: MusicRequest[]) => {
-  const spotifyTracks = tracks.filter(track => track.spotifyId);
-  if (spotifyTracks.length === 0) {
-    alert('Keine Spotify-Tracks gefunden!');
-    return;
-  }
-
-  // Create a Spotify search URL with the first few tracks
-  const searchQuery = spotifyTracks.slice(0, 3)
-    .map(track => `${track.songTitle} ${track.artist}`)
-    .join(' OR ');
-  
-  const spotifyUrl = `https://open.spotify.com/search/${encodeURIComponent(searchQuery)}`;
-  window.open(spotifyUrl, '_blank');
-};
