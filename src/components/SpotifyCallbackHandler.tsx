@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Music, CheckCircle, AlertCircle, Loader, ExternalLink } from 'lucide-react';
-import { handleCallbackIfPresent, SpotifyAuthError, SpotifyAPIError } from '../services/spotifyAuthService';
+import { handleCallbackIfPresent } from '../services/spotifyAuthService';
 
 interface SpotifyCallbackHandlerProps {
   isDarkMode: boolean;
@@ -45,7 +45,7 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
         let errorMessage = 'Unbekannter Fehler bei der Spotify-Authentifizierung';
         let details = null;
         
-        if (error instanceof SpotifyAuthError) {
+        if (error instanceof Error) {
           errorMessage = error.message;
           if (error.message.includes('Invalid state parameter')) {
             details = 'Sicherheitsfehler: Der State-Parameter stimmt nicht überein. Dies kann durch eine unterbrochene Authentifizierung verursacht werden.';
@@ -56,15 +56,6 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
           } else if (error.message.includes('Redirect URI')) {
             details = 'Die Redirect-URI stimmt nicht mit der Spotify-App-Konfiguration überein. Bitte kontaktiere den Administrator.';
           }
-        } else if (error instanceof SpotifyAPIError) {
-          errorMessage = `Spotify API Fehler: ${error.message}`;
-          if (error.status === 400) {
-            details = 'Ungültige Anfrage an Spotify. Dies kann durch falsche App-Konfiguration verursacht werden.';
-          } else if (error.status === 401) {
-            details = 'Authentifizierung bei Spotify fehlgeschlagen. Bitte überprüfe die App-Berechtigung.';
-          }
-        } else if (error instanceof Error) {
-          errorMessage = error.message;
         }
         
         setStatus('error');
@@ -72,7 +63,7 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
         setErrorDetails(details);
         onError?.(errorMessage);
         
-        // Redirect to main page after error
+        // Redirect after error
         setTimeout(() => {
           window.location.href = '/';
         }, 8000);
@@ -81,28 +72,6 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
 
     handleCallback();
   }, [onSuccess, onError]);
-
-  const getStatusIcon = () => {
-    switch (status) {
-      case 'processing':
-        return <Loader className="w-8 h-8 animate-spin text-blue-500" />;
-      case 'success':
-        return <CheckCircle className="w-8 h-8 text-green-500" />;
-      case 'error':
-        return <AlertCircle className="w-8 h-8 text-red-500" />;
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (status) {
-      case 'processing':
-        return isDarkMode ? 'text-blue-400' : 'text-blue-600';
-      case 'success':
-        return isDarkMode ? 'text-green-400' : 'text-green-600';
-      case 'error':
-        return isDarkMode ? 'text-red-400' : 'text-red-600';
-    }
-  };
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-300 ${
@@ -122,7 +91,9 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
 
         {/* Status Icon */}
         <div className="mb-4 flex justify-center">
-          {getStatusIcon()}
+          {status === 'processing' && <Loader className="w-8 h-8 animate-spin text-blue-500" />}
+          {status === 'success' && <CheckCircle className="w-8 h-8 text-green-500" />}
+          {status === 'error' && <AlertCircle className="w-8 h-8 text-red-500" />}
         </div>
 
         {/* Status Message */}
@@ -132,7 +103,11 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
           Spotify Integration
         </h2>
 
-        <p className={`text-base mb-6 transition-colors duration-300 ${getStatusColor()}`}>
+        <p className={`text-base mb-6 transition-colors duration-300 ${
+          status === 'processing' ? (isDarkMode ? 'text-blue-400' : 'text-blue-600') :
+          status === 'success' ? (isDarkMode ? 'text-green-400' : 'text-green-600') :
+          (isDarkMode ? 'text-red-400' : 'text-red-600')
+        }`}>
           {message}
         </p>
 
@@ -232,28 +207,6 @@ export const SpotifyCallbackHandler: React.FC<SpotifyCallbackHandlerProps> = ({
                 </a>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Troubleshooting Info */}
-        {status === 'error' && (
-          <div className={`mt-6 p-4 rounded-xl text-left transition-colors duration-300 ${
-            isDarkMode ? 'bg-yellow-900/20 border border-yellow-700/30' : 'bg-yellow-50 border border-yellow-200'
-          }`}>
-            <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
-              isDarkMode ? 'text-yellow-300' : 'text-yellow-800'
-            }`}>
-              💡 Lösungsvorschläge:
-            </h4>
-            <ul className={`text-sm space-y-1 transition-colors duration-300 ${
-              isDarkMode ? 'text-yellow-200' : 'text-yellow-700'
-            }`}>
-              <li>• Stelle sicher, dass die Spotify App korrekt konfiguriert ist</li>
-              <li>• Überprüfe die Redirect URIs in der Spotify App</li>
-              <li>• Versuche die Authentifizierung in einem neuen Tab</li>
-              <li>• Lösche Browser-Cache und Cookies für diese Seite</li>
-              <li>• Kontaktiere den Administrator bei anhaltenden Problemen</li>
-            </ul>
           </div>
         )}
 
