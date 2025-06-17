@@ -1,9 +1,9 @@
 import React from 'react';
-import { Camera, Music, Calendar } from 'lucide-react';
+import { Camera, Music } from 'lucide-react';
 
 interface TabNavigationProps {
-  activeTab: 'gallery' | 'music' | 'timeline';
-  onTabChange: (tab: 'gallery' | 'music' | 'timeline') => void;
+  activeTab: 'gallery' | 'music';
+  onTabChange: (tab: 'gallery' | 'music') => void;
   isDarkMode: boolean;
 }
 
@@ -24,12 +24,6 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
       label: 'Musikwünsche',
       icon: <Music className="w-5 h-5" />,
       emoji: '🎵'
-    },
-    {
-      id: 'timeline' as const,
-      label: 'Wir',
-      icon: <Calendar className="w-5 h-5" />,
-      emoji: '📅'
     }
   ];
 

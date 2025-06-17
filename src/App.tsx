@@ -10,11 +10,10 @@ import { UnderConstructionPage } from './components/UnderConstructionPage';
 import { StoriesBar } from './components/StoriesBar';
 import { StoriesViewer } from './components/StoriesViewer';
 import { StoryUploadModal } from './components/StoryUploadModal';
-import { MusicRequestsSection } from './components/MusicRequestsSection';
 import { TabNavigation } from './components/TabNavigation';
 import { LiveUserIndicator } from './components/LiveUserIndicator';
-import { SpotifyCallbackHandler } from './components/SpotifyCallbackHandler';
-import { WeddingTimeline } from './components/WeddingTimeline';
+import { SpotifyCallback } from './components/SpotifyCallback';
+import { MusicWishlist } from './components/MusicWishlist';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -41,7 +40,6 @@ import {
   cleanupExpiredStories,
   Story
 } from './services/liveService';
-import { handleCallbackIfPresent, isSpotifyCallback } from './services/spotifyAuthService';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -60,15 +58,13 @@ function App() {
   const [showStoriesViewer, setShowStoriesViewer] = useState(false);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'music' | 'timeline'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
 
-  // Handle Spotify callback if present
-  useEffect(() => {
-    if (isSpotifyCallback()) {
-      console.log('🎵 Spotify callback detected, handling...');
-      // The SpotifyCallbackHandler component will handle this
-    }
-  }, []);
+  // Check if we're on the Spotify callback page
+  const isSpotifyCallback = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.has('code') && urlParams.has('state');
+  };
 
   // Subscribe to site status changes
   useEffect(() => {
@@ -313,17 +309,7 @@ function App() {
 
   // Show Spotify callback handler if on callback page
   if (isSpotifyCallback()) {
-    return (
-      <SpotifyCallbackHandler 
-        isDarkMode={isDarkMode}
-        onSuccess={() => {
-          console.log('✅ Spotify authentication successful');
-        }}
-        onError={(error) => {
-          console.error('❌ Spotify authentication failed:', error);
-        }}
-      />
-    );
+    return <SpotifyCallback isDarkMode={isDarkMode} />;
   }
 
   // Show loading while site status is being fetched
@@ -411,21 +397,19 @@ function App() {
       }`}>
         <ProfileHeader isDarkMode={isDarkMode} />
         
-        {/* Stories Bar - Only show on gallery tab */}
-        {activeTab === 'gallery' && (
-          <StoriesBar
-            stories={stories}
-            currentUser={userName || ''}
-            onAddStory={() => setShowStoryUpload(true)}
-            onViewStory={handleViewStory}
-            isDarkMode={isDarkMode}
-          />
-        )}
+        {/* Stories Bar */}
+        <StoriesBar
+          stories={stories}
+          currentUser={userName || ''}
+          onAddStory={() => setShowStoryUpload(true)}
+          onViewStory={handleViewStory}
+          isDarkMode={isDarkMode}
+        />
         
         {/* Tab Navigation */}
         <TabNavigation 
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={(tab) => setActiveTab(tab)}
           isDarkMode={isDarkMode}
         />
 
@@ -465,18 +449,8 @@ function App() {
               isDarkMode={isDarkMode}
             />
           </>
-        ) : activeTab === 'music' ? (
-          <MusicRequestsSection
-            userName={userName || ''}
-            deviceId={deviceId}
-            isAdmin={isAdmin}
-            isDarkMode={isDarkMode}
-          />
         ) : (
-          <WeddingTimeline 
-            isAdmin={isAdmin}
-            isDarkMode={isDarkMode}
-          />
+          <MusicWishlist isDarkMode={isDarkMode} />
         )}
       </div>
 

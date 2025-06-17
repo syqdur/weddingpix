@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code, Music, Calendar, Plus, Edit, Trash2, X } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code, Music } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
@@ -31,7 +31,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [showShowcase, setShowShowcase] = useState(false);
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [showSpotifyAdmin, setShowSpotifyAdmin] = useState(false);
-  const [showTimelineAdmin, setShowTimelineAdmin] = useState(false);
 
   const correctPIN = "2407";
 
@@ -242,19 +241,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <Music className="w-5 h-5" />
           </button>
 
-          {/* TIMELINE ADMIN BUTTON */}
-          <button
-            onClick={() => setShowTimelineAdmin(true)}
-            className={`p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
-              isDarkMode
-                ? 'bg-pink-600 hover:bg-pink-700 text-white'
-                : 'bg-pink-500 hover:bg-pink-600 text-white'
-            }`}
-            title="💕 Timeline verwalten - Eure gemeinsame Geschichte"
-          >
-            <Calendar className="w-5 h-5" />
-          </button>
-
           {/* Showcase Button */}
           <button
             onClick={() => setShowShowcase(true)}
@@ -368,111 +354,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             <div className="mt-6 text-center">
               <button
                 onClick={() => setShowSpotifyAdmin(false)}
-                className={`py-3 px-6 rounded-xl transition-colors duration-300 ${
-                  isDarkMode 
-                    ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
-                    : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
-                }`}
-              >
-                Schließen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TIMELINE ADMIN MODAL */}
-      {showTimelineAdmin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`rounded-2xl p-6 max-w-3xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
-            isDarkMode ? 'bg-gray-800' : 'bg-white'
-          }`}>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className={`p-3 rounded-full transition-colors duration-300 ${
-                  isDarkMode ? 'bg-pink-600' : 'bg-pink-500'
-                }`}>
-                  <Calendar className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className={`text-xl font-semibold transition-colors duration-300 ${
-                    isDarkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    Timeline-Verwaltung
-                  </h3>
-                  <p className={`text-sm transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                  }`}>
-                    Verwalte eure gemeinsame Geschichte
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowTimelineAdmin(false)}
-                className={`p-2 rounded-full transition-colors duration-300 ${
-                  isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
-                }`}
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            
-            {/* Timeline Admin Info */}
-            <div className={`p-6 rounded-xl mb-6 transition-colors duration-300 ${
-              isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
-            }`}>
-              <h4 className={`font-semibold mb-3 transition-colors duration-300 ${
-                isDarkMode ? 'text-blue-300' : 'text-blue-800'
-              }`}>
-                💡 Hinweis zur Timeline-Verwaltung
-              </h4>
-              <p className={`text-sm mb-4 transition-colors duration-300 ${
-                isDarkMode ? 'text-blue-200' : 'text-blue-700'
-              }`}>
-                Die Timeline-Verwaltung ist direkt im "Unsere Geschichte" Tab integriert. Dort kannst du:
-              </p>
-              <ul className={`text-sm space-y-2 transition-colors duration-300 ${
-                isDarkMode ? 'text-blue-200' : 'text-blue-700'
-              }`}>
-                <li className="flex items-center gap-2">
-                  <Plus className="w-4 h-4" />
-                  <span>Neue Ereignisse hinzufügen (über den + Button)</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Edit className="w-4 h-4" />
-                  <span>Bestehende Ereignisse bearbeiten (über den Bearbeiten-Button an jedem Ereignis)</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Trash2 className="w-4 h-4" />
-                  <span>Ereignisse löschen (im Bearbeitungsdialog)</span>
-                </li>
-              </ul>
-            </div>
-            
-            {/* Go to Timeline Button */}
-            <div className="text-center">
-              <button
-                onClick={() => {
-                  setShowTimelineAdmin(false);
-                  // Trigger tab change to timeline
-                  const tabChangeEvent = new CustomEvent('tabChange', { detail: { tab: 'timeline' } });
-                  window.dispatchEvent(tabChangeEvent);
-                }}
-                className={`py-3 px-6 rounded-xl transition-colors duration-300 ${
-                  isDarkMode 
-                    ? 'bg-pink-600 hover:bg-pink-700 text-white' 
-                    : 'bg-pink-500 hover:bg-pink-600 text-white'
-                }`}
-              >
-                Zur Timeline gehen
-              </button>
-            </div>
-            
-            {/* Close Button */}
-            <div className="mt-6 text-center">
-              <button
-                onClick={() => setShowTimelineAdmin(false)}
                 className={`py-3 px-6 rounded-xl transition-colors duration-300 ${
                   isDarkMode 
                     ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
@@ -732,7 +613,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               }`}>
                 <li>• 👥 User Management - Alle Benutzer und Status anzeigen</li>
                 <li>• 🎵 Spotify-Account verbinden und Playlist verwalten</li>
-                <li>• 💕 Timeline verwalten - Eure gemeinsame Geschichte</li>
                 <li>• Website für alle freischalten/sperren</li>
                 <li>• Medien und Kommentare löschen</li>
                 <li>• Deutsche Fotobuch-Services</li>
@@ -842,3 +722,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     </>
   );
 };
+
+// X icon component
+const X: React.FC<{ className?: string }> = ({ className }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+);
