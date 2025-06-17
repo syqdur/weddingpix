@@ -76,9 +76,10 @@ const generateDeviceId = (): string => {
 };
 
 // CRITICAL FIX: Always return the exact same redirect URI that's configured in Spotify
+// This must match EXACTLY what's in your Spotify app settings
 const getRedirectUri = (): string => {
   return 'https://kristinundmauro.de/';
-}
+};
 
 // Secure Token Storage with encryption-like obfuscation
 const secureStorage = {
@@ -467,13 +468,20 @@ export class SpotifyAuthService {
     }
 
     try {
+      // Create a new headers object to avoid modifying the original
+      const headers = new Headers(options.headers);
+      
+      // Set Authorization header
+      headers.set('Authorization', `Bearer ${token}`);
+      
+      // Set Content-Type if not already set and we have a body
+      if (!headers.has('Content-Type') && options.body && !(options.body instanceof FormData)) {
+        headers.set('Content-Type', 'application/json');
+      }
+      
       const response = await fetch(`${SPOTIFY_API_BASE}${endpoint}`, {
         ...options,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers
       });
 
       // Handle rate limiting
@@ -503,6 +511,11 @@ export class SpotifyAuthService {
           response.status,
           errorData.error?.reason
         );
+      }
+
+      // For endpoints that return no content
+      if (response.status === 204) {
+        return {} as T;
       }
 
       return response.json();
