@@ -1,4 +1,3 @@
-import SpotifyWebApi from 'spotify-web-api-node';
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { SpotifyCredentials, SelectedPlaylist, SpotifyTrack } from '../types';
@@ -9,13 +8,6 @@ import { SpotifyErrorHandler, SpotifyDebugger, SpotifyRetryHandler } from './spo
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '4dbf85a8ca7c43d3b2ddc540194e9387';
 const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || 'acf102b8834d48b497a7e98bf69021f6';
 const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || 'https://kristinundmauro.de/';
-
-// Create Spotify API instance
-const spotifyApi = new SpotifyWebApi({
-  clientId: SPOTIFY_CLIENT_ID,
-  clientSecret: SPOTIFY_CLIENT_SECRET,
-  redirectUri: SPOTIFY_REDIRECT_URI
-});
 
 // Storage keys for PKCE flow
 const PKCE_CODE_VERIFIER_KEY = 'spotify_pkce_code_verifier';
@@ -143,32 +135,53 @@ export const exchangeCodeForTokens = async (code: string, state: string): Promis
   }
 };
 
-// Refresh access token
+// Refresh access token using direct API call instead of SpotifyWebApi
 export const refreshAccessToken = async (credentials: SpotifyCredentials): Promise<SpotifyCredentials> => {
   try {
-    // Set refresh token
-    spotifyApi.setRefreshToken(credentials.refreshToken);
+    console.log('🔄 Refreshing access token...');
     
-    // Refresh access token with retry mechanism
-    const data = await SpotifyRetryHandler.withRetry(async () => {
-      return await spotifyApi.refreshAccessToken();
+    // Use direct fetch instead of SpotifyWebApi to avoid library issues
+    const response = await SpotifyRetryHandler.withRetry(async () => {
+      return await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${btoa(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`)}`
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: credentials.refreshToken
+        })
+      });
     });
     
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const error = new Error(`Token refresh failed: ${errorData.error_description || response.statusText}`);
+      (error as any).status = response.status;
+      (error as any).body = errorData;
+      throw error;
+    }
+    
+    const data = await response.json();
+    
     // Calculate new expiry time
-    const expiresAt = Date.now() + (data.body.expires_in * 1000);
+    const expiresAt = Date.now() + (data.expires_in * 1000);
     
     // Update credentials in Firestore
     const updatedCredentials: Partial<SpotifyCredentials> = {
-      accessToken: data.body.access_token,
+      accessToken: data.access_token,
       expiresAt: expiresAt
     };
     
     // If a new refresh token was provided, update it
-    if (data.body.refresh_token) {
-      updatedCredentials.refreshToken = data.body.refresh_token;
+    if (data.refresh_token) {
+      updatedCredentials.refreshToken = data.refresh_token;
     }
     
     await updateDoc(doc(db, 'spotifyCredentials', credentials.id), updatedCredentials);
+    
+    console.log('✅ Token refreshed successfully');
     
     return {
       ...credentials,
@@ -255,24 +268,43 @@ export const isSpotifyConnected = async (): Promise<boolean> => {
   }
 };
 
+// Helper function to make authenticated Spotify API calls
+const makeSpotifyApiCall = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const credentials = await getValidCredentials();
+  
+  if (!credentials) {
+    throw new Error('Not connected to Spotify');
+  }
+  
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': `Bearer ${credentials.accessToken}`,
+      'Content-Type': 'application/json',
+      ...options.headers
+    }
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const error = new Error(`Spotify API error: ${errorData.error?.message || response.statusText}`);
+    (error as any).status = response.status;
+    (error as any).body = errorData;
+    throw error;
+  }
+  
+  return response;
+};
+
 // Get user's playlists with error handling
 export const getUserPlaylists = async (): Promise<SpotifyApi.PlaylistObjectSimplified[]> => {
   try {
-    const credentials = await getValidCredentials();
-    
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
-    }
-    
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
-    
-    // Get user's playlists with retry mechanism
-    const data = await SpotifyRetryHandler.withRetry(async () => {
-      return await spotifyApi.getUserPlaylists({ limit: 50 });
+    const response = await SpotifyRetryHandler.withRetry(async () => {
+      return await makeSpotifyApiCall('https://api.spotify.com/v1/me/playlists?limit=50');
     });
     
-    return data.body.items;
+    const data = await response.json();
+    return data.items;
   } catch (error) {
     const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
       operation: 'get_playlists',
@@ -354,25 +386,18 @@ export const getSelectedPlaylist = async (): Promise<SelectedPlaylist | null> =>
 // Search for tracks with error handling
 export const searchTracks = async (query: string): Promise<SpotifyTrack[]> => {
   try {
-    const credentials = await getValidCredentials();
-    
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
-    }
-    
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
-    
-    // Search for tracks with retry mechanism
-    const data = await SpotifyRetryHandler.withRetry(async () => {
-      return await spotifyApi.searchTracks(query, { limit: 20 });
+    const encodedQuery = encodeURIComponent(query);
+    const response = await SpotifyRetryHandler.withRetry(async () => {
+      return await makeSpotifyApiCall(`https://api.spotify.com/v1/search?q=${encodedQuery}&type=track&limit=20`);
     });
     
+    const data = await response.json();
+    
     // Map to our SpotifyTrack interface
-    return data.body.tracks.items.map(track => ({
+    return data.tracks.items.map((track: any) => ({
       id: track.id,
       name: track.name,
-      artists: track.artists.map(artist => ({ name: artist.name })),
+      artists: track.artists.map((artist: any) => ({ name: artist.name })),
       album: {
         name: track.album.name,
         images: track.album.images
@@ -391,12 +416,6 @@ export const searchTracks = async (query: string): Promise<SpotifyTrack[]> => {
 // Add track to playlist with error handling
 export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
   try {
-    const credentials = await getValidCredentials();
-    
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
-    }
-    
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
     
@@ -404,12 +423,14 @@ export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
       throw new Error('No playlist selected');
     }
     
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
-    
     // Add track to playlist with retry mechanism
     await SpotifyRetryHandler.withRetry(async () => {
-      return await spotifyApi.addTracksToPlaylist(selectedPlaylist.playlistId, [trackUri]);
+      return await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${selectedPlaylist.playlistId}/tracks`, {
+        method: 'POST',
+        body: JSON.stringify({
+          uris: [trackUri]
+        })
+      });
     });
   } catch (error) {
     const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
@@ -423,12 +444,6 @@ export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
 // Remove track from playlist with error handling
 export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> => {
   try {
-    const credentials = await getValidCredentials();
-    
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
-    }
-    
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
     
@@ -436,12 +451,14 @@ export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> =
       throw new Error('No playlist selected');
     }
     
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
-    
     // Remove track from playlist with retry mechanism
     await SpotifyRetryHandler.withRetry(async () => {
-      return await spotifyApi.removeTracksFromPlaylist(selectedPlaylist.playlistId, [{ uri: trackUri }]);
+      return await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${selectedPlaylist.playlistId}/tracks`, {
+        method: 'DELETE',
+        body: JSON.stringify({
+          tracks: [{ uri: trackUri }]
+        })
+      });
     });
   } catch (error) {
     const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
@@ -455,21 +472,12 @@ export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> =
 // Get current user profile with error handling
 export const getCurrentUser = async (): Promise<SpotifyApi.CurrentUsersProfileResponse | null> => {
   try {
-    const credentials = await getValidCredentials();
-    
-    if (!credentials) {
-      return null;
-    }
-    
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
-    
-    // Get current user with retry mechanism
-    const data = await SpotifyRetryHandler.withRetry(async () => {
-      return await spotifyApi.getMe();
+    const response = await SpotifyRetryHandler.withRetry(async () => {
+      return await makeSpotifyApiCall('https://api.spotify.com/v1/me');
     });
     
-    return data.body;
+    const data = await response.json();
+    return data;
   } catch (error) {
     const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
       operation: 'get_user',
@@ -483,21 +491,12 @@ export const getCurrentUser = async (): Promise<SpotifyApi.CurrentUsersProfileRe
 // Get playlist tracks with error handling
 export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.PlaylistTrackObject[]> => {
   try {
-    const credentials = await getValidCredentials();
-    
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
-    }
-    
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
-    
-    // Get playlist tracks with retry mechanism
-    const data = await SpotifyRetryHandler.withRetry(async () => {
-      return await spotifyApi.getPlaylistTracks(playlistId);
+    const response = await SpotifyRetryHandler.withRetry(async () => {
+      return await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`);
     });
     
-    return data.body.items;
+    const data = await response.json();
+    return data.items;
   } catch (error) {
     const spotifyError = SpotifyErrorHandler.handleSpotifyError(error, {
       operation: 'get_playlist_tracks',
@@ -510,12 +509,6 @@ export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.
 // Bulk remove tracks from playlist with error handling
 export const bulkRemoveTracksFromPlaylist = async (trackUris: string[]): Promise<void> => {
   try {
-    const credentials = await getValidCredentials();
-    
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
-    }
-    
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
     
@@ -523,19 +516,18 @@ export const bulkRemoveTracksFromPlaylist = async (trackUris: string[]): Promise
       throw new Error('No playlist selected');
     }
     
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
-    
     // Remove tracks in batches (Spotify API limit is 100 tracks per request)
     const batchSize = 100;
     for (let i = 0; i < trackUris.length; i += batchSize) {
       const batch = trackUris.slice(i, i + batchSize);
       
       await SpotifyRetryHandler.withRetry(async () => {
-        return await spotifyApi.removeTracksFromPlaylist(
-          selectedPlaylist.playlistId, 
-          batch.map(uri => ({ uri }))
-        );
+        return await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${selectedPlaylist.playlistId}/tracks`, {
+          method: 'DELETE',
+          body: JSON.stringify({
+            tracks: batch.map(uri => ({ uri }))
+          })
+        });
       });
     }
   } catch (error) {
