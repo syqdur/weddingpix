@@ -10,10 +10,8 @@ import { UnderConstructionPage } from './components/UnderConstructionPage';
 import { StoriesBar } from './components/StoriesBar';
 import { StoriesViewer } from './components/StoriesViewer';
 import { StoryUploadModal } from './components/StoryUploadModal';
-import { MusicRequestsSection } from './components/MusicRequestsSection';
 import { TabNavigation } from './components/TabNavigation';
 import { LiveUserIndicator } from './components/LiveUserIndicator';
-import { SpotifyCallbackHandler } from './components/SpotifyCallbackHandler';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -40,7 +38,6 @@ import {
   cleanupExpiredStories,
   Story
 } from './services/liveService';
-import { isSpotifyCallback } from './services/spotifyAuthService';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -59,15 +56,7 @@ function App() {
   const [showStoriesViewer, setShowStoriesViewer] = useState(false);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
-
-  // Handle Spotify callback if present
-  useEffect(() => {
-    if (isSpotifyCallback()) {
-      console.log('🎵 Spotify callback detected, handling...');
-      // The SpotifyCallbackHandler component will handle this
-    }
-  }, []);
+  const [activeTab, setActiveTab] = useState<'gallery'>('gallery');
 
   // Subscribe to site status changes
   useEffect(() => {
@@ -310,21 +299,6 @@ function App() {
     );
   };
 
-  // Show Spotify callback handler if on callback page
-  if (isSpotifyCallback()) {
-    return (
-      <SpotifyCallbackHandler 
-        isDarkMode={isDarkMode}
-        onSuccess={() => {
-          console.log('✅ Spotify authentication successful');
-        }}
-        onError={(error) => {
-          console.error('❌ Spotify authentication failed:', error);
-        }}
-      />
-    );
-  }
-
   // Show loading while site status is being fetched
   if (siteStatus === null) {
     return (
@@ -410,68 +384,55 @@ function App() {
       }`}>
         <ProfileHeader isDarkMode={isDarkMode} />
         
-        {/* Stories Bar - Only show on gallery tab */}
-        {activeTab === 'gallery' && (
-          <StoriesBar
-            stories={stories}
-            currentUser={userName || ''}
-            onAddStory={() => setShowStoryUpload(true)}
-            onViewStory={handleViewStory}
-            isDarkMode={isDarkMode}
-          />
-        )}
+        {/* Stories Bar */}
+        <StoriesBar
+          stories={stories}
+          currentUser={userName || ''}
+          onAddStory={() => setShowStoryUpload(true)}
+          onViewStory={handleViewStory}
+          isDarkMode={isDarkMode}
+        />
         
         {/* Tab Navigation */}
         <TabNavigation 
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
+          activeTab="gallery"
+          onTabChange={() => {}}
           isDarkMode={isDarkMode}
         />
 
-        {/* Tab Content */}
-        {activeTab === 'gallery' ? (
-          <>
-            <UploadSection
-              onUpload={handleUpload}
-              onVideoUpload={handleVideoUpload}
-              onNoteSubmit={handleNoteSubmit}
-              onAddStory={() => setShowStoryUpload(true)}
-              isUploading={isUploading}
-              progress={uploadProgress}
-              isDarkMode={isDarkMode}
-            />
+        {/* Gallery Content */}
+        <UploadSection
+          onUpload={handleUpload}
+          onVideoUpload={handleVideoUpload}
+          onNoteSubmit={handleNoteSubmit}
+          onAddStory={() => setShowStoryUpload(true)}
+          isUploading={isUploading}
+          progress={uploadProgress}
+          isDarkMode={isDarkMode}
+        />
 
-            {status && (
-              <div className="px-4 py-2">
-                <p className={`text-sm text-center transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                }`} dangerouslySetInnerHTML={{ __html: status }} />
-              </div>
-            )}
-
-            <InstagramGallery
-              items={mediaItems}
-              onItemClick={openModal}
-              onDelete={handleDelete}
-              onEditNote={handleEditNote}
-              isAdmin={isAdmin}
-              comments={comments}
-              likes={likes}
-              onAddComment={handleAddComment}
-              onDeleteComment={handleDeleteComment}
-              onToggleLike={handleToggleLike}
-              userName={userName || ''}
-              isDarkMode={isDarkMode}
-            />
-          </>
-        ) : (
-          <MusicRequestsSection
-            userName={userName || ''}
-            deviceId={deviceId}
-            isAdmin={isAdmin}
-            isDarkMode={isDarkMode}
-          />
+        {status && (
+          <div className="px-4 py-2">
+            <p className={`text-sm text-center transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`} dangerouslySetInnerHTML={{ __html: status }} />
+          </div>
         )}
+
+        <InstagramGallery
+          items={mediaItems}
+          onItemClick={openModal}
+          onDelete={handleDelete}
+          onEditNote={handleEditNote}
+          isAdmin={isAdmin}
+          comments={comments}
+          likes={likes}
+          onAddComment={handleAddComment}
+          onDeleteComment={handleDeleteComment}
+          onToggleLike={handleToggleLike}
+          userName={userName || ''}
+          isDarkMode={isDarkMode}
+        />
       </div>
 
       <MediaModal
