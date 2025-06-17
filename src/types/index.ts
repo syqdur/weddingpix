@@ -27,27 +27,6 @@ export interface Like {
   createdAt: string;
 }
 
-// Music Request Types
-export interface MusicRequest {
-  id: string;
-  songTitle: string;
-  artist: string;
-  album?: string;
-  spotifyUrl?: string;
-  spotifyId?: string;
-  requestedBy: string;
-  deviceId: string;
-  requestedAt: number; // Changed from string to number
-  message?: string;
-  status: 'pending' | 'approved' | 'rejected';
-  votes: number;
-  votedBy: string[]; // Array of deviceIds who voted
-  albumArt?: string;
-  previewUrl?: string;
-  duration?: number;
-  popularity?: number;
-}
-
 export interface SpotifyTrack {
   id: string;
   name: string;

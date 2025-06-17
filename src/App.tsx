@@ -5,16 +5,13 @@ import { UploadSection } from './components/UploadSection';
 import { InstagramGallery } from './components/InstagramGallery';
 import { MediaModal } from './components/MediaModal';
 import { AdminPanel } from './components/AdminPanel';
-import { AdminSpotifyIntegration } from './components/AdminSpotifyIntegration';
 import { ProfileHeader } from './components/ProfileHeader';
 import { UnderConstructionPage } from './components/UnderConstructionPage';
 import { StoriesBar } from './components/StoriesBar';
 import { StoriesViewer } from './components/StoriesViewer';
 import { StoryUploadModal } from './components/StoryUploadModal';
-import { MusicRequestsSection } from './components/MusicRequestsSection';
 import { TabNavigation } from './components/TabNavigation';
 import { LiveUserIndicator } from './components/LiveUserIndicator';
-import { SpotifyCallbackHandler } from './components/SpotifyCallbackHandler';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -41,8 +38,6 @@ import {
   cleanupExpiredStories,
   Story
 } from './services/liveService';
-import { handleCallbackIfPresent, isSpotifyCallback } from './services/spotifyAuthService';
-import { initializeSpotifyConfig } from './services/spotifyIntegration';
 
 function App() {
   const { userName, deviceId, showNamePrompt, setUserName } = useUser();
@@ -62,24 +57,6 @@ function App() {
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
   const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
-  const [showSpotifyAdmin, setShowSpotifyAdmin] = useState(false);
-
-  // Handle Spotify callback if present
-  useEffect(() => {
-    if (isSpotifyCallback()) {
-      console.log('🎵 Spotify callback detected, handling...');
-      // The SpotifyCallbackHandler component will handle this
-    }
-  }, []);
-
-  // Initialize Spotify config when admin logs in
-  useEffect(() => {
-    if (isAdmin) {
-      initializeSpotifyConfig('Admin').catch(error => {
-        console.error('Error initializing Spotify config:', error);
-      });
-    }
-  }, [isAdmin]);
 
   // Subscribe to site status changes
   useEffect(() => {
@@ -322,21 +299,6 @@ function App() {
     );
   };
 
-  // Show Spotify callback handler if on callback page
-  if (isSpotifyCallback()) {
-    return (
-      <SpotifyCallbackHandler 
-        isDarkMode={isDarkMode}
-        onSuccess={() => {
-          console.log('✅ Spotify authentication successful');
-        }}
-        onError={(error) => {
-          console.error('❌ Spotify authentication failed:', error);
-        }}
-      />
-    );
-  }
-
   // Show loading while site status is being fetched
   if (siteStatus === null) {
     return (
@@ -477,12 +439,23 @@ function App() {
             />
           </>
         ) : (
-          <MusicRequestsSection
-            userName={userName || ''}
-            deviceId={deviceId}
-            isAdmin={isAdmin}
-            isDarkMode={isDarkMode}
-          />
+          <div className="p-8 text-center">
+            <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-colors duration-300 ${
+              isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
+            }`}>
+              <span className="text-3xl">🎵</span>
+            </div>
+            <h3 className={`text-xl font-semibold mb-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Musikwünsche deaktiviert
+            </h3>
+            <p className={`text-sm mb-4 transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Die Musikwünsche-Funktion wurde deaktiviert.
+            </p>
+          </div>
         )}
       </div>
 
@@ -531,14 +504,6 @@ function App() {
         onToggleAdmin={setIsAdmin}
         mediaItems={mediaItems}
         siteStatus={siteStatus}
-      />
-
-      {/* Spotify Admin Panel */}
-      <AdminSpotifyIntegration
-        isOpen={showSpotifyAdmin}
-        onClose={() => setShowSpotifyAdmin(false)}
-        isDarkMode={isDarkMode}
-        adminName={userName || 'Admin'}
       />
     </div>
   );
