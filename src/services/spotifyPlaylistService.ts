@@ -56,9 +56,10 @@ export interface PlaylistExport {
 
 // 🔧 FIXED: Correct redirect URI detection for production
 const getRedirectUri = (): string => {
-  // Always use the production URL for consistency
+  // CRITICAL FIX: Always return the exact same redirect URI that's configured in Spotify
+  // This must match EXACTLY what's in your Spotify app settings
   return 'https://kristinundmauro.de/';
-};
+}
 
 // 🎯 PERSISTENT PLAYLIST SELECTION
 export const getSelectedPlaylist = (): SelectedPlaylist | null => {

@@ -114,12 +114,12 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
             <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
               isDarkMode ? 'text-red-300' : 'text-red-800'
             }`}>
-              ❌ Problem: "accounts.spotify.com haben die Verbindung verweigert"
+              ❌ Problem: "Invalid authorization code"
             </h4>
             <p className={`text-sm transition-colors duration-300 ${
               isDarkMode ? 'text-red-200' : 'text-red-700'
             }`}>
-              Spotify blockiert localhost aus Sicherheitsgründen. Du musst die Production-URIs verwenden!
+              Die Spotify-Integration funktioniert nicht, weil die Redirect URIs nicht exakt übereinstimmen.
             </p>
           </div>
 
@@ -139,8 +139,8 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
               <li>2. Öffne deine App "WeddingPix Musikwünsche"</li>
               <li>3. Klicke auf "Edit Settings"</li>
               <li>4. Scrolle zu "Redirect URIs"</li>
-              <li>5. <strong>LÖSCHE alle localhost URIs</strong> (falls vorhanden)</li>
-              <li>6. Füge nur die Production URIs unten hinzu</li>
+              <li>5. <strong>LÖSCHE alle vorhandenen URIs</strong></li>
+              <li>6. Füge <strong>exakt</strong> die Production URI unten hinzu (mit / am Ende)</li>
               <li>7. Klicke "Save"</li>
               <li>8. Warte 5 Minuten und teste erneut</li>
             </ol>
@@ -237,71 +237,6 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
             ))}
           </div>
 
-          {/* Playlist Info */}
-          <div className={`mt-6 p-4 rounded-xl transition-colors duration-300 ${
-            isDarkMode ? 'bg-pink-900/20 border border-pink-700/30' : 'bg-pink-50 border border-pink-200'
-          }`}>
-            <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
-              isDarkMode ? 'text-pink-300' : 'text-pink-800'
-            }`}>
-              🎵 Deine Hochzeits-Playlist:
-            </h4>
-            
-            <div className="flex items-center justify-between">
-              <div 
-                ref={(el) => textRefs.current['playlist'] = el}
-                onClick={() => handleTextClick('playlist')}
-                className={`font-mono text-sm cursor-pointer select-all p-2 rounded transition-all duration-300 hover:ring-2 hover:ring-pink-500 ${
-                  isDarkMode ? 'text-pink-200 hover:bg-pink-900/30' : 'text-pink-700 hover:bg-pink-100'
-                }`}
-                title="Klicken zum Auswählen"
-              >
-                https://open.spotify.com/playlist/5IkTeF1ydIrwQ4VZxkCtdO
-              </div>
-              <div className="flex gap-2 ml-2">
-                <button
-                  onClick={() => handleCopy('https://open.spotify.com/playlist/5IkTeF1ydIrwQ4VZxkCtdO')}
-                  className={`p-2 rounded-lg transition-colors ${
-                    isDarkMode ? 'bg-pink-600 hover:bg-pink-700' : 'bg-pink-500 hover:bg-pink-600'
-                  } text-white`}
-                  title="Playlist URL kopieren"
-                >
-                  <Copy className="w-4 h-4" />
-                </button>
-                <a
-                  href="https://open.spotify.com/playlist/5IkTeF1ydIrwQ4VZxkCtdO"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`p-2 rounded-lg transition-colors ${
-                    isDarkMode ? 'bg-pink-600 hover:bg-pink-700' : 'bg-pink-500 hover:bg-pink-600'
-                  } text-white`}
-                  title="Playlist in Spotify öffnen"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Copy Tips */}
-          <div className={`mt-6 p-4 rounded-xl transition-colors duration-300 ${
-            isDarkMode ? 'bg-green-900/20 border border-green-700/30' : 'bg-green-50 border border-green-200'
-          }`}>
-            <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
-              isDarkMode ? 'text-green-300' : 'text-green-800'
-            }`}>
-              💡 Kopier-Tipps:
-            </h4>
-            <ul className={`text-sm space-y-1 transition-colors duration-300 ${
-              isDarkMode ? 'text-green-200' : 'text-green-700'
-            }`}>
-              <li>• <strong>Klicke auf die URI</strong> um sie automatisch auszuwählen</li>
-              <li>• <strong>Strg+C</strong> (Windows) oder <strong>Cmd+C</strong> (Mac) zum Kopieren</li>
-              <li>• Oder nutze den <strong>"Kopieren" Button</strong></li>
-              <li>• Der Text ist bereits vorausgewählt beim Klicken</li>
-            </ul>
-          </div>
-
           {/* Important Notes */}
           <div className={`mt-6 p-4 rounded-xl transition-colors duration-300 ${
             isDarkMode ? 'bg-yellow-900/20 border border-yellow-700/30' : 'bg-yellow-50 border border-yellow-200'
@@ -314,12 +249,11 @@ export const SpotifyUriModal: React.FC<SpotifyUriModalProps> = ({
             <ul className={`text-sm space-y-1 transition-colors duration-300 ${
               isDarkMode ? 'text-yellow-200' : 'text-yellow-700'
             }`}>
-              <li>• <strong>LÖSCHE localhost URIs</strong> - sie funktionieren nicht!</li>
-              <li>• Verwende nur die Production URIs (https://)</li>
-              <li>• Die URIs müssen EXAKT so eingetragen werden (mit / am Ende)</li>
-              <li>• Nach dem Speichern dauert es ~5 Minuten bis die Änderungen aktiv sind</li>
-              <li>• Teste die Spotify-Anmeldung erst nach der Wartezeit</li>
-              <li>• <strong>WICHTIG:</strong> Verwende https://kristinundmauro.de/ als primäre URI</li>
+              <li>• <strong>EXAKTE ÜBEREINSTIMMUNG:</strong> Die URI muss <strong>genau</strong> mit dem übereinstimmen, was in der App verwendet wird</li>
+              <li>• <strong>SLASH AM ENDE:</strong> Achte auf den Slash (/) am Ende der URI - er ist wichtig!</li>
+              <li>• <strong>HTTPS:</strong> Verwende nur die HTTPS-Version der URI</li>
+              <li>• <strong>WARTEN:</strong> Nach dem Speichern dauert es ~5 Minuten bis die Änderungen aktiv sind</li>
+              <li>• <strong>CACHE LEEREN:</strong> Leere den Browser-Cache oder verwende ein Inkognito-Fenster für Tests</li>
             </ul>
           </div>
 
