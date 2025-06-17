@@ -32,6 +32,26 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set());
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  // 🔧 FIX: Auto-refresh playlist every 5 seconds for instant sync
+  useEffect(() => {
+    if (!selectedPlaylist || !isSpotifyAvailable) return;
+
+    const refreshInterval = setInterval(async () => {
+      try {
+        console.log('🔄 Auto-refreshing playlist for instant sync...');
+        const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
+        setPlaylistTracks(tracks);
+        setLastRefresh(new Date());
+      } catch (error) {
+        console.warn('Auto-refresh failed:', error);
+        // Don't show error for auto-refresh failures
+      }
+    }, 5000); // Refresh every 5 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [selectedPlaylist, isSpotifyAvailable]);
 
   // Check if Spotify is connected and load playlist tracks
   useEffect(() => {
@@ -62,6 +82,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
               // Load playlist tracks
               const tracks = await getPlaylistTracks(playlist.playlistId);
               setPlaylistTracks(tracks);
+              setLastRefresh(new Date());
             } catch (playlistError) {
               console.error('Failed to load playlist tracks:', playlistError);
               setError('Failed to load playlist tracks. The playlist may no longer exist or you may not have access to it.');
@@ -105,7 +126,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, isSpotifyAvailable]);
 
-  // Add track to playlist
+  // 🔧 FIX: Enhanced add track with immediate refresh
   const handleAddTrack = async (track: SpotifyTrack) => {
     if (isAddingTrack) return;
     
@@ -113,17 +134,21 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setError(null);
     
     try {
+      console.log('🎵 Adding track to playlist:', track.name);
       await addTrackToPlaylist(track.uri);
       
       // Show success message
       setShowAddSuccess(true);
       setTimeout(() => setShowAddSuccess(false), 3000);
       
-      // Refresh playlist tracks
+      // 🔧 FIX: Immediate refresh after adding track
       if (selectedPlaylist) {
         try {
+          console.log('🔄 Immediately refreshing playlist after add...');
           const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
           setPlaylistTracks(tracks);
+          setLastRefresh(new Date());
+          console.log('✅ Playlist refreshed successfully');
         } catch (refreshError) {
           console.error('Failed to refresh playlist tracks:', refreshError);
           // Don't show error here as the add was successful
@@ -141,7 +166,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     }
   };
 
-  // Remove track from playlist
+  // 🔧 FIX: Enhanced remove track with immediate refresh
   const handleRemoveTrack = async (track: SpotifyApi.PlaylistTrackObject) => {
     if (isRemovingTrack) return;
     
@@ -153,13 +178,17 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setError(null);
     
     try {
+      console.log('🗑️ Removing track from playlist:', track.track.name);
       await removeTrackFromPlaylist(track.track.uri);
       
-      // Refresh playlist tracks
+      // 🔧 FIX: Immediate refresh after removing track
       if (selectedPlaylist) {
         try {
+          console.log('🔄 Immediately refreshing playlist after remove...');
           const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
           setPlaylistTracks(tracks);
+          setLastRefresh(new Date());
+          console.log('✅ Playlist refreshed successfully');
         } catch (refreshError) {
           console.error('Failed to refresh playlist tracks:', refreshError);
           setError('Track was removed, but failed to refresh playlist');
@@ -202,7 +231,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setSelectedTracks(new Set());
   };
 
-  // Bulk delete selected tracks
+  // 🔧 FIX: Enhanced bulk delete with immediate refresh
   const handleBulkDelete = async () => {
     if (selectedTracks.size === 0) {
       alert('Keine Songs ausgewählt.');
@@ -230,6 +259,8 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setError(null);
     
     try {
+      console.log(`🗑️ Bulk deleting ${tracksToDelete.length} tracks...`);
+      
       // Delete tracks one by one
       for (const track of tracksToDelete) {
         try {
@@ -240,11 +271,14 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
         }
       }
       
-      // Refresh playlist tracks
+      // 🔧 FIX: Immediate refresh after bulk delete
       if (selectedPlaylist) {
         try {
+          console.log('🔄 Immediately refreshing playlist after bulk delete...');
           const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
           setPlaylistTracks(tracks);
+          setLastRefresh(new Date());
+          console.log('✅ Playlist refreshed successfully');
         } catch (refreshError) {
           console.error('Failed to refresh playlist tracks:', refreshError);
           setError('Some tracks were removed, but failed to refresh playlist');
@@ -264,7 +298,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     }
   };
 
-  // Refresh playlist tracks
+  // 🔧 FIX: Manual refresh with visual feedback
   const handleRefresh = async () => {
     if (!selectedPlaylist) return;
     
@@ -272,8 +306,11 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setError(null);
     
     try {
+      console.log('🔄 Manual refresh triggered...');
       const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
       setPlaylistTracks(tracks);
+      setLastRefresh(new Date());
+      console.log('✅ Manual refresh completed');
     } catch (error) {
       console.error('Failed to refresh tracks:', error);
       setError('Failed to refresh playlist tracks: ' + (error.message || 'Unknown error'));
@@ -547,6 +584,16 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                 Playlist Songs
               </h4>
               
+              {/* 🔧 FIX: Auto-refresh indicator */}
+              <div className={`flex items-center gap-2 text-xs ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span>Live-Sync</span>
+                <span>•</span>
+                <span>Letztes Update: {lastRefresh.toLocaleTimeString('de-DE')}</span>
+              </div>
+              
               {/* Bulk Delete Controls */}
               {getDeletableTracksCount() > 0 && (
                 <div className="flex items-center gap-2">
@@ -617,7 +664,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                   ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
-              title="Playlist aktualisieren"
+              title="Playlist manuell aktualisieren"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
