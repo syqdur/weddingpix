@@ -135,21 +135,24 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      const fileName = `timeline/${Date.now()}-${i}-${file.name}`;
-      const storageRef = ref(storage, fileName);
+      // 🔧 FIX: Use 'uploads/' path instead of 'timeline/' to match existing Firebase Storage permissions
+      const fileName = `TIMELINE_${Date.now()}-${i}-${file.name}`;
+      const storageRef = ref(storage, `uploads/${fileName}`);
       
       try {
+        console.log(`📤 Uploading timeline file: ${fileName}`);
         await uploadBytes(storageRef, file);
         const url = await getDownloadURL(storageRef);
         
         urls.push(url);
         types.push(file.type.startsWith('video/') ? 'video' : 'image');
-        fileNames.push(fileName);
+        fileNames.push(fileName); // Store just the filename, not the full path
         
         setUploadProgress(((i + 1) / files.length) * 100);
+        console.log(`✅ Timeline file uploaded successfully: ${fileName}`);
       } catch (error) {
-        console.error(`Error uploading ${file.name}:`, error);
-        throw new Error(`Fehler beim Hochladen von ${file.name}`);
+        console.error(`❌ Error uploading ${file.name}:`, error);
+        throw new Error(`Fehler beim Hochladen von ${file.name}: ${error.message || 'Unbekannter Fehler'}`);
       }
     }
     
@@ -173,16 +176,22 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     setUploadProgress(0);
 
     try {
+      console.log('💾 === SAVING TIMELINE EVENT ===');
+      console.log('Event data:', formData);
+      console.log('Selected files:', selectedFiles.length);
+      
       let mediaData = {};
       
       // Upload new files if any
       if (selectedFiles.length > 0) {
+        console.log('📤 Uploading timeline media files...');
         const { urls, types, fileNames } = await uploadFiles(selectedFiles);
         mediaData = {
           mediaUrls: urls,
           mediaTypes: types,
           mediaFileNames: fileNames
         };
+        console.log('✅ Media files uploaded successfully');
       }
 
       const eventData = {
@@ -197,20 +206,38 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
 
       if (editingEvent) {
         // Update existing event
+        console.log('📝 Updating existing timeline event...');
         await updateDoc(doc(db, 'timeline', editingEvent.id), eventData);
+        console.log('✅ Timeline event updated successfully');
       } else {
         // Add new event
+        console.log('➕ Adding new timeline event...');
         await addDoc(collection(db, 'timeline'), {
           ...eventData,
           createdBy: userName,
           createdAt: new Date().toISOString()
         });
+        console.log('✅ Timeline event added successfully');
       }
       
       resetForm();
     } catch (error) {
-      console.error('Error saving timeline event:', error);
-      alert('Fehler beim Speichern des Events. Bitte versuche es erneut.');
+      console.error('❌ Error saving timeline event:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Fehler beim Speichern des Events. Bitte versuche es erneut.';
+      
+      if (error.message?.includes('storage/unauthorized') || error.message?.includes('permission')) {
+        errorMessage = 'Keine Berechtigung zum Hochladen. Lade die Seite neu und versuche es erneut.';
+      } else if (error.message?.includes('storage/quota-exceeded')) {
+        errorMessage = 'Speicherplatz voll. Bitte kontaktiere Kristin oder Maurizio.';
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorMessage = 'Netzwerkfehler. Prüfe deine Internetverbindung und versuche es erneut.';
+      } else if (error.message) {
+        errorMessage = `Fehler: ${error.message}`;
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -236,21 +263,30 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     }
 
     try {
+      console.log('🗑️ === DELETING TIMELINE EVENT ===');
+      console.log('Event:', event.title);
+      console.log('Media files:', event.mediaFileNames?.length || 0);
+      
       // Delete media files from storage
       if (event.mediaFileNames && event.mediaFileNames.length > 0) {
+        console.log('🗑️ Deleting media files from storage...');
         const deletePromises = event.mediaFileNames.map(fileName => {
-          const storageRef = ref(storage, fileName);
+          // 🔧 FIX: Use 'uploads/' path for deletion too
+          const storageRef = ref(storage, `uploads/${fileName}`);
           return deleteObject(storageRef).catch(error => {
-            console.warn(`Could not delete file ${fileName}:`, error);
+            console.warn(`⚠️ Could not delete file ${fileName}:`, error);
           });
         });
         await Promise.all(deletePromises);
+        console.log('✅ Media files deleted from storage');
       }
 
       // Delete event from Firestore
+      console.log('🗑️ Deleting event from Firestore...');
       await deleteDoc(doc(db, 'timeline', event.id));
+      console.log('✅ Timeline event deleted successfully');
     } catch (error) {
-      console.error('Error deleting timeline event:', error);
+      console.error('❌ Error deleting timeline event:', error);
       alert('Fehler beim Löschen des Events.');
     }
   };
