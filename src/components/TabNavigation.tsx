@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera } from 'lucide-react';
+import { Camera, Music } from 'lucide-react';
 
 interface TabNavigationProps {
   activeTab: 'gallery' | 'music';
@@ -18,6 +18,12 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({
       label: 'Galerie',
       icon: <Camera className="w-5 h-5" />,
       emoji: '📸'
+    },
+    {
+      id: 'music' as const,
+      label: 'Musikwünsche',
+      icon: <Music className="w-5 h-5" />,
+      emoji: '🎵'
     }
   ];
 
