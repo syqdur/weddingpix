@@ -271,6 +271,7 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
           preload="auto"
         >
           <source src="https://filebin.net/wxyvlnmtap41dfxb/iris.mp3" type="audio/mpeg" />
+          <source src="https://filebin.net/wxyvlnmtap41dfxb/iris.mp3" type="audio/mpeg" />
         </audio>
         
         {/* Controls */}
