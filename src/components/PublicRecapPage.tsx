@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Heart, Camera, Calendar, MapPin, ArrowLeft, Share2, Eye, Image, Video, MessageSquare, Music, VolumeX, Play, Pause, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { MediaItem } from '../types';
 import { loadGallery } from '../services/firebaseService';
+import { ref, getDownloadURL } from 'firebase/storage';
+import { storage } from '../config/firebase';
 
 interface PublicRecapPageProps {
   isDarkMode: boolean;
@@ -31,6 +33,9 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
   const [isAnimationPlaying, setIsAnimationPlaying] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
   const [autoPlay, setAutoPlay] = useState(true);
+  const [audioUrl, setAudioUrl] = useState<string>('');
+  const [audioLoading, setAudioLoading] = useState(true);
+  const [audioError, setAudioError] = useState<string>('');
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const slideInterval = useRef<NodeJS.Timeout | null>(null);
@@ -49,6 +54,58 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
     }
   }, []);
 
+  // Load audio file using the same method as media items
+  useEffect(() => {
+    const loadAudio = async () => {
+      setAudioLoading(true);
+      setAudioError('');
+      
+      try {
+        console.log('Loading audio file iris.mp3 using Firebase service...');
+        
+        // Use the same approach as the media loading in firebaseService
+        const audioStorageRef = ref(storage, 'uploads/iris.mp3');
+        const url = await getDownloadURL(audioStorageRef);
+        setAudioUrl(url);
+        setAudioLoading(false);
+        console.log('Audio URL loaded successfully:', url);
+      } catch (error) {
+        console.error('Error loading audio from uploads/:', error);
+        
+        // Try alternative paths with better error handling
+        const alternativePaths = ['iris.mp3', 'audio/iris.mp3', 'music/iris.mp3', 'sounds/iris.mp3'];
+        
+        for (const path of alternativePaths) {
+          try {
+            console.log(`Trying alternative path: ${path}`);
+            const audioStorageRef = ref(storage, path);
+            const url = await getDownloadURL(audioStorageRef);
+            setAudioUrl(url);
+            setAudioLoading(false);
+            console.log(`Audio URL loaded from ${path}:`, url);
+            return;
+          } catch (fallbackError: any) {
+            console.error(`Failed to load from ${path}:`, fallbackError?.code || fallbackError);
+          }
+        }
+        
+        // Try to find the file by checking media items (in case it was uploaded as a media file)
+        try {
+          console.log('Checking if iris.mp3 exists in media collection...');
+          // This will be handled by the media loading effect
+          setAudioError('Please ensure iris.mp3 is uploaded to Firebase Storage in the uploads folder');
+          setAudioLoading(false);
+        } catch (finalError) {
+          setAudioError('Unable to load audio file. Please check Firebase Storage permissions and file location.');
+          setAudioLoading(false);
+          console.error('Final audio loading attempt failed:', finalError);
+        }
+      }
+    };
+
+    loadAudio();
+  }, []);
+
   // Load media items
   useEffect(() => {
     const unsubscribe = loadGallery((items) => {
@@ -62,13 +119,13 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
         const videoItems = items.filter(item => item.type === 'video');
         const noteItems = items.filter(item => item.type === 'note');
         
-        return [
+        const moments: Moment[] = [
           {
             id: '1',
             title: '💒 Die Zeremonie',
             description: 'Der magische Moment unseres Ja-Worts - die schönsten Bilder von der Trauung.',
             mediaItems: imageItems.slice(0, 12),
-            category: 'ceremony',
+            category: 'ceremony' as const,
             timestamp: '2025-07-12T14:00:00Z',
             location: 'Kirche',
             tags: ['Zeremonie', 'Ja-Wort', 'Kirche', 'Emotionen']
@@ -78,7 +135,7 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
             title: '🎉 Die Feier',
             description: 'Ausgelassene Stimmung und unvergessliche Momente mit Familie und Freunden.',
             mediaItems: [...videoItems, ...imageItems.slice(12, 20)],
-            category: 'reception',
+            category: 'reception' as const,
             timestamp: '2025-07-12T18:00:00Z',
             location: 'Festsaal',
             tags: ['Feier', 'Tanz', 'Familie', 'Freunde']
@@ -88,7 +145,7 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
             title: '💌 Eure Nachrichten',
             description: 'Die wunderschönen Nachrichten und Wünsche von unseren Gästen.',
             mediaItems: noteItems,
-            category: 'special',
+            category: 'special' as const,
             timestamp: '2025-07-12T20:00:00Z',
             tags: ['Nachrichten', 'Wünsche', 'Liebe']
           },
@@ -97,11 +154,13 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
             title: '📸 Alle Erinnerungen',
             description: `Eine Sammlung aller wunderschönen Momente von unserem besonderen Tag${guestName ? ` - speziell für ${guestName}` : ''}.`,
             mediaItems: items.slice(0, 30),
-            category: 'custom',
+            category: 'custom' as const,
             timestamp: '2025-07-12T22:00:00Z',
             tags: ['Alle', 'Sammlung', 'Erinnerungen']
           }
-        ].filter(moment => moment.mediaItems.length > 0);
+        ];
+        
+        return moments.filter(moment => moment.mediaItems.length > 0);
       };
 
       setMoments(createPersonalizedMoments(availableItems));
@@ -114,9 +173,9 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
   // Handle slideshow for animation
   useEffect(() => {
     if (isAnimationPlaying && autoPlay) {
-      // Start music
-      if (audioRef.current && !isMuted) {
-        audioRef.current.play().catch(err => console.log("Audio autoplay blocked"));
+      // Start music if audio URL is loaded
+      if (audioRef.current && !isMuted && audioUrl) {
+        audioRef.current.play().catch(err => console.log("Audio autoplay blocked:", err));
       }
       
       // Start slideshow
@@ -139,12 +198,12 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
         clearInterval(slideInterval.current);
       }
     };
-  }, [isAnimationPlaying, autoPlay, moments, isMuted]);
+  }, [isAnimationPlaying, autoPlay, moments, isMuted, audioUrl]);
 
   // Toggle music
   const toggleMusic = () => {
     setIsMuted(!isMuted);
-    if (audioRef.current) {
+    if (audioRef.current && audioUrl) {
       if (isMuted) {
         audioRef.current.play().catch(err => console.log("Couldn't play audio:", err));
       } else {
@@ -264,14 +323,18 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
     return (
       <div className="fixed inset-0 bg-black z-50">
         {/* Background music */}
-        <audio 
-          ref={audioRef} 
-          loop 
-          muted={isMuted}
-          preload="auto"
-        >
-          <source src="/uploads/iris.mp3" type="audio/mpeg" />
-                  </audio>
+        {audioUrl && (
+          <audio 
+            ref={audioRef} 
+            loop 
+            muted={isMuted}
+            preload="auto"
+            src={audioUrl}
+            onLoadStart={() => console.log('Audio loading started')}
+            onCanPlay={() => console.log('Audio can play')}
+            onError={(e) => console.error('Audio error:', e)}
+          />
+        )}
         
         {/* Controls */}
         <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
@@ -285,9 +348,18 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
           <button
             onClick={toggleMusic}
             className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-            title={isMuted ? "Musik einschalten" : "Musik ausschalten"}
+            title={audioLoading ? "Musik wird geladen..." : audioError ? "Musik nicht verfügbar" : (isMuted ? "Musik einschalten" : "Musik ausschalten")}
+            disabled={audioLoading || !!audioError}
           >
-            {isMuted ? <VolumeX className="w-5 h-5" /> : <Music className="w-5 h-5" />}
+            {audioLoading ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : audioError ? (
+              <VolumeX className="w-5 h-5 opacity-50" />
+            ) : isMuted ? (
+              <VolumeX className="w-5 h-5" />
+            ) : (
+              <Music className="w-5 h-5" />
+            )}
           </button>
           <button
             onClick={stopAnimation}
