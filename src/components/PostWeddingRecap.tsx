@@ -1,12 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, Camera, Download, Mail, Share2, BarChart3, Users, Calendar, MapPin, MessageSquare, Star, ArrowLeft, Plus, Edit3, Trash2, Save, X, Image, Video, Upload, Lock, User, Eye, ThumbsUp, Sparkles, Crown, Award } from 'lucide-react';
+import { Heart, Camera, Download, Mail, Share2, BarChart3, Users, Calendar, MapPin, MessageSquare, Star, ArrowLeft, Plus, Edit3, Trash2, Save, X, Image, Video, Upload, Lock, User, Eye, ThumbsUp, Sparkles, Crown, Award, Send } from 'lucide-react';
 import { MediaItem } from '../types';
 
-interface PostWeddingRecapProps {
-  isDarkMode: boolean;
-  mediaItems: MediaItem[];
-  isAdmin: boolean;
-  userName: string;
+interface TimelineEvent {
+  id: string;
+  title: string;
+  customEventName?: string;
+  date: string;
+  description: string;
+  location?: string;
+  type: 'first_date' | 'first_kiss' | 'first_vacation' | 'engagement' | 'moving_together' | 'anniversary' | 'custom' | 'other';
+  createdBy: string;
+  createdAt: string;
+  mediaUrls?: string[];
+  mediaTypes?: string[];
+  mediaFileNames?: string[];
 }
 
 interface Moment {
@@ -44,6 +52,13 @@ interface Analytics {
   }>;
 }
 
+interface PostWeddingRecapProps {
+  isDarkMode: boolean;
+  mediaItems: MediaItem[];
+  isAdmin: boolean;
+  userName: string;
+}
+
 export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   isDarkMode,
   mediaItems,
@@ -76,6 +91,15 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
     location: '',
     tags: '',
     selectedMedia: [] as string[]
+  });
+
+  // Card form data
+  const [cardForm, setCardForm] = useState({
+    recipientName: '',
+    recipientEmail: '',
+    message: '',
+    template: 'elegant',
+    selectedMoments: [] as string[]
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -139,10 +163,78 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
     setShowCreateCard(true);
   };
 
+  const handleSaveCard = () => {
+    if (!cardForm.recipientName.trim() || !cardForm.recipientEmail.trim() || !cardForm.message.trim()) {
+      alert('Bitte fülle alle Pflichtfelder aus.');
+      return;
+    }
+
+    const newCard: ThankYouCard = {
+      id: Date.now().toString(),
+      recipientName: cardForm.recipientName,
+      recipientEmail: cardForm.recipientEmail,
+      message: cardForm.message,
+      template: cardForm.template,
+      selectedMoments: cardForm.selectedMoments,
+      status: 'draft'
+    };
+
+    setThankYouCards(prev => [...prev, newCard]);
+    setCardForm({
+      recipientName: '',
+      recipientEmail: '',
+      message: '',
+      template: 'elegant',
+      selectedMoments: []
+    });
+    setShowCreateCard(false);
+  };
+
+  const handleSendCard = (cardId: string) => {
+    const card = thankYouCards.find(c => c.id === cardId);
+    if (!card) return;
+
+    // Simulate sending email
+    const updatedCard = {
+      ...card,
+      status: 'sent' as const,
+      sentAt: new Date().toISOString()
+    };
+
+    setThankYouCards(prev => prev.map(c => c.id === cardId ? updatedCard : c));
+    alert(`Dankeskarte an ${card.recipientName} (${card.recipientEmail}) wurde versendet! 📧`);
+  };
+
+  const handleDeleteCard = (cardId: string) => {
+    if (window.confirm('Dankeskarte wirklich löschen?')) {
+      setThankYouCards(prev => prev.filter(c => c.id !== cardId));
+    }
+  };
+
   const handleShareRecap = () => {
-    const shareUrl = `${window.location.origin}/recap/kristin-maurizio`;
+    // Create a proper shareable URL that doesn't redirect to main page
+    const shareUrl = `${window.location.origin}${window.location.pathname}`;
     navigator.clipboard.writeText(shareUrl);
-    alert('Link zur Zusammenfassung wurde in die Zwischenablage kopiert!');
+    alert('Link zur Zusammenfassung wurde in die Zwischenablage kopiert! 📋\n\nDer Link führt direkt zu dieser Seite.');
+  };
+
+  const handleEmailShare = () => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}`;
+    const subject = encodeURIComponent('💕 Unsere Hochzeits-Zusammenfassung - Kristin & Maurizio');
+    const body = encodeURIComponent(`Liebe Familie und Freunde,
+
+wir möchten unsere schönsten Hochzeitsmomente mit euch teilen! 
+
+Schaut euch unsere Zusammenfassung an:
+${shareUrl}
+
+Mit liebsten Grüßen,
+Kristin & Maurizio 💕
+
+P.S.: Hier findet ihr alle besonderen Momente unseres großen Tages!`);
+    
+    const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
+    window.open(mailtoLink, '_blank');
   };
 
   const formatDate = (dateString: string) => {
@@ -181,6 +273,15 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
       selectedMedia: prev.selectedMedia.includes(mediaId)
         ? prev.selectedMedia.filter(id => id !== mediaId)
         : [...prev.selectedMedia, mediaId]
+    }));
+  };
+
+  const toggleMomentSelection = (momentId: string) => {
+    setCardForm(prev => ({
+      ...prev,
+      selectedMoments: prev.selectedMoments.includes(momentId)
+        ? prev.selectedMoments.filter(id => id !== momentId)
+        : [...prev.selectedMoments, momentId]
     }));
   };
 
@@ -655,6 +756,71 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
 
             {/* Cards Overview */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Existing Cards */}
+              {thankYouCards.map((card) => (
+                <div key={card.id} className={`rounded-2xl border p-6 transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-gray-800 border-gray-700' 
+                    : 'bg-white border-gray-200 shadow-lg'
+                }`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={`font-semibold transition-colors duration-300 ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      {card.recipientName}
+                    </h3>
+                    <span className={`px-2 py-1 rounded-full text-xs transition-colors duration-300 ${
+                      card.status === 'sent'
+                        ? isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
+                        : isDarkMode ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {card.status === 'sent' ? 'Versendet' : 'Entwurf'}
+                    </span>
+                  </div>
+                  <p className={`text-sm mb-4 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                  }`}>
+                    {card.message.substring(0, 100)}...
+                  </p>
+                  <div className="flex items-center gap-2 text-sm mb-4">
+                    <Mail className={`w-4 h-4 transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`} />
+                    <span className={`transition-colors duration-300 ${
+                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      {card.recipientEmail}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    {card.status === 'draft' && (
+                      <button
+                        onClick={() => handleSendCard(card.id)}
+                        className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-green-600 hover:bg-green-700 text-white' 
+                            : 'bg-green-500 hover:bg-green-600 text-white'
+                        }`}
+                      >
+                        <Send className="w-3 h-3" />
+                        Senden
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteCard(card.id)}
+                      className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm transition-colors duration-300 ${
+                        isDarkMode 
+                          ? 'bg-red-600 hover:bg-red-700 text-white' 
+                          : 'bg-red-500 hover:bg-red-600 text-white'
+                      }`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Löschen
+                    </button>
+                  </div>
+                </div>
+              ))}
+
               {/* Add Card */}
               <div
                 onClick={handleCreateCard}
@@ -676,6 +842,29 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Empty State */}
+            {thankYouCards.length === 0 && (
+              <div className="text-center py-12">
+                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-colors duration-300 ${
+                  isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                }`}>
+                  <Mail className={`w-8 h-8 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                  }`} />
+                </div>
+                <h3 className={`text-xl font-light mb-2 transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Noch keine Dankeskarten erstellt
+                </h3>
+                <p className={`text-sm transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                }`}>
+                  Klicke auf "Dankeskarte erstellen" um zu beginnen
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -716,11 +905,14 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                     </div>
                   </button>
 
-                  <button className={`w-full flex items-center gap-3 p-4 rounded-xl transition-colors duration-300 ${
-                    isDarkMode 
-                      ? 'bg-green-600 hover:bg-green-700 text-white' 
-                      : 'bg-green-500 hover:bg-green-600 text-white'
-                  }`}>
+                  <button 
+                    onClick={handleEmailShare}
+                    className={`w-full flex items-center gap-3 p-4 rounded-xl transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-green-600 hover:bg-green-700 text-white' 
+                        : 'bg-green-500 hover:bg-green-600 text-white'
+                    }`}
+                  >
                     <Mail className="w-5 h-5" />
                     <div className="text-left">
                       <div className="font-semibold">E-Mail versenden</div>
@@ -1111,6 +1303,222 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
               >
                 <Save className="w-4 h-4" />
                 Moment speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Card Modal */}
+      {showCreateCard && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className={`rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className={`text-xl font-semibold transition-colors duration-300 ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                Neue Dankeskarte erstellen
+              </h3>
+              <button
+                onClick={() => setShowCreateCard(false)}
+                className={`p-2 rounded-full transition-colors duration-300 ${
+                  isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+                }`}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Form */}
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Empfänger Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={cardForm.recipientName}
+                    onChange={(e) => setCardForm(prev => ({ ...prev, recipientName: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
+                    placeholder="z.B. Familie Schmidt"
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    E-Mail Adresse *
+                  </label>
+                  <input
+                    type="email"
+                    value={cardForm.recipientEmail}
+                    onChange={(e) => setCardForm(prev => ({ ...prev, recipientEmail: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
+                    placeholder="email@beispiel.de"
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Nachricht *
+                  </label>
+                  <textarea
+                    value={cardForm.message}
+                    onChange={(e) => setCardForm(prev => ({ ...prev, message: e.target.value }))}
+                    rows={5}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none resize-none transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
+                    placeholder="Liebe Familie Schmidt, vielen Dank für eure Teilnahme an unserem besonderen Tag..."
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Vorlage
+                  </label>
+                  <select
+                    value={cardForm.template}
+                    onChange={(e) => setCardForm(prev => ({ ...prev, template: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  >
+                    <option value="elegant">✨ Elegant</option>
+                    <option value="rustic">🌿 Rustikal</option>
+                    <option value="modern">🔷 Modern</option>
+                    <option value="classic">🎀 Klassisch</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Moment Selection */}
+              <div>
+                <h4 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Momente auswählen ({cardForm.selectedMoments.length} ausgewählt)
+                </h4>
+                
+                <div className="max-h-96 overflow-y-auto space-y-2">
+                  {moments.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Camera className={`w-12 h-12 mx-auto mb-3 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-600' : 'text-gray-400'
+                      }`} />
+                      <p className={`text-sm transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        Noch keine Momente erstellt
+                      </p>
+                      <button
+                        onClick={() => {
+                          setShowCreateCard(false);
+                          setActiveSection('moments');
+                          setTimeout(() => setShowCreateMoment(true), 300);
+                        }}
+                        className={`mt-4 px-4 py-2 rounded-lg text-sm transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-pink-600 hover:bg-pink-700 text-white' 
+                            : 'bg-pink-500 hover:bg-pink-600 text-white'
+                        }`}
+                      >
+                        Moment erstellen
+                      </button>
+                    </div>
+                  ) : (
+                    moments.map((moment) => (
+                      <div
+                        key={moment.id}
+                        onClick={() => toggleMomentSelection(moment.id)}
+                        className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-300 ${
+                          cardForm.selectedMoments.includes(moment.id)
+                            ? isDarkMode
+                              ? 'bg-pink-600/20 border border-pink-500'
+                              : 'bg-pink-50 border border-pink-300'
+                            : isDarkMode
+                              ? 'bg-gray-700 hover:bg-gray-600 border border-gray-600'
+                              : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
+                        }`}
+                      >
+                        <div className={`p-2 rounded-full text-white ${getCategoryColor(moment.category)}`}>
+                          {getCategoryIcon(moment.category)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-medium truncate transition-colors duration-300 ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>
+                            {moment.title}
+                          </p>
+                          <p className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                          }`}>
+                            {moment.mediaItems.length} Medien
+                            {moment.location && ` • ${moment.location}`}
+                          </p>
+                        </div>
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors duration-300 ${
+                          cardForm.selectedMoments.includes(moment.id)
+                            ? 'bg-pink-500 border-pink-500'
+                            : isDarkMode
+                              ? 'border-gray-500'
+                              : 'border-gray-300'
+                        }`}>
+                          {cardForm.selectedMoments.includes(moment.id) && (
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowCreateCard(false)}
+                className={`flex-1 py-3 px-4 rounded-xl transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                }`}
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleSaveCard}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl transition-colors ${
+                  'bg-pink-600 hover:bg-pink-700'
+                } text-white`}
+              >
+                <Save className="w-4 h-4" />
+                Dankeskarte speichern
               </button>
             </div>
           </div>
