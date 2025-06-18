@@ -25,7 +25,7 @@ import {
   Link,
   Check,
 } from "lucide-react"
-import { db } from "../lib/firebase"
+import { db } from "../config/firebase"
 import {
   collection,
   addDoc,
