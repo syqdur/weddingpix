@@ -1529,13 +1529,37 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
                     }`}
                   >
                     {mediaItems.length === 0 ? (
-                      <p
-                        className={`text-center text-sm transition-colors duration-300 ${
-                          isDarkMode ? "text-gray-400" : "text-gray-500"
-                        }`}
-                      >
-                        Keine Medien in der Galerie gefunden
-                      </p>
+                      <div className="text-center p-6">
+                        <div className="mb-4">
+                          <ImageIcon className={`w-12 h-12 mx-auto mb-2 transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-500" : "text-gray-400"
+                          }`} />
+                        </div>
+                        <p
+                          className={`text-sm mb-3 transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-400" : "text-gray-500"
+                          }`}
+                        >
+                          Keine Medien in der Galerie gefunden
+                        </p>
+                        <p
+                          className={`text-xs transition-colors duration-300 ${
+                            isDarkMode ? "text-gray-500" : "text-gray-600"
+                          }`}
+                        >
+                          Gehe zur Hauptgalerie und lade Fotos hoch, um sie hier auswählen zu können.
+                        </p>
+                        <button
+                          onClick={() => window.location.href = '/'}
+                          className={`mt-3 px-4 py-2 text-sm rounded-lg transition-colors duration-300 ${
+                            isDarkMode
+                              ? "bg-pink-600 hover:bg-pink-700 text-white"
+                              : "bg-pink-500 hover:bg-pink-600 text-white"
+                          }`}
+                        >
+                          Zur Galerie
+                        </button>
+                      </div>
                     ) : (
                       <div className="grid grid-cols-3 gap-2">
                         {mediaItems.map((media) => (
