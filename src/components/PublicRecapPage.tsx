@@ -33,6 +33,8 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
   const [isAnimationPlaying, setIsAnimationPlaying] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
   const [autoPlay, setAutoPlay] = useState(true);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [slideDirection, setSlideDirection] = useState<'next' | 'prev'>('next');
   const [audioUrl, setAudioUrl] = useState<string>('');
   const [audioLoading, setAudioLoading] = useState(true);
   const [audioError, setAudioError] = useState<string>('');
@@ -178,13 +180,22 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
         audioRef.current.play().catch(err => console.log("Audio autoplay blocked:", err));
       }
       
-      // Start slideshow
+      // Start slideshow with smooth transitions
       slideInterval.current = setInterval(() => {
-        setCurrentSlide(prev => {
-          const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
-          return prev < allMediaItems.length - 1 ? prev + 1 : 0;
-        });
-      }, 4000); // Change slide every 4 seconds
+        setIsTransitioning(true);
+        setSlideDirection('next');
+        
+        setTimeout(() => {
+          setCurrentSlide(prev => {
+            const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
+            return prev < allMediaItems.length - 1 ? prev + 1 : 0;
+          });
+          
+          setTimeout(() => {
+            setIsTransitioning(false);
+          }, 50);
+        }, 300);
+      }, 5000); // Change slide every 5 seconds for smoother experience
     } else {
       // Clear interval when animation stops
       if (slideInterval.current) {
@@ -277,13 +288,35 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
   };
 
   const nextSlide = () => {
-    const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
-    setCurrentSlide(prev => (prev < allMediaItems.length - 1 ? prev + 1 : 0));
+    if (isTransitioning) return;
+    
+    setIsTransitioning(true);
+    setSlideDirection('next');
+    
+    setTimeout(() => {
+      const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
+      setCurrentSlide(prev => (prev < allMediaItems.length - 1 ? prev + 1 : 0));
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 50);
+    }, 300);
   };
 
   const prevSlide = () => {
-    const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
-    setCurrentSlide(prev => (prev > 0 ? prev - 1 : allMediaItems.length - 1));
+    if (isTransitioning) return;
+    
+    setIsTransitioning(true);
+    setSlideDirection('prev');
+    
+    setTimeout(() => {
+      const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
+      setCurrentSlide(prev => (prev > 0 ? prev - 1 : allMediaItems.length - 1));
+      
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 50);
+    }, 300);
   };
 
   if (isLoading) {
@@ -336,18 +369,18 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
           />
         )}
         
-        {/* Controls */}
+        {/* Enhanced Controls */}
         <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
           <button
             onClick={toggleAutoPlay}
-            className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            className="p-3 rounded-full bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-all duration-300 border border-white/20 shadow-lg hover:scale-110"
             title={autoPlay ? "Automatik stoppen" : "Automatik starten"}
           >
             {autoPlay ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
           </button>
           <button
             onClick={toggleMusic}
-            className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            className="p-3 rounded-full bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-all duration-300 border border-white/20 shadow-lg hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             title={audioLoading ? "Musik wird geladen..." : audioError ? "Musik nicht verfügbar" : (isMuted ? "Musik einschalten" : "Musik ausschalten")}
             disabled={audioLoading || !!audioError}
           >
@@ -363,17 +396,18 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
           </button>
           <button
             onClick={stopAnimation}
-            className="p-3 rounded-full bg-red-600/80 text-white hover:bg-red-600 transition-colors"
+            className="p-3 rounded-full bg-red-500/60 backdrop-blur-md text-white hover:bg-red-500/80 transition-all duration-300 border border-white/20 shadow-lg hover:scale-110"
             title="Slideshow beenden"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
         </div>
         
-        {/* Navigation */}
+        {/* Enhanced Navigation */}
         <button
           onClick={prevSlide}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+          disabled={isTransitioning}
+          className="absolute left-4 top-1/2 transform -translate-y-1/2 p-4 rounded-full bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-all duration-300 z-10 border border-white/20 shadow-lg hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           title="Vorheriges Bild"
         >
           <ChevronLeft className="w-6 h-6" />
@@ -381,7 +415,8 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
         
         <button
           onClick={nextSlide}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+          disabled={isTransitioning}
+          className="absolute right-4 top-1/2 transform -translate-y-1/2 p-4 rounded-full bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-all duration-300 z-10 border border-white/20 shadow-lg hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           title="Nächstes Bild"
         >
           <ChevronRight className="w-6 h-6" />
@@ -390,68 +425,129 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
         {/* Progress Bar */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-black/30 z-10">
           <div 
-            className="h-full bg-pink-500 transition-all duration-300"
+            className="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-700 ease-out"
             style={{ width: `${((currentSlide + 1) / allMediaItems.length) * 100}%` }}
           />
         </div>
         
-        {/* Current Media */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          {currentMedia?.type === 'image' && currentMedia.url ? (
-            <img
-              src={currentMedia.url}
-              alt={currentMedia.name}
-              className="max-w-full max-h-full object-contain animate-fadeIn"
-              style={{ maxHeight: '90vh' }}
+        {/* Slide indicators */}
+        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+          {allMediaItems.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => {
+                if (!isTransitioning) {
+                  setIsTransitioning(true);
+                  setSlideDirection(index > currentSlide ? 'next' : 'prev');
+                  setTimeout(() => {
+                    setCurrentSlide(index);
+                    setTimeout(() => setIsTransitioning(false), 50);
+                  }, 300);
+                }
+              }}
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                index === currentSlide 
+                  ? 'bg-white scale-125' 
+                  : 'bg-white/50 hover:bg-white/75'
+              }`}
             />
-          ) : currentMedia?.type === 'video' && currentMedia.url ? (
-            <video
-              src={currentMedia.url}
-              className="max-w-full max-h-full object-contain"
-              autoPlay
-              muted
-              loop
-              style={{ maxHeight: '90vh' }}
-            />
-          ) : currentMedia?.type === 'note' ? (
-            <div className="max-w-2xl w-full p-8 bg-gradient-to-br from-pink-900/30 to-purple-900/30 backdrop-blur-md rounded-2xl text-white animate-fadeIn mx-4">
-              <div className="text-center mb-6">
-                <MessageSquare className="w-12 h-12 mx-auto mb-4 text-pink-300" />
-                <h3 className="text-2xl font-semibold mb-2">Nachricht von {currentMedia.uploadedBy}</h3>
-                <div className="w-16 h-0.5 bg-pink-300 mx-auto"></div>
-              </div>
-              <p className="text-xl leading-relaxed text-center font-light">"{currentMedia.noteText}"</p>
-              <div className="text-center mt-6">
-                <p className="text-sm opacity-75">
-                  {new Date(currentMedia.uploadedAt).toLocaleDateString('de-DE', {
-                    day: '2-digit',
-                    month: 'long',
-                    year: 'numeric'
-                  })}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="text-white text-center">
-              <Camera className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <p className="text-lg">Keine Medien verfügbar</p>
-            </div>
-          )}
+          ))}
         </div>
         
-        {/* Caption */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 max-w-4xl w-full px-4">
-          <div className="bg-black/70 backdrop-blur-sm rounded-xl p-6 text-white text-center">
-            <h3 className="text-2xl font-bold mb-2">💕 Kristin & Maurizio</h3>
-            <p className="text-lg mb-2">12. Juli 2025</p>
-            {guestName && (
-              <p className="text-pink-300 mb-2">Speziell für {guestName}</p>
+        {/* Current Media with smooth transitions */}
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+          <div 
+            className={`transition-all duration-700 ease-in-out transform ${
+              isTransitioning 
+                ? slideDirection === 'next' 
+                  ? '-translate-x-full opacity-0 scale-95' 
+                  : 'translate-x-full opacity-0 scale-95'
+                : 'translate-x-0 opacity-100 scale-100'
+            }`}
+          >
+            {currentMedia?.type === 'image' && currentMedia.url ? (
+              <div className="relative">
+                <img
+                  src={currentMedia.url}
+                  alt={currentMedia.name}
+                  className="max-w-full max-h-full object-contain shadow-2xl rounded-lg"
+                  style={{ maxHeight: '85vh', maxWidth: '90vw' }}
+                />
+                {/* Subtle glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/20 rounded-lg" />
+              </div>
+            ) : currentMedia?.type === 'video' && currentMedia.url ? (
+              <div className="relative">
+                <video
+                  src={currentMedia.url}
+                  className="max-w-full max-h-full object-contain shadow-2xl rounded-lg"
+                  autoPlay
+                  muted
+                  loop
+                  style={{ maxHeight: '85vh', maxWidth: '90vw' }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/20 rounded-lg" />
+              </div>
+            ) : currentMedia?.type === 'note' ? (
+              <div className="max-w-2xl w-full p-8 bg-gradient-to-br from-pink-900/40 to-purple-900/40 backdrop-blur-xl rounded-3xl text-white mx-4 shadow-2xl border border-white/10">
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-pink-400 to-purple-400 rounded-full flex items-center justify-center">
+                    <MessageSquare className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-semibold mb-2 bg-gradient-to-r from-pink-300 to-purple-300 bg-clip-text text-transparent">
+                    Nachricht von {currentMedia.uploadedBy}
+                  </h3>
+                  <div className="w-24 h-0.5 bg-gradient-to-r from-pink-300 to-purple-300 mx-auto"></div>
+                </div>
+                <p className="text-xl leading-relaxed text-center font-light mb-6 text-gray-100">
+                  "{currentMedia.noteText}"
+                </p>
+                <div className="text-center">
+                  <p className="text-sm opacity-75 text-gray-300">
+                    {new Date(currentMedia.uploadedAt).toLocaleDateString('de-DE', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-white text-center">
+                <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-gray-600 to-gray-800 rounded-full flex items-center justify-center">
+                  <Camera className="w-10 h-10 opacity-50" />
+                </div>
+                <p className="text-lg text-gray-300">Keine Medien verfügbar</p>
+              </div>
             )}
-            <p className="text-sm opacity-80">
-              {currentMedia?.type === 'note' 
-                ? `Nachricht ${currentSlide + 1} von ${allMediaItems.filter(item => item.type === 'note').length}`
-                : `Bild ${currentSlide + 1} von ${allMediaItems.length}`}
-            </p>
+          </div>
+        </div>
+        
+        {/* Caption with enhanced styling */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 max-w-4xl w-full px-4">
+          <div className={`bg-black/60 backdrop-blur-xl rounded-2xl p-6 text-white text-center border border-white/10 shadow-2xl transition-all duration-500 ${
+            isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+          }`}>
+            <h3 className="text-3xl font-bold mb-3 bg-gradient-to-r from-pink-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
+              💕 Kristin & Maurizio
+            </h3>
+            <p className="text-lg mb-2 text-gray-200">12. Juli 2025</p>
+            {guestName && (
+              <p className="text-pink-300 mb-3 text-lg font-medium">Speziell für {guestName}</p>
+            )}
+            <div className="flex items-center justify-center gap-4 text-sm opacity-80">
+              <span>
+                {currentMedia?.type === 'note' 
+                  ? `Nachricht ${currentSlide + 1} von ${allMediaItems.filter(item => item.type === 'note').length}`
+                  : `${currentMedia?.type === 'video' ? 'Video' : 'Bild'} ${currentSlide + 1} von ${allMediaItems.length}`}
+              </span>
+              {currentMedia && (
+                <span className="text-gray-400">•</span>
+              )}
+              <span className="text-gray-300">
+                {currentMedia?.uploadedBy && `von ${currentMedia.uploadedBy}`}
+              </span>
+            </div>
           </div>
         </div>
       </div>
