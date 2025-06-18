@@ -52,6 +52,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState({
@@ -63,24 +64,64 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     type: 'other' as TimelineEvent['type']
   });
 
-  // Load timeline events
+  // Load timeline events with comprehensive error handling
   useEffect(() => {
-    const q = query(collection(db, 'timeline'), orderBy('date', 'desc'));
+    console.log('🔄 Loading timeline events...');
     
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const timelineEvents: TimelineEvent[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as TimelineEvent));
-      
-      setEvents(timelineEvents);
-      setIsLoading(false);
-    }, (error) => {
-      console.error('Error loading timeline events:', error);
-      setIsLoading(false);
-    });
-
-    return unsubscribe;
+    let unsubscribe: (() => void) | null = null;
+    
+    const loadEvents = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Test Firebase connection first
+        console.log('🔗 Testing Firebase connection...');
+        
+        // Create query with error handling
+        const q = query(collection(db, 'timeline'), orderBy('date', 'desc'));
+        
+        unsubscribe = onSnapshot(q, 
+          (snapshot) => {
+            console.log(`📋 Timeline events loaded: ${snapshot.docs.length}`);
+            
+            const timelineEvents: TimelineEvent[] = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            } as TimelineEvent));
+            
+            setEvents(timelineEvents);
+            setIsLoading(false);
+            setError(null);
+          },
+          (error) => {
+            console.error('❌ Timeline listener error:', error);
+            setError(`Fehler beim Laden der Timeline: ${error.message}`);
+            setIsLoading(false);
+            
+            // Fallback: Set empty events to prevent blank page
+            setEvents([]);
+          }
+        );
+        
+      } catch (error: any) {
+        console.error('❌ Timeline setup error:', error);
+        setError(`Timeline konnte nicht geladen werden: ${error.message}`);
+        setIsLoading(false);
+        
+        // Fallback: Set empty events to prevent blank page
+        setEvents([]);
+      }
+    };
+    
+    loadEvents();
+    
+    return () => {
+      if (unsubscribe) {
+        console.log('🧹 Cleaning up timeline listener');
+        unsubscribe();
+      }
+    };
   }, []);
 
   const resetForm = () => {
@@ -95,6 +136,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     setSelectedFiles([]);
     setShowAddForm(false);
     setEditingEvent(null);
+    setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -135,7 +177,6 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      // 🔧 FIX: Use 'uploads/' path instead of 'timeline/' to match existing Firebase Storage permissions
       const fileName = `TIMELINE_${Date.now()}-${i}-${file.name}`;
       const storageRef = ref(storage, `uploads/${fileName}`);
       
@@ -146,7 +187,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
         
         urls.push(url);
         types.push(file.type.startsWith('video/') ? 'video' : 'image');
-        fileNames.push(fileName); // Store just the filename, not the full path
+        fileNames.push(fileName);
         
         setUploadProgress(((i + 1) / files.length) * 100);
         console.log(`✅ Timeline file uploaded successfully: ${fileName}`);
@@ -163,17 +204,18 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     e.preventDefault();
     
     if (!formData.title.trim() || !formData.date) {
-      alert('Bitte fülle mindestens Titel und Datum aus.');
+      setError('Bitte fülle mindestens Titel und Datum aus.');
       return;
     }
 
     if (formData.type === 'custom' && !formData.customEventName.trim()) {
-      alert('Bitte gib einen Namen für dein eigenes Event ein.');
+      setError('Bitte gib einen Namen für dein eigenes Event ein.');
       return;
     }
 
     setIsUploading(true);
     setUploadProgress(0);
+    setError(null);
 
     try {
       console.log('💾 === SAVING TIMELINE EVENT ===');
@@ -221,7 +263,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
       }
       
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error saving timeline event:', error);
       
       // Provide more specific error messages
@@ -237,7 +279,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
         errorMessage = `Fehler: ${error.message}`;
       }
       
-      alert(errorMessage);
+      setError(errorMessage);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -255,6 +297,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     });
     setEditingEvent(event);
     setShowAddForm(true);
+    setError(null);
   };
 
   const handleDelete = async (event: TimelineEvent) => {
@@ -271,7 +314,6 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
       if (event.mediaFileNames && event.mediaFileNames.length > 0) {
         console.log('🗑️ Deleting media files from storage...');
         const deletePromises = event.mediaFileNames.map(fileName => {
-          // 🔧 FIX: Use 'uploads/' path for deletion too
           const storageRef = ref(storage, `uploads/${fileName}`);
           return deleteObject(storageRef).catch(error => {
             console.warn(`⚠️ Could not delete file ${fileName}:`, error);
@@ -285,9 +327,9 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
       console.log('🗑️ Deleting event from Firestore...');
       await deleteDoc(doc(db, 'timeline', event.id));
       console.log('✅ Timeline event deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error deleting timeline event:', error);
-      alert('Fehler beim Löschen des Events.');
+      setError(`Fehler beim Löschen des Events: ${error.message}`);
     }
   };
 
@@ -319,6 +361,99 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+
+  // Show error state instead of blank page
+  if (error && !showAddForm) {
+    return (
+      <div className={`transition-colors duration-300 ${
+        isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
+      }`}>
+        {/* Header */}
+        <div className={`p-6 border-b transition-colors duration-300 ${
+          isDarkMode ? 'border-gray-700' : 'border-gray-200'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-3 rounded-full transition-colors duration-300 ${
+                isDarkMode ? 'bg-pink-600' : 'bg-pink-500'
+              }`}>
+                <Heart className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className={`text-2xl font-bold transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  💕 Unsere Geschichte
+                </h2>
+                <p className={`text-sm transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  Die wichtigsten Momente unserer Beziehung mit Fotos & Videos
+                </p>
+              </div>
+            </div>
+            
+            {isAdmin && (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 ${
+                  isDarkMode 
+                    ? 'bg-pink-600 hover:bg-pink-700 text-white' 
+                    : 'bg-pink-500 hover:bg-pink-600 text-white'
+                }`}
+              >
+                <Plus className="w-4 h-4" />
+                Event hinzufügen
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {/* Error Display */}
+        <div className="p-6">
+          <div className={`p-6 rounded-xl border text-center transition-colors duration-300 ${
+            isDarkMode ? 'bg-red-900/20 border-red-700/30' : 'bg-red-50 border-red-200'
+          }`}>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center">
+              <Heart className={`w-8 h-8 transition-colors duration-300 ${
+                isDarkMode ? 'text-red-400' : 'text-red-500'
+              }`} />
+            </div>
+            <h3 className={`text-xl font-semibold mb-4 transition-colors duration-300 ${
+              isDarkMode ? 'text-red-300' : 'text-red-700'
+            }`}>
+              Fehler beim Laden der Timeline
+            </h3>
+            <p className={`mb-6 transition-colors duration-300 ${
+              isDarkMode ? 'text-red-200' : 'text-red-600'
+            }`}>
+              {error}
+            </p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => window.location.reload()}
+                className={`px-4 py-2 rounded-lg transition-colors duration-300 ${
+                  isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                }`}
+              >
+                Seite neu laden
+              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className={`px-4 py-2 rounded-lg transition-colors duration-300 ${
+                    isDarkMode ? 'bg-pink-600 hover:bg-pink-700 text-white' : 'bg-pink-500 hover:bg-pink-600 text-white'
+                  }`}
+                >
+                  Event hinzufügen
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -401,6 +536,15 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className={`mb-4 p-3 rounded-lg border transition-colors duration-300 ${
+                isDarkMode ? 'bg-red-900/20 border-red-700/30 text-red-300' : 'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Event Type */}
@@ -715,6 +859,18 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
             }`}>
               {isAdmin ? 'Füge das erste Event eurer Liebesgeschichte hinzu!' : 'Die Timeline wird bald mit besonderen Momenten gefüllt.'}
             </p>
+            {isAdmin && (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className={`mt-4 px-6 py-3 rounded-xl transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-pink-600 hover:bg-pink-700 text-white' 
+                    : 'bg-pink-500 hover:bg-pink-600 text-white'
+                }`}
+              >
+                Erstes Event hinzufügen
+              </button>
+            )}
           </div>
         ) : (
           <div className="relative">

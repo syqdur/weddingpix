@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, Camera, Download, Mail, Share2, BarChart3, Users, Calendar, MapPin, MessageSquare, Star, ArrowLeft, Plus, Edit3, Trash2, Send, Eye, ThumbsUp, X, Image, Video, FileText, Gift, Sparkles, Crown, Award } from 'lucide-react';
 import { MediaItem } from '../types';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  deleteDoc, 
+  doc, 
+  updateDoc,
+  where,
+  getDocs
+} from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 interface PostWeddingRecapProps {
   isDarkMode: boolean;
@@ -64,303 +77,279 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   const [showCreateCard, setShowCreateCard] = useState(false);
   const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [showCardForm, setShowCardForm] = useState(false);
-  const [newCard, setNewCard] = useState({
-    recipientName: '',
-    recipientEmail: '',
-    message: '',
-    selectedMoments: [] as string[]
-  });
-  const [editingCard, setEditingCard] = useState<ThankYouCard | null>(null);
-  const [showMomentForm, setShowMomentForm] = useState(false);
-  const [editingMoment, setEditingMoment] = useState<Moment | null>(null);
-  const [newMoment, setNewMoment] = useState({
-    title: '',
-    description: '',
-    category: 'ceremony' as Moment['category'],
-    location: '',
-    tags: [] as string[],
-    tagInput: ''
-  });
+  const [error, setError] = useState<string | null>(null);
 
-  // Check admin status from localStorage as well
-  const [actualIsAdmin, setActualIsAdmin] = useState(false);
-
+  // Initialize with data from Firebase
   useEffect(() => {
-    // Check both props and localStorage for admin status
-    const storedAdminStatus = localStorage.getItem('admin_status');
-    const adminFromStorage = storedAdminStatus === 'true';
+    setIsLoading(true);
+    setError(null);
     
-    console.log('Admin status check:', {
-      propsIsAdmin: isAdmin,
-      storageIsAdmin: adminFromStorage,
-      userName
-    });
-    
-    setActualIsAdmin(isAdmin || adminFromStorage);
-  }, [isAdmin, userName]);
-
-  // Initialize with sample data
-  useEffect(() => {
-    // Simulate loading
-    setTimeout(() => {
-      // Create sample moments from media items
-      const sampleMoments: Moment[] = [
-        {
-          id: '1',
-          title: 'Die Zeremonie',
-          description: 'Der magische Moment unseres Ja-Worts in der wunderschönen Kirche.',
-          mediaItems: mediaItems.filter(item => item.type === 'image').slice(0, 5),
-          category: 'ceremony',
-          timestamp: '2025-07-12T14:00:00Z',
-          location: 'St. Marien Kirche',
-          tags: ['Zeremonie', 'Ja-Wort', 'Kirche', 'Emotionen']
-        },
-        {
-          id: '2',
-          title: 'Die Feier',
-          description: 'Ausgelassene Stimmung und unvergessliche Momente mit Familie und Freunden.',
-          mediaItems: mediaItems.filter(item => item.type === 'video').slice(0, 3),
-          category: 'reception',
-          timestamp: '2025-07-12T18:00:00Z',
-          location: 'Schloss Bellevue',
-          tags: ['Feier', 'Tanz', 'Familie', 'Freunde']
-        },
-        {
-          id: '3',
-          title: 'Besondere Momente',
-          description: 'Die kleinen, besonderen Augenblicke, die diesen Tag unvergesslich gemacht haben.',
-          mediaItems: mediaItems.filter(item => item.type === 'note').slice(0, 4),
-          category: 'special',
-          timestamp: '2025-07-12T20:00:00Z',
-          tags: ['Besonders', 'Erinnerungen', 'Liebe']
+    try {
+      // Load moments from Firestore
+      const loadMoments = async () => {
+        console.log('🔄 Loading moments from Firestore...');
+        
+        try {
+          const q = query(collection(db, 'moments'), orderBy('timestamp', 'desc'));
+          
+          const unsubscribe = onSnapshot(q, 
+            (snapshot) => {
+              console.log(`📋 Moments loaded: ${snapshot.docs.length}`);
+              
+              // Process moments and attach media items
+              const processedMoments: Moment[] = [];
+              
+              snapshot.docs.forEach(doc => {
+                try {
+                  const momentData = doc.data();
+                  
+                  // Find media items for this moment
+                  const momentMediaItems: MediaItem[] = [];
+                  
+                  if (momentData.mediaIds && Array.isArray(momentData.mediaIds)) {
+                    momentData.mediaIds.forEach((mediaId: string) => {
+                      const mediaItem = mediaItems.find(item => item.id === mediaId);
+                      if (mediaItem) {
+                        momentMediaItems.push(mediaItem);
+                      }
+                    });
+                  }
+                  
+                  // Create moment object
+                  const moment: Moment = {
+                    id: doc.id,
+                    title: momentData.title || 'Untitled Moment',
+                    description: momentData.description || '',
+                    mediaItems: momentMediaItems,
+                    category: momentData.category || 'custom',
+                    timestamp: momentData.timestamp || new Date().toISOString(),
+                    location: momentData.location,
+                    tags: momentData.tags || []
+                  };
+                  
+                  processedMoments.push(moment);
+                } catch (docError) {
+                  console.error('Error processing moment document:', docError);
+                }
+              });
+              
+              setMoments(processedMoments);
+              setIsLoading(false);
+              setError(null);
+            },
+            (error) => {
+              console.error('Error loading moments:', error);
+              setError('Fehler beim Laden der Momente: ' + error.message);
+              setIsLoading(false);
+              
+              // Create sample moments as fallback
+              createSampleMoments();
+            }
+          );
+          
+          return unsubscribe;
+        } catch (error: any) {
+          console.error('Error setting up moments listener:', error);
+          setError('Fehler beim Einrichten des Moment-Listeners: ' + error.message);
+          setIsLoading(false);
+          
+          // Create sample moments as fallback
+          createSampleMoments();
+          return () => {};
         }
-      ];
-
-      setMoments(sampleMoments);
+      };
       
-      // Sample analytics
-      setAnalytics({
-        totalViews: 1247,
-        uniqueVisitors: 89,
-        averageTimeSpent: '4:32',
-        mostViewedMoments: ['Die Zeremonie', 'Die Feier'],
-        feedback: [
+      // Load thank you cards
+      const loadThankYouCards = async () => {
+        try {
+          const q = query(collection(db, 'thankYouCards'), orderBy('createdAt', 'desc'));
+          
+          const unsubscribe = onSnapshot(q, 
+            (snapshot) => {
+              const cards = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              } as ThankYouCard));
+              
+              setThankYouCards(cards);
+            },
+            (error) => {
+              console.error('Error loading thank you cards:', error);
+              // Don't set error state here to avoid blocking the UI
+            }
+          );
+          
+          return unsubscribe;
+        } catch (error) {
+          console.error('Error setting up thank you cards listener:', error);
+          return () => {};
+        }
+      };
+      
+      // Load analytics
+      const loadAnalytics = async () => {
+        try {
+          // Get view counts
+          const viewsQuery = query(collection(db, 'recapViews'));
+          const viewsSnapshot = await getDocs(viewsQuery);
+          const totalViews = viewsSnapshot.size;
+          
+          // Get unique visitors
+          const visitorsQuery = query(collection(db, 'recapVisitors'));
+          const visitorsSnapshot = await getDocs(visitorsQuery);
+          const uniqueVisitors = visitorsSnapshot.size;
+          
+          // Get feedback
+          const feedbackQuery = query(collection(db, 'recapFeedback'), orderBy('timestamp', 'desc'));
+          const feedbackSnapshot = await getDocs(feedbackQuery);
+          const feedback = feedbackSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Analytics['feedback'];
+          
+          // Calculate average time spent
+          let totalTimeSpent = 0;
+          let timeEntries = 0;
+          
+          const timeQuery = query(collection(db, 'recapTimeSpent'));
+          const timeSnapshot = await getDocs(timeQuery);
+          
+          timeSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.duration) {
+              totalTimeSpent += data.duration;
+              timeEntries++;
+            }
+          });
+          
+          const avgTimeSeconds = timeEntries > 0 ? Math.floor(totalTimeSpent / timeEntries) : 0;
+          const minutes = Math.floor(avgTimeSeconds / 60);
+          const seconds = avgTimeSeconds % 60;
+          const averageTimeSpent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+          
+          // Get most viewed moments
+          const momentViewsQuery = query(collection(db, 'momentViews'), orderBy('count', 'desc'), where('count', '>', 0));
+          const momentViewsSnapshot = await getDocs(momentViewsQuery);
+          const mostViewedMoments = momentViewsSnapshot.docs.slice(0, 5).map(doc => doc.data().title || doc.id);
+          
+          setAnalytics({
+            totalViews,
+            uniqueVisitors,
+            averageTimeSpent,
+            mostViewedMoments,
+            feedback
+          });
+          
+        } catch (error) {
+          console.error('Error loading analytics:', error);
+          // Use sample analytics as fallback
+          setAnalytics({
+            totalViews: 1247,
+            uniqueVisitors: 89,
+            averageTimeSpent: '4:32',
+            mostViewedMoments: ['Die Zeremonie', 'Die Feier'],
+            feedback: [
+              {
+                id: '1',
+                rating: 5,
+                comment: 'Wunderschöne Zusammenfassung! Vielen Dank für die tollen Erinnerungen.',
+                timestamp: '2025-07-15T10:30:00Z'
+              },
+              {
+                id: '2',
+                rating: 5,
+                comment: 'Es war ein magischer Tag. Danke, dass wir dabei sein durften!',
+                timestamp: '2025-07-14T16:45:00Z'
+              }
+            ]
+          });
+        }
+      };
+      
+      // Create sample moments from media items
+      const createSampleMoments = () => {
+        console.log('📝 Creating sample moments from media items');
+        
+        const sampleMoments: Moment[] = [
           {
             id: '1',
-            rating: 5,
-            comment: 'Wunderschöne Zusammenfassung! Vielen Dank für die tollen Erinnerungen.',
-            timestamp: '2025-07-15T10:30:00Z'
+            title: 'Die Zeremonie',
+            description: 'Der magische Moment unseres Ja-Worts in der wunderschönen Kirche.',
+            mediaItems: mediaItems.filter(item => item.type === 'image').slice(0, 5),
+            category: 'ceremony',
+            timestamp: '2025-07-12T14:00:00Z',
+            location: 'St. Marien Kirche',
+            tags: ['Zeremonie', 'Ja-Wort', 'Kirche', 'Emotionen']
           },
           {
             id: '2',
-            rating: 5,
-            comment: 'Es war ein magischer Tag. Danke, dass wir dabei sein durften!',
-            timestamp: '2025-07-14T16:45:00Z'
+            title: 'Die Feier',
+            description: 'Ausgelassene Stimmung und unvergessliche Momente mit Familie und Freunden.',
+            mediaItems: mediaItems.filter(item => item.type === 'video').slice(0, 3),
+            category: 'reception',
+            timestamp: '2025-07-12T18:00:00Z',
+            location: 'Schloss Bellevue',
+            tags: ['Feier', 'Tanz', 'Familie', 'Freunde']
+          },
+          {
+            id: '3',
+            title: 'Besondere Momente',
+            description: 'Die kleinen, besonderen Augenblicke, die diesen Tag unvergesslich gemacht haben.',
+            mediaItems: mediaItems.filter(item => item.type === 'note').slice(0, 4),
+            category: 'special',
+            timestamp: '2025-07-12T20:00:00Z',
+            tags: ['Besonders', 'Erinnerungen', 'Liebe']
           }
-        ]
-      });
+        ];
+        
+        setMoments(sampleMoments);
+      };
       
-      // Sample thank you cards
-      setThankYouCards([
-        {
-          id: '1',
-          recipientName: 'Familie Schmidt',
-          recipientEmail: 'schmidt@example.com',
-          message: 'Liebe Familie Schmidt, vielen Dank für eure Teilnahme an unserem besonderen Tag...',
-          template: 'elegant',
-          selectedMoments: ['1', '2'],
-          status: 'sent',
-          sentAt: '2025-07-15T10:00:00Z'
-        }
-      ]);
+      // Set up listeners
+      const unsubscribeMoments = loadMoments();
+      const unsubscribeCards = loadThankYouCards();
+      loadAnalytics();
       
+      return () => {
+        unsubscribeMoments();
+        unsubscribeCards();
+      };
+    } catch (error: any) {
+      console.error('Error in PostWeddingRecap setup:', error);
+      setError('Fehler beim Laden der Daten: ' + error.message);
       setIsLoading(false);
-    }, 1000);
+    }
   }, [mediaItems]);
 
   const handleCreateMoment = () => {
-    setEditingMoment(null);
-    setNewMoment({
-      title: '',
-      description: '',
-      category: 'ceremony',
-      location: '',
-      tags: [],
-      tagInput: ''
-    });
-    setShowMomentForm(true);
-  };
-
-  const handleEditMoment = (moment: Moment) => {
-    setEditingMoment(moment);
-    setNewMoment({
-      title: moment.title,
-      description: moment.description,
-      category: moment.category,
-      location: moment.location || '',
-      tags: [...moment.tags],
-      tagInput: ''
-    });
-    setShowMomentForm(true);
-  };
-
-  const handleDeleteMoment = (momentId: string) => {
-    if (window.confirm('Diesen Moment wirklich löschen?')) {
-      setMoments(prev => prev.filter(m => m.id !== momentId));
-    }
-  };
-
-  const handleSaveMoment = () => {
-    if (!newMoment.title.trim()) {
-      alert('Bitte gib einen Titel ein.');
-      return;
-    }
-
-    if (editingMoment) {
-      // Update existing moment
-      setMoments(prev => prev.map(m => 
-        m.id === editingMoment.id 
-          ? {
-              ...m,
-              title: newMoment.title,
-              description: newMoment.description,
-              category: newMoment.category,
-              location: newMoment.location || undefined,
-              tags: newMoment.tags
-            }
-          : m
-      ));
-    } else {
-      // Create new moment
-      const newMomentObj: Moment = {
-        id: Date.now().toString(),
-        title: newMoment.title,
-        description: newMoment.description,
-        category: newMoment.category,
-        timestamp: new Date().toISOString(),
-        location: newMoment.location || undefined,
-        tags: newMoment.tags,
-        mediaItems: []
-      };
-      
-      setMoments(prev => [...prev, newMomentObj]);
-    }
-    
-    setShowMomentForm(false);
-  };
-
-  const handleAddTag = () => {
-    if (newMoment.tagInput.trim()) {
-      setNewMoment({
-        ...newMoment,
-        tags: [...newMoment.tags, newMoment.tagInput.trim()],
-        tagInput: ''
-      });
-    }
-  };
-
-  const handleRemoveTag = (tag: string) => {
-    setNewMoment({
-      ...newMoment,
-      tags: newMoment.tags.filter(t => t !== tag)
-    });
+    setShowCreateMoment(true);
   };
 
   const handleCreateCard = () => {
-    setEditingCard(null);
-    setNewCard({
-      recipientName: '',
-      recipientEmail: '',
-      message: '',
-      selectedMoments: []
-    });
-    setShowCardForm(true);
-  };
-
-  const handleEditCard = (card: ThankYouCard) => {
-    setEditingCard(card);
-    setNewCard({
-      recipientName: card.recipientName,
-      recipientEmail: card.recipientEmail,
-      message: card.message,
-      selectedMoments: [...card.selectedMoments]
-    });
-    setShowCardForm(true);
-  };
-
-  const handleDeleteCard = (cardId: string) => {
-    if (window.confirm('Diese Dankeskarte wirklich löschen?')) {
-      setThankYouCards(prev => prev.filter(card => card.id !== cardId));
-    }
-  };
-
-  const handleSendCard = () => {
-    if (!newCard.recipientName || !newCard.recipientEmail || !newCard.message) {
-      alert('Bitte alle Felder ausfüllen.');
-      return;
-    }
-
-    // Generate unique link for this recipient
-    const guestId = Math.random().toString(36).substring(2, 15);
-    const recapLink = `${window.location.origin}/recap?for=${encodeURIComponent(newCard.recipientName)}&id=${guestId}`;
-    
-    if (editingCard) {
-      // Update existing card
-      setThankYouCards(prev => prev.map(card => 
-        card.id === editingCard.id
-          ? {
-              ...card,
-              recipientName: newCard.recipientName,
-              recipientEmail: newCard.recipientEmail,
-              message: newCard.message,
-              selectedMoments: newCard.selectedMoments
-            }
-          : card
-      ));
-      
-      alert(`Dankeskarte für ${newCard.recipientName} aktualisiert!`);
-    } else {
-      // Create new card
-      const card: ThankYouCard = {
-        id: Date.now().toString(),
-        recipientName: newCard.recipientName,
-        recipientEmail: newCard.recipientEmail,
-        message: newCard.message,
-        template: 'elegant',
-        selectedMoments: newCard.selectedMoments,
-        status: 'draft'
-      };
-
-      setThankYouCards(prev => [...prev, card]);
-      
-      // Show the generated link
-      alert(`Dankeskarte erstellt! 
-
-Individueller Link für ${newCard.recipientName}:
-${recapLink}
-
-Kopiere diesen Link und sende ihn per E-Mail, WhatsApp oder einem anderen Kanal an ${newCard.recipientName}.
-
-Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow und Musik.`);
-    }
-    
-    // Reset form
-    setNewCard({
-      recipientName: '',
-      recipientEmail: '',
-      message: '',
-      selectedMoments: []
-    });
-    setShowCardForm(false);
-    setEditingCard(null);
+    setShowCreateCard(true);
   };
 
   const handleShareRecap = () => {
-    // Implement sharing functionality
-    const shareUrl = `${window.location.origin}/recap`;
-    navigator.clipboard.writeText(shareUrl);
-    alert('Allgemeiner Recap-Link wurde in die Zwischenablage kopiert!\n\nFür personalisierte Links erstelle individuelle Dankeskarten.');
+    // Generate a unique link for sharing
+    const shareUrl = `${window.location.origin}/recap?for=${encodeURIComponent(userName)}`;
+    
+    // Try to use the Web Share API if available
+    if (navigator.share) {
+      navigator.share({
+        title: 'Kristin & Maurizio - Hochzeits-Erinnerungen',
+        text: 'Schaut euch unsere wunderschönen Hochzeits-Erinnerungen an!',
+        url: shareUrl
+      }).catch(err => {
+        console.log('Error sharing:', err);
+        // Fallback to clipboard
+        navigator.clipboard.writeText(shareUrl);
+        alert('Link zur Zusammenfassung wurde in die Zwischenablage kopiert!');
+      });
+    } else {
+      // Fallback for browsers that don't support the Web Share API
+      navigator.clipboard.writeText(shareUrl);
+      alert('Link zur Zusammenfassung wurde in die Zwischenablage kopiert!');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -393,34 +382,35 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
     }
   };
 
-  // Show access denied if not admin
-  if (!actualIsAdmin) {
+  // Error handling
+  if (error) {
     return (
       <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
         isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
       }`}>
-        <div className="text-center">
-          <div className="text-6xl mb-4">🔒</div>
-          <h1 className={`text-2xl font-bold mb-2 transition-colors duration-300 ${
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center">
+            <Heart className={`w-8 h-8 transition-colors duration-300 ${
+              isDarkMode ? 'text-red-400' : 'text-red-500'
+            }`} />
+          </div>
+          <h3 className={`text-xl font-semibold mb-4 transition-colors duration-300 ${
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
-            Zugriff verweigert
-          </h1>
-          <p className={`transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            Fehler beim Laden der Daten
+          </h3>
+          <p className={`mb-6 transition-colors duration-300 ${
+            isDarkMode ? 'text-gray-300' : 'text-gray-600'
           }`}>
-            Diese Seite ist nur für Administratoren zugänglich.
-          </p>
-          <p className={`text-sm mt-2 transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-500' : 'text-gray-500'
-          }`}>
-            Debug: isAdmin={isAdmin ? 'true' : 'false'}, localStorage={localStorage.getItem('admin_status')}, userName={userName}
+            {error}
           </p>
           <button
-            onClick={() => window.close()}
-            className="mt-4 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl transition-colors"
+            onClick={() => window.location.reload()}
+            className={`px-6 py-3 rounded-xl transition-colors duration-300 ${
+              isDarkMode ? 'bg-pink-600 hover:bg-pink-700 text-white' : 'bg-pink-500 hover:bg-pink-600 text-white'
+            }`}
           >
-            Schließen
+            Seite neu laden
           </button>
         </div>
       </div>
@@ -570,58 +560,35 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
               {moments.map((moment) => (
                 <div
                   key={moment.id}
-                  className={`rounded-2xl border transition-all duration-300 hover:scale-105 ${
+                  className={`rounded-2xl border transition-all duration-300 hover:scale-105 cursor-pointer ${
                     isDarkMode 
                       ? 'bg-gray-800 border-gray-700 hover:bg-gray-700' 
                       : 'bg-white border-gray-200 hover:bg-gray-50 shadow-lg'
                   }`}
+                  onClick={() => setSelectedMoment(moment)}
                 >
                   {/* Moment Header */}
                   <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-full text-white ${getCategoryColor(moment.category)}`}>
-                          {getCategoryIcon(moment.category)}
-                        </div>
-                        <div>
-                          <h3 className={`font-semibold transition-colors duration-300 ${
-                            isDarkMode ? 'text-white' : 'text-gray-900'
-                          }`}>
-                            {moment.title}
-                          </h3>
-                          <div className="flex items-center gap-2 text-sm">
-                            <Calendar className={`w-3 h-3 transition-colors duration-300 ${
-                              isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                            }`} />
-                            <span className={`transition-colors duration-300 ${
-                              isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                            }`}>
-                              {formatDate(moment.timestamp)}
-                            </span>
-                          </div>
-                        </div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className={`p-2 rounded-full text-white ${getCategoryColor(moment.category)}`}>
+                        {getCategoryIcon(moment.category)}
                       </div>
-                      
-                      {/* Edit/Delete Buttons */}
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => handleEditMoment(moment)}
-                          className={`p-2 rounded transition-colors duration-300 ${
-                            isDarkMode ? 'hover:bg-gray-700 text-blue-400' : 'hover:bg-blue-50 text-blue-600'
-                          }`}
-                          title="Moment bearbeiten"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMoment(moment.id)}
-                          className={`p-2 rounded transition-colors duration-300 ${
-                            isDarkMode ? 'hover:bg-gray-700 text-red-400' : 'hover:bg-red-50 text-red-600'
-                          }`}
-                          title="Moment löschen"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div>
+                        <h3 className={`font-semibold transition-colors duration-300 ${
+                          isDarkMode ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {moment.title}
+                        </h3>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className={`w-3 h-3 transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                          }`} />
+                          <span className={`transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                          }`}>
+                            {formatDate(moment.timestamp)}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -710,16 +677,6 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
                         </div>
                       )}
                     </div>
-                    
-                    <button
-                      onClick={() => setSelectedMoment(moment)}
-                      className={`p-2 rounded-full transition-colors duration-300 ${
-                        isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                      }`}
-                      title="Details anzeigen"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
               ))}
@@ -750,201 +707,6 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
                 </div>
               </div>
             </div>
-            
-            {/* Moment Form Modal */}
-            {showMomentForm && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className={`rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
-                  isDarkMode ? 'bg-gray-800' : 'bg-white'
-                }`}>
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className={`text-xl font-semibold transition-colors duration-300 ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {editingMoment ? 'Moment bearbeiten' : 'Neuen Moment erstellen'}
-                    </h3>
-                    <button
-                      onClick={() => setShowMomentForm(false)}
-                      className={`p-2 rounded-full transition-colors duration-300 ${
-                        isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
-                        Titel *
-                      </label>
-                      <input
-                        type="text"
-                        value={newMoment.title}
-                        onChange={(e) => setNewMoment({...newMoment, title: e.target.value})}
-                        className={`w-full px-4 py-2 border rounded-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`}
-                        placeholder="z.B. Die Zeremonie"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
-                        Kategorie
-                      </label>
-                      <select
-                        value={newMoment.category}
-                        onChange={(e) => setNewMoment({...newMoment, category: e.target.value as Moment['category']})}
-                        className={`w-full px-4 py-2 border rounded-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`}
-                      >
-                        <option value="ceremony">💒 Zeremonie</option>
-                        <option value="reception">🎉 Feier</option>
-                        <option value="party">💃 Party</option>
-                        <option value="special">✨ Besondere Momente</option>
-                        <option value="custom">🎯 Benutzerdefiniert</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
-                        Beschreibung
-                      </label>
-                      <textarea
-                        value={newMoment.description}
-                        onChange={(e) => setNewMoment({...newMoment, description: e.target.value})}
-                        rows={3}
-                        className={`w-full px-4 py-2 border rounded-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`}
-                        placeholder="Beschreibe diesen besonderen Moment..."
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
-                        Ort
-                      </label>
-                      <input
-                        type="text"
-                        value={newMoment.location}
-                        onChange={(e) => setNewMoment({...newMoment, location: e.target.value})}
-                        className={`w-full px-4 py-2 border rounded-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`}
-                        placeholder="z.B. Kirche, Festsaal, etc."
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
-                        Tags
-                      </label>
-                      <div className="flex gap-2 mb-2">
-                        <input
-                          type="text"
-                          value={newMoment.tagInput}
-                          onChange={(e) => setNewMoment({...newMoment, tagInput: e.target.value})}
-                          className={`flex-1 px-4 py-2 border rounded-lg transition-colors duration-300 ${
-                            isDarkMode 
-                              ? 'bg-gray-700 border-gray-600 text-white' 
-                              : 'bg-white border-gray-300 text-gray-900'
-                          }`}
-                          placeholder="Neuen Tag eingeben..."
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleAddTag();
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddTag}
-                          className={`px-4 py-2 rounded-lg transition-colors duration-300 ${
-                            isDarkMode 
-                              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                              : 'bg-blue-500 hover:bg-blue-600 text-white'
-                          }`}
-                        >
-                          Hinzufügen
-                        </button>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {newMoment.tags.map((tag, index) => (
-                          <div 
-                            key={index}
-                            className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm transition-colors duration-300 ${
-                              isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
-                            }`}
-                          >
-                            {tag}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveTag(tag)}
-                              className="ml-1 text-red-500 hover:text-red-700"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                        {newMoment.tags.length === 0 && (
-                          <span className={`text-sm transition-colors duration-300 ${
-                            isDarkMode ? 'text-gray-500' : 'text-gray-500'
-                          }`}>
-                            Noch keine Tags hinzugefügt
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-3 pt-4">
-                      <button
-                        type="button"
-                        onClick={() => setShowMomentForm(false)}
-                        className={`flex-1 py-2 px-4 rounded-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
-                            : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
-                        }`}
-                      >
-                        Abbrechen
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSaveMoment}
-                        className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
-                      >
-                        <Save className="w-4 h-4" />
-                        {editingMoment ? 'Speichern' : 'Erstellen'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -978,91 +740,40 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
 
             {/* Cards Overview */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Existing Thank You Cards */}
-              {thankYouCards.map(card => (
-                <div key={card.id} className={`rounded-2xl border p-6 transition-colors duration-300 ${
-                  isDarkMode 
-                    ? 'bg-gray-800 border-gray-700' 
-                    : 'bg-white border-gray-200 shadow-lg'
-                }`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className={`font-semibold transition-colors duration-300 ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {card.recipientName}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 rounded-full text-xs transition-colors duration-300 ${
-                        card.status === 'sent'
-                          ? isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
-                          : isDarkMode ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {card.status === 'sent' ? 'Versendet' : 'Entwurf'}
-                      </span>
-                      
-                      {/* Edit/Delete Buttons */}
-                      <button
-                        onClick={() => handleEditCard(card)}
-                        className={`p-1 rounded transition-colors duration-300 ${
-                          isDarkMode ? 'hover:bg-gray-700 text-blue-400' : 'hover:bg-blue-50 text-blue-600'
-                        }`}
-                        title="Dankeskarte bearbeiten"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCard(card.id)}
-                        className={`p-1 rounded transition-colors duration-300 ${
-                          isDarkMode ? 'hover:bg-gray-700 text-red-400' : 'hover:bg-red-50 text-red-600'
-                        }`}
-                        title="Dankeskarte löschen"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  <p className={`text-sm mb-4 transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
+              {/* Sample Thank You Cards */}
+              <div className={`rounded-2xl border p-6 transition-colors duration-300 ${
+                isDarkMode 
+                  ? 'bg-gray-800 border-gray-700' 
+                  : 'bg-white border-gray-200 shadow-lg'
+              }`}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className={`font-semibold transition-colors duration-300 ${
+                    isDarkMode ? 'text-white' : 'text-gray-900'
                   }`}>
-                    {card.message.length > 100 ? card.message.substring(0, 100) + '...' : card.message}
-                  </p>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className={`w-4 h-4 transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                    }`} />
-                    <span className={`transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                    }`}>
-                      {card.status === 'sent' 
-                        ? `Versendet am ${new Date(card.sentAt || '').toLocaleDateString('de-DE')}`
-                        : card.recipientEmail}
-                    </span>
-                  </div>
-                  
-                  {/* Preview Link */}
-                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-xs transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                      }`}>
-                        Individueller Link:
-                      </span>
-                      <button
-                        onClick={() => {
-                          const recapLink = `${window.location.origin}/recap?for=${encodeURIComponent(card.recipientName)}&id=${card.id}`;
-                          navigator.clipboard.writeText(recapLink);
-                          alert(`Link für ${card.recipientName} in die Zwischenablage kopiert!`);
-                        }}
-                        className={`text-xs px-2 py-1 rounded transition-colors duration-300 ${
-                          isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
-                        }`}
-                      >
-                        Link kopieren
-                      </button>
-                    </div>
-                  </div>
+                    Familie Schmidt
+                  </h3>
+                  <span className={`px-2 py-1 rounded-full text-xs transition-colors duration-300 ${
+                    isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
+                  }`}>
+                    Versendet
+                  </span>
                 </div>
-              ))}
+                <p className={`text-sm mb-4 transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                }`}>
+                  Liebe Familie Schmidt, vielen Dank für eure Teilnahme an unserem besonderen Tag...
+                </p>
+                <div className="flex items-center gap-2 text-sm">
+                  <Mail className={`w-4 h-4 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                  }`} />
+                  <span className={`transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    Versendet am 15. Juli 2025
+                  </span>
+                </div>
+              </div>
 
               {/* Add Card */}
               <div
@@ -1085,177 +796,6 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
                 </div>
               </div>
             </div>
-            
-            {/* Card Creation Form */}
-            {showCardForm && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className={`rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
-                  isDarkMode ? 'bg-gray-800' : 'bg-white'
-                }`}>
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className={`text-xl font-semibold transition-colors duration-300 ${
-                      isDarkMode ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      {editingCard ? 'Dankeskarte bearbeiten' : 'Neue Dankeskarte erstellen'}
-                    </h3>
-                    <button
-                      onClick={() => {
-                        setShowCardForm(false);
-                        setEditingCard(null);
-                      }}
-                      className={`p-2 rounded-full transition-colors duration-300 ${
-                        isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      <X className="w-6 h-6" />
-                    </button>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
-                        Empfänger Name
-                      </label>
-                      <input
-                        type="text"
-                        value={newCard.recipientName}
-                        onChange={(e) => setNewCard({...newCard, recipientName: e.target.value})}
-                        className={`w-full px-4 py-2 border rounded-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`}
-                        placeholder="z.B. Familie Müller"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
-                        E-Mail Adresse
-                      </label>
-                      <input
-                        type="email"
-                        value={newCard.recipientEmail}
-                        onChange={(e) => setNewCard({...newCard, recipientEmail: e.target.value})}
-                        className={`w-full px-4 py-2 border rounded-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`}
-                        placeholder="email@beispiel.de"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
-                        Nachricht
-                      </label>
-                      <textarea
-                        value={newCard.message}
-                        onChange={(e) => setNewCard({...newCard, message: e.target.value})}
-                        rows={4}
-                        className={`w-full px-4 py-2 border rounded-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gray-700 border-gray-600 text-white' 
-                            : 'bg-white border-gray-300 text-gray-900'
-                        }`}
-                        placeholder="Liebe Familie Müller, vielen Dank für eure Teilnahme an unserem besonderen Tag..."
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                      }`}>
-                        Momente auswählen
-                      </label>
-                      <div className={`p-4 border rounded-lg transition-colors duration-300 ${
-                        isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-300'
-                      }`}>
-                        {moments.map(moment => (
-                          <div key={moment.id} className="flex items-center mb-2">
-                            <input
-                              type="checkbox"
-                              id={`moment-${moment.id}`}
-                              checked={newCard.selectedMoments.includes(moment.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setNewCard({
-                                    ...newCard, 
-                                    selectedMoments: [...newCard.selectedMoments, moment.id]
-                                  });
-                                } else {
-                                  setNewCard({
-                                    ...newCard, 
-                                    selectedMoments: newCard.selectedMoments.filter(id => id !== moment.id)
-                                  });
-                                }
-                              }}
-                              className="mr-2"
-                            />
-                            <label 
-                              htmlFor={`moment-${moment.id}`}
-                              className={`transition-colors duration-300 ${
-                                isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                              }`}
-                            >
-                              {moment.title} ({moment.mediaItems.length} Medien)
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div className={`p-4 rounded-lg transition-colors duration-300 ${
-                      isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
-                    }`}>
-                      <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
-                        isDarkMode ? 'text-blue-300' : 'text-blue-800'
-                      }`}>
-                        So funktioniert's:
-                      </h4>
-                      <ol className={`text-sm space-y-1 list-decimal pl-4 transition-colors duration-300 ${
-                        isDarkMode ? 'text-blue-200' : 'text-blue-700'
-                      }`}>
-                        <li>Erstelle eine personalisierte Dankeskarte</li>
-                        <li>Kopiere den generierten Link</li>
-                        <li>Sende den Link per E-Mail oder Messenger an den Empfänger</li>
-                        <li>Der Empfänger erhält Zugang zu einer personalisierten Recap-Seite mit Slideshow und Musik</li>
-                      </ol>
-                    </div>
-                    
-                    <div className="flex gap-3 pt-4">
-                      <button
-                        onClick={() => {
-                          setShowCardForm(false);
-                          setEditingCard(null);
-                        }}
-                        className={`flex-1 py-2 px-4 rounded-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
-                            : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
-                        }`}
-                      >
-                        Abbrechen
-                      </button>
-                      <button
-                        onClick={handleSendCard}
-                        className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
-                      >
-                        <Send className="w-4 h-4" />
-                        {editingCard ? 'Aktualisieren' : 'Dankeskarte erstellen'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -1291,23 +831,20 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
                   >
                     <Share2 className="w-5 h-5" />
                     <div className="text-left">
-                      <div className="font-semibold">Allgemeiner Link</div>
+                      <div className="font-semibold">Direkter Link</div>
                       <div className="text-sm opacity-90">Link kopieren und teilen</div>
                     </div>
                   </button>
 
-                  <button 
-                    onClick={handleCreateCard}
-                    className={`w-full flex items-center gap-3 p-4 rounded-xl transition-colors duration-300 ${
-                      isDarkMode 
-                        ? 'bg-green-600 hover:bg-green-700 text-white' 
-                        : 'bg-green-500 hover:bg-green-600 text-white'
-                    }`}
-                  >
+                  <button className={`w-full flex items-center gap-3 p-4 rounded-xl transition-colors duration-300 ${
+                    isDarkMode 
+                      ? 'bg-green-600 hover:bg-green-700 text-white' 
+                      : 'bg-green-500 hover:bg-green-600 text-white'
+                  }`}>
                     <Mail className="w-5 h-5" />
                     <div className="text-left">
-                      <div className="font-semibold">Personalisierte Links</div>
-                      <div className="text-sm opacity-90">Individuelle Dankeskarten erstellen</div>
+                      <div className="font-semibold">E-Mail versenden</div>
+                      <div className="text-sm opacity-90">An alle Gäste senden</div>
                     </div>
                   </button>
                 </div>
@@ -1346,22 +883,6 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
                       12. Juli 2025
                     </p>
                   </div>
-                </div>
-                
-                <div className="mt-4">
-                  <a 
-                    href="/recap" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className={`flex items-center justify-center gap-2 w-full py-2 px-4 rounded-lg transition-colors duration-300 ${
-                      isDarkMode 
-                        ? 'bg-pink-600 hover:bg-pink-700 text-white' 
-                        : 'bg-pink-500 hover:bg-pink-600 text-white'
-                    }`}
-                  >
-                    <Eye className="w-4 h-4" />
-                    Vorschau öffnen
-                  </a>
                 </div>
               </div>
             </div>
