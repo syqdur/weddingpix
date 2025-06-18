@@ -71,97 +71,104 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
     message: '',
     selectedMoments: [] as string[]
   });
+  const [error, setError] = useState<string | null>(null);
 
   // Initialize with sample data
   useEffect(() => {
     // Simulate loading
     setTimeout(() => {
-      // Create sample moments from media items
-      const sampleMoments: Moment[] = [
-        {
-          id: '1',
-          title: 'Die Zeremonie',
-          description: 'Der magische Moment unseres Ja-Worts in der wunderschönen Kirche.',
-          mediaItems: mediaItems.filter(item => item.type === 'image').slice(0, 8),
-          category: 'ceremony',
-          timestamp: '2025-07-12T14:00:00Z',
-          location: 'St. Marien Kirche',
-          tags: ['Zeremonie', 'Ja-Wort', 'Kirche', 'Emotionen']
-        },
-        {
-          id: '2',
-          title: 'Die Feier',
-          description: 'Ausgelassene Stimmung und unvergessliche Momente mit Familie und Freunden.',
-          mediaItems: mediaItems.filter(item => item.type === 'video').slice(0, 5),
-          category: 'reception',
-          timestamp: '2025-07-12T18:00:00Z',
-          location: 'Schloss Bellevue',
-          tags: ['Feier', 'Tanz', 'Familie', 'Freunde']
-        },
-        {
-          id: '3',
-          title: 'Besondere Momente',
-          description: 'Die kleinen, besonderen Augenblicke, die diesen Tag unvergesslich gemacht haben.',
-          mediaItems: mediaItems.filter(item => item.type === 'note').slice(0, 6),
-          category: 'special',
-          timestamp: '2025-07-12T20:00:00Z',
-          tags: ['Besonders', 'Erinnerungen', 'Liebe']
-        }
-      ];
-
-      setMoments(sampleMoments);
-      
-      // Sample thank you cards with shareable links
-      const sampleCards: ThankYouCard[] = [
-        {
-          id: '1',
-          recipientName: 'Familie Schmidt',
-          recipientEmail: 'schmidt@example.com',
-          message: 'Liebe Familie Schmidt, vielen Dank für eure Teilnahme an unserem besonderen Tag. Eure Anwesenheit hat unsere Hochzeit noch schöner gemacht!',
-          template: 'elegant',
-          selectedMoments: ['1', '2'],
-          status: 'ready',
-          createdAt: '2025-07-15T10:30:00Z',
-          shareableLink: `${window.location.origin}/recap?for=Familie%20Schmidt&id=card-1`
-        },
-        {
-          id: '2',
-          recipientName: 'Anna & Tom',
-          recipientEmail: 'anna.tom@example.com',
-          message: 'Liebe Anna, lieber Tom, wir danken euch von Herzen für die wunderschönen Momente, die wir mit euch teilen durften!',
-          template: 'modern',
-          selectedMoments: ['1', '3'],
-          status: 'draft',
-          createdAt: '2025-07-16T14:45:00Z',
-          shareableLink: `${window.location.origin}/recap?for=Anna%20und%20Tom&id=card-2`
-        }
-      ];
-      
-      setThankYouCards(sampleCards);
-      
-      // Sample analytics
-      setAnalytics({
-        totalViews: 1247,
-        uniqueVisitors: 89,
-        averageTimeSpent: '4:32',
-        mostViewedMoments: ['Die Zeremonie', 'Die Feier'],
-        feedback: [
+      try {
+        // Create sample moments from media items
+        const sampleMoments: Moment[] = [
           {
             id: '1',
-            rating: 5,
-            comment: 'Wunderschöne Zusammenfassung! Vielen Dank für die tollen Erinnerungen.',
-            timestamp: '2025-07-15T10:30:00Z'
+            title: 'Die Zeremonie',
+            description: 'Der magische Moment unseres Ja-Worts in der wunderschönen Kirche.',
+            mediaItems: mediaItems.filter(item => item.type === 'image').slice(0, 8),
+            category: 'ceremony',
+            timestamp: '2025-07-12T14:00:00Z',
+            location: 'St. Marien Kirche',
+            tags: ['Zeremonie', 'Ja-Wort', 'Kirche', 'Emotionen']
           },
           {
             id: '2',
-            rating: 5,
-            comment: 'Es war ein magischer Tag. Danke, dass wir dabei sein durften!',
-            timestamp: '2025-07-14T16:45:00Z'
+            title: 'Die Feier',
+            description: 'Ausgelassene Stimmung und unvergessliche Momente mit Familie und Freunden.',
+            mediaItems: mediaItems.filter(item => item.type === 'video').slice(0, 5),
+            category: 'reception',
+            timestamp: '2025-07-12T18:00:00Z',
+            location: 'Schloss Bellevue',
+            tags: ['Feier', 'Tanz', 'Familie', 'Freunde']
+          },
+          {
+            id: '3',
+            title: 'Besondere Momente',
+            description: 'Die kleinen, besonderen Augenblicke, die diesen Tag unvergesslich gemacht haben.',
+            mediaItems: mediaItems.filter(item => item.type === 'note').slice(0, 6),
+            category: 'special',
+            timestamp: '2025-07-12T20:00:00Z',
+            tags: ['Besonders', 'Erinnerungen', 'Liebe']
           }
-        ]
-      });
-      
-      setIsLoading(false);
+        ];
+
+        setMoments(sampleMoments);
+        
+        // Sample thank you cards with shareable links
+        const sampleCards: ThankYouCard[] = [
+          {
+            id: '1',
+            recipientName: 'Familie Schmidt',
+            recipientEmail: 'schmidt@example.com',
+            message: 'Liebe Familie Schmidt, vielen Dank für eure Teilnahme an unserem besonderen Tag. Eure Anwesenheit hat unsere Hochzeit noch schöner gemacht!',
+            template: 'elegant',
+            selectedMoments: ['1', '2'],
+            status: 'ready',
+            createdAt: '2025-07-15T10:30:00Z',
+            shareableLink: `${window.location.origin}/recap?for=Familie%20Schmidt&id=card-1`
+          },
+          {
+            id: '2',
+            recipientName: 'Anna & Tom',
+            recipientEmail: 'anna.tom@example.com',
+            message: 'Liebe Anna, lieber Tom, wir danken euch von Herzen für die wunderschönen Momente, die wir mit euch teilen durften!',
+            template: 'modern',
+            selectedMoments: ['1', '3'],
+            status: 'draft',
+            createdAt: '2025-07-16T14:45:00Z',
+            shareableLink: `${window.location.origin}/recap?for=Anna%20und%20Tom&id=card-2`
+          }
+        ];
+        
+        setThankYouCards(sampleCards);
+        
+        // Sample analytics
+        setAnalytics({
+          totalViews: 1247,
+          uniqueVisitors: 89,
+          averageTimeSpent: '4:32',
+          mostViewedMoments: ['Die Zeremonie', 'Die Feier'],
+          feedback: [
+            {
+              id: '1',
+              rating: 5,
+              comment: 'Wunderschöne Zusammenfassung! Vielen Dank für die tollen Erinnerungen.',
+              timestamp: '2025-07-15T10:30:00Z'
+            },
+            {
+              id: '2',
+              rating: 5,
+              comment: 'Es war ein magischer Tag. Danke, dass wir dabei sein durften!',
+              timestamp: '2025-07-14T16:45:00Z'
+            }
+          ]
+        });
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error initializing data:', error);
+        setError('Fehler beim Laden der Daten. Bitte versuche es erneut.');
+        setIsLoading(false);
+      }
     }, 1000);
   }, [mediaItems]);
 
@@ -171,6 +178,14 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
 
   const handleCreateCard = () => {
     setShowCreateCard(true);
+    // Reset form data when opening the modal
+    setNewCard({
+      recipientName: '',
+      recipientEmail: '',
+      message: '',
+      selectedMoments: []
+    });
+    setError(null);
   };
 
   const handleShareRecap = () => {
@@ -211,49 +226,58 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   };
 
   const handleSubmitCard = () => {
-    if (!newCard.recipientName.trim()) {
-      alert('Bitte gib einen Namen für den Empfänger ein.');
-      return;
+    try {
+      if (!newCard.recipientName.trim()) {
+        setError('Bitte gib einen Namen für den Empfänger ein.');
+        return;
+      }
+
+      if (newCard.selectedMoments.length === 0) {
+        setError('Bitte wähle mindestens einen Moment aus.');
+        return;
+      }
+
+      // Generate a unique ID for the card
+      const cardId = `card-${Date.now()}`;
+      
+      // Create shareable link
+      const encodedName = encodeURIComponent(newCard.recipientName);
+      const shareableLink = `${window.location.origin}/recap?for=${encodedName}&id=${cardId}`;
+
+      // Create new card
+      const card: ThankYouCard = {
+        id: cardId,
+        recipientName: newCard.recipientName,
+        recipientEmail: newCard.recipientEmail,
+        message: newCard.message,
+        template: 'elegant', // Default template
+        selectedMoments: newCard.selectedMoments,
+        status: 'ready',
+        createdAt: new Date().toISOString(),
+        shareableLink
+      };
+
+      // Add to cards list
+      setThankYouCards([...thankYouCards, card]);
+      
+      // Reset form
+      setNewCard({
+        recipientName: '',
+        recipientEmail: '',
+        message: '',
+        selectedMoments: []
+      });
+      
+      // Close modal
+      setShowCreateCard(false);
+      setError(null);
+      
+      // Show success message
+      alert(`Dankeskarte für ${card.recipientName} wurde erfolgreich erstellt! Der Link kann jetzt geteilt werden.`);
+    } catch (error) {
+      console.error('Error creating thank you card:', error);
+      setError('Fehler beim Erstellen der Dankeskarte. Bitte versuche es erneut.');
     }
-
-    if (newCard.selectedMoments.length === 0) {
-      alert('Bitte wähle mindestens einen Moment aus.');
-      return;
-    }
-
-    // Generate a unique ID for the card
-    const cardId = `card-${Date.now()}`;
-    
-    // Create shareable link
-    const encodedName = encodeURIComponent(newCard.recipientName);
-    const shareableLink = `${window.location.origin}/recap?for=${encodedName}&id=${cardId}`;
-
-    // Create new card
-    const card: ThankYouCard = {
-      id: cardId,
-      recipientName: newCard.recipientName,
-      recipientEmail: newCard.recipientEmail,
-      message: newCard.message,
-      template: 'elegant', // Default template
-      selectedMoments: newCard.selectedMoments,
-      status: 'ready',
-      createdAt: new Date().toISOString(),
-      shareableLink
-    };
-
-    // Add to cards list
-    setThankYouCards([...thankYouCards, card]);
-    
-    // Reset form
-    setNewCard({
-      recipientName: '',
-      recipientEmail: '',
-      message: '',
-      selectedMoments: []
-    });
-    
-    // Close modal
-    setShowCreateCard(false);
   };
 
   const handleCopyLink = (link: string) => {
@@ -297,6 +321,46 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
           }`}>
             Lade Post-Hochzeits-Zusammenfassung...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && !showCreateCard) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
+        isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
+        <div className={`max-w-md w-full p-8 rounded-2xl text-center transition-colors duration-300 ${
+          isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200 shadow-lg'
+        }`}>
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center">
+            <Sparkles className={`w-8 h-8 transition-colors duration-300 ${
+              isDarkMode ? 'text-red-400' : 'text-red-500'
+            }`} />
+          </div>
+          <h3 className={`text-xl font-semibold mb-4 transition-colors duration-300 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }`}>
+            Fehler
+          </h3>
+          <p className={`mb-6 transition-colors duration-300 ${
+            isDarkMode ? 'text-gray-300' : 'text-gray-600'
+          }`}>
+            {error}
+          </p>
+          <button
+            onClick={() => {
+              setError(null);
+              window.location.reload();
+            }}
+            className={`px-6 py-3 rounded-xl transition-colors duration-300 ${
+              isDarkMode ? 'bg-pink-600 hover:bg-pink-700 text-white' : 'bg-pink-500 hover:bg-pink-600 text-white'
+            }`}
+          >
+            Erneut versuchen
+          </button>
         </div>
       </div>
     );
@@ -991,7 +1055,10 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                 Neue Dankeskarte erstellen
               </h3>
               <button
-                onClick={() => setShowCreateCard(false)}
+                onClick={() => {
+                  setShowCreateCard(false);
+                  setError(null);
+                }}
                 className={`p-2 rounded-full transition-colors duration-300 ${
                   isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
                 }`}
@@ -1002,6 +1069,15 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
 
             {/* Modal Content */}
             <div className="p-6">
+              {/* Error Display */}
+              {error && (
+                <div className={`mb-6 p-3 rounded-lg border transition-colors duration-300 ${
+                  isDarkMode ? 'bg-red-900/20 border-red-700/30 text-red-300' : 'bg-red-50 border-red-200 text-red-700'
+                }`}>
+                  {error}
+                </div>
+              )}
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Form */}
                 <div>
@@ -1097,68 +1173,78 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                   <div className={`max-h-[300px] overflow-y-auto p-2 rounded-lg transition-colors duration-300 ${
                     isDarkMode ? 'bg-gray-700/50' : 'bg-gray-50'
                   }`}>
-                    {moments.map((moment) => (
-                      <div 
-                        key={moment.id}
-                        className={`flex items-center gap-3 p-3 mb-2 rounded-lg cursor-pointer transition-colors duration-300 ${
-                          newCard.selectedMoments.includes(moment.id)
-                            ? isDarkMode 
-                              ? 'bg-pink-900/30 border border-pink-700/30' 
-                              : 'bg-pink-50 border border-pink-200'
-                            : isDarkMode 
-                              ? 'bg-gray-800 hover:bg-gray-700 border border-gray-700' 
-                              : 'bg-white hover:bg-gray-100 border border-gray-200'
-                        }`}
-                        onClick={() => handleToggleMomentSelection(moment.id)}
-                      >
-                        <div className={`w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 ${
-                          newCard.selectedMoments.includes(moment.id) ? 'ring-2 ring-pink-500' : ''
-                        }`}>
-                          {moment.mediaItems[0]?.type === 'image' && moment.mediaItems[0]?.url ? (
-                            <img
-                              src={moment.mediaItems[0].url}
-                              alt={moment.title}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : moment.mediaItems[0]?.type === 'video' && moment.mediaItems[0]?.url ? (
-                            <video
-                              src={moment.mediaItems[0].url}
-                              className="w-full h-full object-cover"
-                              muted
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Camera className="w-6 h-6 text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <h5 className={`font-medium truncate transition-colors duration-300 ${
-                            isDarkMode ? 'text-white' : 'text-gray-900'
+                    {moments.length > 0 ? (
+                      moments.map((moment) => (
+                        <div 
+                          key={moment.id}
+                          className={`flex items-center gap-3 p-3 mb-2 rounded-lg cursor-pointer transition-colors duration-300 ${
+                            newCard.selectedMoments.includes(moment.id)
+                              ? isDarkMode 
+                                ? 'bg-pink-900/30 border border-pink-700/30' 
+                                : 'bg-pink-50 border border-pink-200'
+                              : isDarkMode 
+                                ? 'bg-gray-800 hover:bg-gray-700 border border-gray-700' 
+                                : 'bg-white hover:bg-gray-100 border border-gray-200'
+                          }`}
+                          onClick={() => handleToggleMomentSelection(moment.id)}
+                        >
+                          <div className={`w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 ${
+                            newCard.selectedMoments.includes(moment.id) ? 'ring-2 ring-pink-500' : ''
                           }`}>
-                            {moment.title}
-                          </h5>
-                          <p className={`text-xs truncate transition-colors duration-300 ${
-                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                            {moment.mediaItems[0]?.type === 'image' && moment.mediaItems[0]?.url ? (
+                              <img
+                                src={moment.mediaItems[0].url}
+                                alt={moment.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : moment.mediaItems[0]?.type === 'video' && moment.mediaItems[0]?.url ? (
+                              <video
+                                src={moment.mediaItems[0].url}
+                                className="w-full h-full object-cover"
+                                muted
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Camera className="w-6 h-6 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <h5 className={`font-medium truncate transition-colors duration-300 ${
+                              isDarkMode ? 'text-white' : 'text-gray-900'
+                            }`}>
+                              {moment.title}
+                            </h5>
+                            <p className={`text-xs truncate transition-colors duration-300 ${
+                              isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                            }`}>
+                              {moment.mediaItems.length} Medien • {moment.category}
+                            </p>
+                          </div>
+                          
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors duration-300 ${
+                            newCard.selectedMoments.includes(moment.id)
+                              ? 'bg-pink-500 text-white'
+                              : isDarkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-200 text-gray-500'
                           }`}>
-                            {moment.mediaItems.length} Medien • {moment.category}
-                          </p>
+                            {newCard.selectedMoments.includes(moment.id) ? (
+                              <Check className="w-3 h-3" />
+                            ) : (
+                              <Plus className="w-3 h-3" />
+                            )}
+                          </div>
                         </div>
-                        
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors duration-300 ${
-                          newCard.selectedMoments.includes(moment.id)
-                            ? 'bg-pink-500 text-white'
-                            : isDarkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-200 text-gray-500'
-                        }`}>
-                          {newCard.selectedMoments.includes(moment.id) ? (
-                            <Check className="w-3 h-3" />
-                          ) : (
-                            <Plus className="w-3 h-3" />
-                          )}
-                        </div>
+                      ))
+                    ) : (
+                      <div className={`p-6 text-center transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        <Camera className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p>Keine Momente verfügbar</p>
+                        <p className="text-sm mt-1">Füge zuerst Momente hinzu</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                   
                   <div className={`mt-3 text-sm transition-colors duration-300 ${
@@ -1176,7 +1262,10 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
             }`}>
               <div className="flex justify-end gap-3">
                 <button
-                  onClick={() => setShowCreateCard(false)}
+                  onClick={() => {
+                    setShowCreateCard(false);
+                    setError(null);
+                  }}
                   className={`py-2 px-4 rounded-lg transition-colors duration-300 ${
                     isDarkMode 
                       ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
