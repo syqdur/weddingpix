@@ -43,6 +43,7 @@ import {
 } from "firebase/firestore"
 
 import { MediaItem } from '../types';
+import { loadGallery } from '../services/firebaseService';
 
 interface PostWeddingRecapProps {
   isDarkMode: boolean
@@ -100,6 +101,33 @@ const saveMomentToFirebase = async (momentData: Omit<Moment, "id">) => {
     return docRef.id
   } catch (error) {
     console.error("❌ Fehler beim Speichern des Moments:", error)
+    throw error
+  }
+}
+
+const updateMomentInFirebase = async (momentId: string, momentData: Omit<Moment, "id">) => {
+  try {
+    console.log("🔄 Aktualisiere Moment in Firebase:", momentId, momentData)
+    const momentRef = doc(db, "moments", momentId)
+    await updateDoc(momentRef, {
+      ...momentData,
+      updatedAt: serverTimestamp(),
+    })
+    console.log("✅ Moment aktualisiert:", momentId)
+  } catch (error) {
+    console.error("❌ Fehler beim Aktualisieren des Moments:", error)
+    throw error
+  }
+}
+
+const deleteMomentFromFirebase = async (momentId: string) => {
+  try {
+    console.log("🗑️ Lösche Moment aus Firebase:", momentId)
+    const momentRef = doc(db, "moments", momentId)
+    await deleteDoc(momentRef)
+    console.log("✅ Moment gelöscht:", momentId)
+  } catch (error) {
+    console.error("❌ Fehler beim Löschen des Moments:", error)
     throw error
   }
 }
@@ -197,6 +225,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
   })
 
   // States für bessere UX
+  const [localMediaItems, setLocalMediaItems] = useState<MediaItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -208,7 +237,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
   const [newMoment, setNewMoment] = useState({
     title: "",
     description: "",
-    category: "special" as const,
+    category: "special" as "ceremony" | "reception" | "party" | "special" | "custom",
     location: "",
     tags: [] as string[],
     mediaItems: [] as MediaItem[],
@@ -249,6 +278,14 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
 
         setMoments(loadedMoments)
         setThankYouCards(loadedCards)
+
+        // Load gallery data directly from Firebase
+        const unsubscribeGallery = loadGallery(setLocalMediaItems)
+        
+        // Clean up subscription when component unmounts
+        return () => {
+          if (unsubscribeGallery) unsubscribeGallery()
+        }
 
         // Sample analytics
         setAnalytics({
@@ -375,6 +412,116 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
     } catch (error) {
       console.error("❌ Allgemeiner Fehler beim Speichern des Moments:", error)
       setError("Ein unerwarteter Fehler ist aufgetreten.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // 🔥 Moment bearbeiten
+  const handleEditMoment = (moment: Moment) => {
+    console.log("✏️ Bearbeite Moment:", moment.id)
+    setSelectedMoment(moment)
+    setNewMoment({
+      title: moment.title,
+      description: moment.description,
+      category: moment.category,
+      location: moment.location || "",
+      tags: moment.tags,
+      mediaItems: moment.mediaItems,
+    })
+    setShowCreateMoment(true)
+    setError(null)
+  }
+
+  // 🔥 Moment löschen
+  const handleDeleteMoment = async (moment: Moment) => {
+    if (!confirm(`Möchtest du den Moment "${moment.title}" wirklich löschen?`)) {
+      return
+    }
+
+    try {
+      console.log("🗑️ Lösche Moment:", moment.id)
+      setIsSaving(true)
+      setError(null)
+
+      // Aus Firebase löschen
+      await deleteMomentFromFirebase(moment.id)
+
+      // Lokalen State aktualisieren
+      setMoments((prev) => prev.filter((m) => m.id !== moment.id))
+
+      console.log("✅ Moment erfolgreich gelöscht!")
+      alert("Moment erfolgreich gelöscht!")
+    } catch (deleteError) {
+      console.error("❌ Fehler beim Löschen des Moments:", deleteError)
+      setError("Moment konnte nicht gelöscht werden. Bitte versuche es erneut.")
+      alert("Fehler beim Löschen des Moments.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // 🔥 Moment aktualisieren (für Edit-Modus)
+  const handleUpdateMoment = async () => {
+    if (!selectedMoment) return
+
+    try {
+      console.log("🔄 Aktualisiere Moment:", selectedMoment.id)
+
+      // Validierung
+      if (!newMoment.title.trim()) {
+        setError("Bitte gib einen Titel für den Moment ein.")
+        return
+      }
+
+      if (!newMoment.description.trim()) {
+        setError("Bitte gib eine Beschreibung ein.")
+        return
+      }
+
+      setIsSaving(true)
+      setError(null)
+
+      // Aktualisierte Moment-Daten vorbereiten
+      const updatedMomentData: Omit<Moment, "id"> = {
+        title: newMoment.title.trim(),
+        description: newMoment.description.trim(),
+        category: newMoment.category,
+        location: newMoment.location.trim(),
+        tags: newMoment.tags,
+        mediaItems: newMoment.mediaItems,
+        timestamp: selectedMoment.timestamp, // Ursprünglichen Zeitstempel beibehalten
+      }
+
+      // In Firebase aktualisieren
+      await updateMomentInFirebase(selectedMoment.id, updatedMomentData)
+
+      // Lokalen State aktualisieren
+      const updatedMoment: Moment = {
+        id: selectedMoment.id,
+        ...updatedMomentData,
+      }
+
+      setMoments((prev) => prev.map((m) => m.id === selectedMoment.id ? updatedMoment : m))
+
+      // Formular zurücksetzen
+      setNewMoment({
+        title: "",
+        description: "",
+        category: "special",
+        location: "",
+        tags: [],
+        mediaItems: [],
+      })
+
+      setSelectedMoment(null)
+      setShowCreateMoment(false)
+
+      console.log("✅ Moment erfolgreich aktualisiert!")
+      alert("Moment erfolgreich aktualisiert!")
+    } catch (updateError) {
+      console.error("❌ Fehler beim Aktualisieren des Moments:", updateError)
+      setError("Moment konnte nicht aktualisiert werden. Bitte versuche es erneut.")
     } finally {
       setIsSaving(false)
     }
@@ -767,32 +914,68 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
                 >
                   {/* Moment Header */}
                   <div className="p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className={`p-2 rounded-full text-white ${getCategoryColor(moment.category)}`}>
-                        {getCategoryIcon(moment.category)}
-                      </div>
-                      <div>
-                        <h3
-                          className={`font-semibold transition-colors duration-300 ${
-                            isDarkMode ? "text-white" : "text-gray-900"
-                          }`}
-                        >
-                          {moment.title}
-                        </h3>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar
-                            className={`w-3 h-3 transition-colors duration-300 ${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
-                            }`}
-                          />
-                          <span
-                            className={`transition-colors duration-300 ${
-                              isDarkMode ? "text-gray-400" : "text-gray-500"
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full text-white ${getCategoryColor(moment.category)}`}>
+                          {getCategoryIcon(moment.category)}
+                        </div>
+                        <div>
+                          <h3
+                            className={`font-semibold transition-colors duration-300 ${
+                              isDarkMode ? "text-white" : "text-gray-900"
                             }`}
                           >
-                            {formatDate(moment.timestamp)}
-                          </span>
+                            {moment.title}
+                          </h3>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar
+                              className={`w-3 h-3 transition-colors duration-300 ${
+                                isDarkMode ? "text-gray-400" : "text-gray-500"
+                              }`}
+                            />
+                            <span
+                              className={`transition-colors duration-300 ${
+                                isDarkMode ? "text-gray-400" : "text-gray-500"
+                              }`}
+                            >
+                              {formatDate(moment.timestamp)}
+                            </span>
+                          </div>
                         </div>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditMoment(moment)
+                          }}
+                          className={`p-2 rounded-lg transition-colors duration-300 ${
+                            isDarkMode 
+                              ? "hover:bg-gray-600 text-gray-400 hover:text-white" 
+                              : "hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+                          }`}
+                          title="Moment bearbeiten"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteMoment(moment)
+                          }}
+                          className={`p-2 rounded-lg transition-colors duration-300 ${
+                            isDarkMode 
+                              ? "hover:bg-red-900 text-gray-400 hover:text-red-400" 
+                              : "hover:bg-red-50 text-gray-500 hover:text-red-600"
+                          }`}
+                          title="Moment löschen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
 
@@ -1528,7 +1711,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
                       isDarkMode ? "border-gray-600 bg-gray-700" : "border-gray-300 bg-gray-50"
                     }`}
                   >
-                    {mediaItems.length === 0 ? (
+                    {localMediaItems.length === 0 ? (
                       <div className="text-center p-6">
                         <div className="mb-4">
                           <ImageIcon className={`w-12 h-12 mx-auto mb-2 transition-colors duration-300 ${
@@ -1562,7 +1745,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
                       </div>
                     ) : (
                       <div className="grid grid-cols-3 gap-2">
-                        {mediaItems.map((media) => (
+                        {localMediaItems.map((media) => (
                           <div
                             key={media.id}
                             onClick={() => {
