@@ -321,35 +321,6 @@ function App() {
 
   // Show Post-Wedding Recap if on that route
   if (isPostWeddingRecap()) {
-    // Only allow access if admin
-    if (!isAdmin) {
-      return (
-        <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
-          isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
-        }`}>
-          <div className="text-center">
-            <div className="text-6xl mb-4">🔒</div>
-            <h1 className={`text-2xl font-bold mb-2 transition-colors duration-300 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              Zugriff verweigert
-            </h1>
-            <p className={`transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Diese Seite ist nur für Administratoren zugänglich.
-            </p>
-            <button
-              onClick={() => window.close()}
-              className="mt-4 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl transition-colors"
-            >
-              Schließen
-            </button>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <PostWeddingRecap
         isDarkMode={isDarkMode}
