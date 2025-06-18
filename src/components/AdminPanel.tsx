@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code, Music } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code, Music, Sparkles } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
@@ -113,6 +113,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     }
   };
 
+  // NEW: Handle Post-Wedding Recap
+  const handleOpenPostWeddingRecap = () => {
+    const recapUrl = '/admin/post-wedding-recap';
+    window.open(recapUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const getDownloadButtonText = () => {
     const imageCount = mediaItems.filter(item => item.type === 'image').length;
     const videoCount = mediaItems.filter(item => item.type === 'video').length;
@@ -215,6 +221,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Admin Controls - Alle Buttons in einer horizontalen Reihe */}
       {isAdmin && (
         <div className="fixed bottom-16 left-4 flex gap-2">
+          {/* POST-WEDDING RECAP BUTTON - NEW */}
+          <button
+            onClick={handleOpenPostWeddingRecap}
+            className={`p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
+              isDarkMode
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white'
+                : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white'
+            }`}
+            title="💕 Post-Hochzeits-Zusammenfassung - Sammle Momente und sende Dankeskarten"
+          >
+            <Sparkles className="w-5 h-5" />
+          </button>
+
           {/* USER MANAGEMENT BUTTON */}
           <button
             onClick={() => setShowUserManagement(true)}
@@ -611,6 +630,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <ul className={`text-sm space-y-1 transition-colors duration-300 ${
                 isDarkMode ? 'text-gray-300' : 'text-gray-600'
               }`}>
+                <li>• 💕 Post-Hochzeits-Zusammenfassung erstellen</li>
                 <li>• 👥 User Management - Alle Benutzer und Status anzeigen</li>
                 <li>• 🎵 Spotify-Account verbinden und Playlist verwalten</li>
                 <li>• Website für alle freischalten/sperren</li>

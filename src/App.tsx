@@ -15,6 +15,7 @@ import { LiveUserIndicator } from './components/LiveUserIndicator';
 import { SpotifyCallback } from './components/SpotifyCallback';
 import { MusicWishlist } from './components/MusicWishlist';
 import { Timeline } from './components/Timeline';
+import { PostWeddingRecap } from './components/PostWeddingRecap';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -65,6 +66,11 @@ function App() {
   const isSpotifyCallback = () => {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.has('code') && urlParams.has('state');
+  };
+
+  // Check if we're on the Post-Wedding Recap page
+  const isPostWeddingRecap = () => {
+    return window.location.pathname === '/admin/post-wedding-recap';
   };
 
   // Subscribe to site status changes
@@ -311,6 +317,47 @@ function App() {
   // Show Spotify callback handler if on callback page
   if (isSpotifyCallback()) {
     return <SpotifyCallback isDarkMode={isDarkMode} />;
+  }
+
+  // Show Post-Wedding Recap if on that route
+  if (isPostWeddingRecap()) {
+    // Only allow access if admin
+    if (!isAdmin) {
+      return (
+        <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
+          isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+        }`}>
+          <div className="text-center">
+            <div className="text-6xl mb-4">🔒</div>
+            <h1 className={`text-2xl font-bold mb-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Zugriff verweigert
+            </h1>
+            <p className={`transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Diese Seite ist nur für Administratoren zugänglich.
+            </p>
+            <button
+              onClick={() => window.close()}
+              className="mt-4 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl transition-colors"
+            >
+              Schließen
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <PostWeddingRecap
+        isDarkMode={isDarkMode}
+        mediaItems={mediaItems}
+        isAdmin={isAdmin}
+        userName={userName || ''}
+      />
+    );
   }
 
   // Show loading while site status is being fetched
