@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase'; // Import your Firebase configuration
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { MediaItem, Moment, ThankYouCard } from '../types'; // Import your types
 import { Heart, Camera, Download, Mail, Share2, BarChart3, Users, Calendar, MapPin, MessageSquare, Star, ArrowLeft, Plus, Edit3, Trash2, Save, Eye, ThumbsUp, X, Image, Video, FileText, Gift, Sparkles, Crown, Award, Copy, ExternalLink, Link, Check } from 'lucide-react';
 
@@ -19,19 +19,25 @@ export const PostWeddingCard: React.FC<PostWeddingCardProps> = ({ isDarkMode, me
   const [error, setError] = useState<string | null>(null);
   const [showCreateMoment, setShowCreateMoment] = useState(false);
   const [showCreateCard, setShowCreateCard] = useState(false);
-  const [newMoment, setNewMoment] = useState({
+  const [newMoment, setNewMoment] = useState<Moment>({
     title: '',
     description: '',
     category: 'special',
     location: '',
     tags: [],
-    mediaItems: []
+    mediaItems: [],
+    timestamp: serverTimestamp(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
   });
-  const [newCard, setNewCard] = useState({
+  const [newCard, setNewCard] = useState<ThankYouCard>({
     recipientName: '',
     recipientEmail: '',
     message: '',
-    selectedMoments: []
+    selectedMoments: [],
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    shareableLink: ''
   });
 
   useEffect(() => {
@@ -82,15 +88,8 @@ export const PostWeddingCard: React.FC<PostWeddingCardProps> = ({ isDarkMode, me
         return;
       }
 
-      const momentData = {
-        ...newMoment,
-        timestamp: serverTimestamp(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-
-      const docRef = await addDoc(collection(db, 'moments'), momentData);
-      const newMomentWithId = { id: docRef.id, ...momentData };
+      const docRef = await addDoc(collection(db, 'moments'), newMoment);
+      const newMomentWithId = { id: docRef.id, ...newMoment };
       setMoments([newMomentWithId, ...moments]);
       setNewMoment({
         title: '',
@@ -98,7 +97,10 @@ export const PostWeddingCard: React.FC<PostWeddingCardProps> = ({ isDarkMode, me
         category: 'special',
         location: '',
         tags: [],
-        mediaItems: []
+        mediaItems: [],
+        timestamp: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       });
       setShowCreateMoment(false);
       alert('Moment successfully saved!');
@@ -124,12 +126,7 @@ export const PostWeddingCard: React.FC<PostWeddingCardProps> = ({ isDarkMode, me
         return;
       }
 
-      const cardData = {
-        ...newCard,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        shareableLink: '' // Will be generated after saving
-      };
+      const cardData = { ...newCard };
 
       const docRef = await addDoc(collection(db, 'thankYouCards'), cardData);
       const newCardWithId = { id: docRef.id, ...cardData, shareableLink: `${window.location.origin}/recap?for=${encodeURIComponent(newCard.recipientName)}&id=${docRef.id}` };
@@ -138,7 +135,10 @@ export const PostWeddingCard: React.FC<PostWeddingCardProps> = ({ isDarkMode, me
         recipientName: '',
         recipientEmail: '',
         message: '',
-        selectedMoments: []
+        selectedMoments: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        shareableLink: ''
       });
       setShowCreateCard(false);
       alert('Thank you card successfully created!');
