@@ -42,15 +42,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore"
 
-interface MediaItem {
-  id: string
-  name: string
-  type: "image" | "video" | "note"
-  url?: string
-  content?: string
-  timestamp: string
-  uploadedBy: string
-}
+import { MediaItem } from '../types';
 
 interface PostWeddingRecapProps {
   isDarkMode: boolean
@@ -115,8 +107,10 @@ const saveMomentToFirebase = async (momentData: Omit<Moment, "id">) => {
 const loadMomentsFromFirebase = async (): Promise<Moment[]> => {
   try {
     console.log("📥 Lade Momente aus Firebase...")
-    const q = query(collection(db, "moments"), orderBy("timestamp", "desc"))
-    const querySnapshot = await getDocs(q)
+    
+    // Test Firebase connection first
+    const testQuery = query(collection(db, "moments"), orderBy("timestamp", "desc"))
+    const querySnapshot = await getDocs(testQuery)
 
     const moments = querySnapshot.docs.map(
       (doc) =>
@@ -130,7 +124,8 @@ const loadMomentsFromFirebase = async (): Promise<Moment[]> => {
     return moments
   } catch (error) {
     console.error("❌ Fehler beim Laden der Momente:", error)
-    throw error
+    // Return empty array instead of throwing to prevent app crash
+    return []
   }
 }
 
@@ -168,7 +163,8 @@ const loadCardsFromFirebase = async (): Promise<ThankYouCard[]> => {
     return cards
   } catch (error) {
     console.error("❌ Fehler beim Laden der Dankeskarten:", error)
-    throw error
+    // Return empty array instead of throwing to prevent app crash
+    return []
   }
 }
 
@@ -222,7 +218,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
     selectedMoments: [] as string[],
   })
 
-  // 🔥 Echte Firebase-Integration
+  // 🔥 Firebase-Integration mit besserer Fehlerbehandlung
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -230,13 +226,28 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
         setIsLoading(true)
         setError(null)
 
-        // Parallel laden für bessere Performance
-        const [loadedMoments, loadedCards] = await Promise.all([loadMomentsFromFirebase(), loadCardsFromFirebase()])
+        // Versuche Firebase-Daten zu laden, verwende leere Arrays als Fallback
+        let loadedMoments: Moment[] = []
+        let loadedCards: ThankYouCard[] = []
+
+        try {
+          loadedMoments = await loadMomentsFromFirebase()
+        } catch (momentError) {
+          console.warn("⚠️ Momente konnten nicht geladen werden, verwende leere Liste:", momentError)
+          loadedMoments = []
+        }
+
+        try {
+          loadedCards = await loadCardsFromFirebase()
+        } catch (cardError) {
+          console.warn("⚠️ Dankeskarten konnten nicht geladen werden, verwende leere Liste:", cardError)
+          loadedCards = []
+        }
 
         setMoments(loadedMoments)
         setThankYouCards(loadedCards)
 
-        // Sample analytics (kann später durch echte Daten ersetzt werden)
+        // Sample analytics
         setAnalytics({
           totalViews: 1247,
           uniqueVisitors: 89,
@@ -258,10 +269,11 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
           ],
         })
 
-        console.log("✅ Alle Daten erfolgreich geladen!")
+        console.log("✅ Daten-Loading abgeschlossen!")
       } catch (error) {
-        console.error("❌ Fehler beim Laden der Daten:", error)
-        setError(`Fehler beim Laden der Daten: ${error}`)
+        console.error("❌ Kritischer Fehler beim Laden der Daten:", error)
+        // Nicht den gesamten Fehler als String anzeigen - das kann zu Rendering-Problemen führen
+        setError("Verbindung zur Datenbank fehlgeschlagen. Bitte versuche es erneut.")
       } finally {
         setIsLoading(false)
       }
@@ -306,35 +318,60 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
         timestamp: new Date().toISOString(),
       }
 
-      // In Firebase speichern
-      const momentId = await saveMomentToFirebase(momentData)
+      try {
+        // In Firebase speichern
+        const momentId = await saveMomentToFirebase(momentData)
 
-      // Lokalen State aktualisieren
-      const newMomentWithId: Moment = {
-        id: momentId,
-        ...momentData,
+        // Lokalen State aktualisieren
+        const newMomentWithId: Moment = {
+          id: momentId,
+          ...momentData,
+        }
+
+        setMoments((prev) => [newMomentWithId, ...prev])
+
+        // Formular zurücksetzen
+        setNewMoment({
+          title: "",
+          description: "",
+          category: "special",
+          location: "",
+          tags: [],
+          mediaItems: [],
+        })
+
+        setShowCreateMoment(false)
+
+        // Erfolg-Feedback
+        console.log("✅ Moment erfolgreich gespeichert!")
+        alert("Moment erfolgreich gespeichert!")
+      } catch (saveError) {
+        console.error("❌ Firebase-Fehler beim Speichern:", saveError)
+        setError("Moment konnte nicht gespeichert werden. Bitte überprüfe die Verbindung.")
+        
+        // Lokalen State trotzdem aktualisieren mit temporärer ID
+        const tempMomentWithId: Moment = {
+          id: `temp-${Date.now()}`,
+          ...momentData,
+        }
+        setMoments((prev) => [tempMomentWithId, ...prev])
+        
+        // Formular zurücksetzen
+        setNewMoment({
+          title: "",
+          description: "",
+          category: "special",
+          location: "",
+          tags: [],
+          mediaItems: [],
+        })
+        setShowCreateMoment(false)
+        
+        alert("Moment wurde lokal hinzugefügt, aber konnte nicht in der Datenbank gespeichert werden.")
       }
-
-      setMoments((prev) => [newMomentWithId, ...prev])
-
-      // Formular zurücksetzen
-      setNewMoment({
-        title: "",
-        description: "",
-        category: "special",
-        location: "",
-        tags: [],
-        mediaItems: [],
-      })
-
-      setShowCreateMoment(false)
-
-      // Erfolg-Feedback
-      console.log("✅ Moment erfolgreich gespeichert!")
-      alert("Moment erfolgreich gespeichert!")
     } catch (error) {
-      console.error("❌ Fehler beim Speichern des Moments:", error)
-      setError(`Fehler beim Speichern des Moments: ${error}`)
+      console.error("❌ Allgemeiner Fehler beim Speichern des Moments:", error)
+      setError("Ein unerwarteter Fehler ist aufgetreten.")
     } finally {
       setIsSaving(false)
     }
@@ -377,43 +414,71 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
         shareableLink: "", // Wird nach dem Speichern generiert
       }
 
-      // In Firebase speichern
-      const cardId = await saveCardToFirebase(cardData)
+      try {
+        // In Firebase speichern
+        const cardId = await saveCardToFirebase(cardData)
 
-      // Shareable Link generieren
-      const encodedName = encodeURIComponent(newCard.recipientName)
-      const shareableLink = `${window.location.origin}/recap?for=${encodedName}&id=${cardId}`
+        // Shareable Link generieren
+        const encodedName = encodeURIComponent(newCard.recipientName)
+        const shareableLink = `${window.location.origin}/recap?for=${encodedName}&id=${cardId}`
 
-      // Link in Firebase aktualisieren
-      await updateDoc(doc(db, "thankYouCards", cardId), {
-        shareableLink,
-      })
+        // Link in Firebase aktualisieren
+        try {
+          await updateDoc(doc(db, "thankYouCards", cardId), {
+            shareableLink,
+          })
+        } catch (updateError) {
+          console.warn("⚠️ Link konnte nicht aktualisiert werden:", updateError)
+        }
 
-      // Lokalen State aktualisieren
-      const newCardWithId: ThankYouCard = {
-        id: cardId,
-        ...cardData,
-        shareableLink,
+        // Lokalen State aktualisieren
+        const newCardWithId: ThankYouCard = {
+          id: cardId,
+          ...cardData,
+          shareableLink,
+        }
+
+        setThankYouCards((prev) => [newCardWithId, ...prev])
+
+        // Formular zurücksetzen
+        setNewCard({
+          recipientName: "",
+          recipientEmail: "",
+          message: "",
+          selectedMoments: [],
+        })
+
+        setShowCreateCard(false)
+
+        // Erfolg-Feedback
+        console.log("✅ Dankeskarte erfolgreich erstellt!")
+        alert("Dankeskarte erfolgreich erstellt!")
+      } catch (saveError) {
+        console.error("❌ Firebase-Fehler beim Erstellen der Dankeskarte:", saveError)
+        setError("Dankeskarte konnte nicht gespeichert werden. Bitte überprüfe die Verbindung.")
+        
+        // Lokalen State trotzdem aktualisieren mit temporärer ID
+        const tempCardWithId: ThankYouCard = {
+          id: `temp-card-${Date.now()}`,
+          ...cardData,
+          shareableLink: `${window.location.origin}/recap?for=${encodeURIComponent(newCard.recipientName)}&temp=true`,
+        }
+        setThankYouCards((prev) => [tempCardWithId, ...prev])
+        
+        // Formular zurücksetzen
+        setNewCard({
+          recipientName: "",
+          recipientEmail: "",
+          message: "",
+          selectedMoments: [],
+        })
+        setShowCreateCard(false)
+        
+        alert("Dankeskarte wurde lokal erstellt, aber konnte nicht in der Datenbank gespeichert werden.")
       }
-
-      setThankYouCards((prev) => [newCardWithId, ...prev])
-
-      // Formular zurücksetzen
-      setNewCard({
-        recipientName: "",
-        recipientEmail: "",
-        message: "",
-        selectedMoments: [],
-      })
-
-      setShowCreateCard(false)
-
-      // Erfolg-Feedback
-      console.log("✅ Dankeskarte erfolgreich erstellt!")
-      alert("Dankeskarte erfolgreich erstellt!")
     } catch (error) {
-      console.error("❌ Fehler beim Erstellen der Dankeskarte:", error)
-      setError(`Fehler beim Erstellen der Dankeskarte: ${error}`)
+      console.error("❌ Allgemeiner Fehler beim Erstellen der Dankeskarte:", error)
+      setError("Ein unerwarteter Fehler ist aufgetreten.")
     } finally {
       setIsSaving(false)
     }
