@@ -291,32 +291,24 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
     if (isTransitioning) return;
     
     setIsTransitioning(true);
-    setSlideDirection('next');
     
     setTimeout(() => {
       const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
       setCurrentSlide(prev => (prev < allMediaItems.length - 1 ? prev + 1 : 0));
-      
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 50);
-    }, 300);
+      setIsTransitioning(false);
+    }, 500);
   };
 
   const prevSlide = () => {
     if (isTransitioning) return;
     
     setIsTransitioning(true);
-    setSlideDirection('prev');
     
     setTimeout(() => {
       const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
       setCurrentSlide(prev => (prev > 0 ? prev - 1 : allMediaItems.length - 1));
-      
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 50);
-    }, 300);
+      setIsTransitioning(false);
+    }, 500);
   };
 
   if (isLoading) {
@@ -438,11 +430,10 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
               onClick={() => {
                 if (!isTransitioning) {
                   setIsTransitioning(true);
-                  setSlideDirection(index > currentSlide ? 'next' : 'prev');
                   setTimeout(() => {
                     setCurrentSlide(index);
-                    setTimeout(() => setIsTransitioning(false), 50);
-                  }, 300);
+                    setIsTransitioning(false);
+                  }, 500);
                 }
               }}
               className={`w-2 h-2 rounded-full transition-all duration-300 ${
@@ -454,15 +445,11 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
           ))}
         </div>
         
-        {/* Current Media with smooth transitions */}
+        {/* Current Media with smooth fade transitions */}
         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
           <div 
-            className={`transition-all duration-700 ease-in-out transform ${
-              isTransitioning 
-                ? slideDirection === 'next' 
-                  ? '-translate-x-full opacity-0 scale-95' 
-                  : 'translate-x-full opacity-0 scale-95'
-                : 'translate-x-0 opacity-100 scale-100'
+            className={`transition-opacity duration-1000 ease-in-out ${
+              isTransitioning ? 'opacity-0' : 'opacity-100'
             }`}
           >
             {currentMedia?.type === 'image' && currentMedia.url ? (
@@ -525,8 +512,8 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
         
         {/* Caption with enhanced styling */}
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 max-w-4xl w-full px-4">
-          <div className={`bg-black/60 backdrop-blur-xl rounded-2xl p-6 text-white text-center border border-white/10 shadow-2xl transition-all duration-500 ${
-            isTransitioning ? 'opacity-0 translate-y-4' : 'opacity-100 translate-y-0'
+          <div className={`bg-black/60 backdrop-blur-xl rounded-2xl p-6 text-white text-center border border-white/10 shadow-2xl transition-opacity duration-1000 ${
+            isTransitioning ? 'opacity-0' : 'opacity-100'
           }`}>
             <h3 className="text-3xl font-bold mb-3 bg-gradient-to-r from-pink-300 via-purple-300 to-pink-300 bg-clip-text text-transparent">
               💕 Kristin & Maurizio
