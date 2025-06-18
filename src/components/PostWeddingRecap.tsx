@@ -472,7 +472,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                   <select 
                     id="cardTemplate"
                     value={cardForm.template} 
-                    onChange={(e) => setCardForm(prev => ({...prev,: template e.target.value}))}
+                    onChange={(e) => setCardForm(prev => ({...prev, template: e.target.value}))}
                   >
                     <option value="elegant">Elegant</option>
                     <option value="modern">Modern</option>
@@ -568,7 +568,6 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
         <div className="share-section">
           <h2>Teilen</h2>
           <p>Teilen Sie Ihre Hochzeitsmomente und Dankeskarten mit Freunden und Familie.</p>
-          {/* Share functionality implementation */}
         </div>
       )}
 
@@ -605,7 +604,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
           <div className="analytics-card">
             <h3>Feedback</h3>
             <div className="feedback-list">
-              {analytics.feedback.map.feedback((item, index) => (
+              {analytics.feedback.map((item, index) => (
                 <div key={index} className="feedback-item">
                   <div className="rating">
                     {Array(5).fill(null).map((_, i) => (
