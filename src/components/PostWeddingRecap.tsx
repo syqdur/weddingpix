@@ -226,7 +226,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   };
 
   return (
-    <div className="post-wedding-recap">
+    <div className={`post-wedding-recap ${isDarkMode ? 'dark-mode' : ''}`}>
       {/* Navigation */}
       <nav>
         <ul>
@@ -257,372 +257,384 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
         </ul>
       </nav>
 
-      {/* Content based on active section */}
-      {activeSection === 'moments' && (
-        <div className="moments-section">
-          <h2>Ihre besonderen Momente</h2>
-          
-          {isAdmin && (
-            <button 
-              onClick={() => setShowCreateMoment(true)}
-              disabled={isCreatingMoment}
-            >
-              {isCreatingMoment ? 'Erstellung...' : 'Moment erstellen'}
-            </button>
-          )}
+      {/* Loading state */}
+      {isLoading && (
+        <div className="loading-screen">
+          <p>Lade Inhalte...</p>
+        </div>
+      )}
 
-          {showCreateMoment && (
-            <div className="moment-form">
-              <h3>Moment erstellen</h3>
-              <form onSubmit={createMoment}>
-                <div className="form-group">
-                  <label htmlFor="momentTitle">Titel</label>
-                  <input 
-                    type="text" 
-                    id="momentTitle"
-                    value={momentForm.title} 
-                    onChange={(e) => setMomentForm(prev => ({...prev, title: e.target.value}))} 
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="momentDescription">Beschreibung</label>
-                  <textarea 
-                    id="momentDescription"
-                    value={momentForm.description} 
-                    onChange={(e) => setMomentForm(prev => ({...prev, description: e.target.value}))}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="momentCategory">Kategorie</label>
-                  <select 
-                    id="momentCategory"
-                    value={momentForm.category} 
-                    onChange={(e) => setMomentForm(prev => ({...prev, category: e.target.value as Moment['category']}))}
-                    required
-                  >
-                    <option value="ceremony">Zeremonie</option>
-                    <option value="reception">Empfang</option>
-                    <option value="party">Party</option>
-                    <option value="special">Sondermoment</option>
-                    <option value="custom">Benutzerdefiniert</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label htmlFor="momentLocation">Ort</label>
-                  <input 
-                    type="text" 
-                    id="momentLocation"
-                    value={momentForm.location} 
-                    onChange={(e) => setMomentForm(prev => ({...prev, location: e.target.value}))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Medien auswählen</label>
-                  <div className="media-selection">
-                    {mediaItems.map(media => (
-                      <div 
-                        key={media.id} 
-                        className="media-item"
-                        onClick={() => {
-                          setMomentForm(prev => ({
-                            ...prev,
-                            selectedMediaIds: prev.selectedMediaIds.includes(media.id)
-                              ? prev.selectedMediaIds.filter(id => id !== media.id)
-                              : [...prev.selectedMediaIds, media.id]
-                          }));
-                        }}
-                      >
-                        <img 
-                          src={media.thumbnailUrl} 
-                          alt={media.description || 'Vorschaubild'} 
-                          className={momentForm.selectedMediaIds.includes(media.id) ? 'selected' : ''}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
+      {/* Content based on active section */}
+      {!isLoading && !error && (
+        <>
+          {activeSection === 'moments' && (
+            <div className="moments-section">
+              <h2>Ihre besonderen Momente</h2>
+              
+              {isAdmin && (
                 <button 
-                  type="submit" 
-                  className="submit-button"
+                  onClick={() => setShowCreateMoment(true)}
                   disabled={isCreatingMoment}
                 >
                   {isCreatingMoment ? 'Erstellung...' : 'Moment erstellen'}
                 </button>
-                <button 
-                  type="button" 
-                  className="cancel-button"
-                  onClick={() => setShowCreateMoment(false)}
-                >
-                  Abbrechen
-                </button>
-              </form>
-            </div>
-          )}
+              )}
 
-          {moments.length > 0 ? (
-            <div className="moments-list">
-              {moments.map(moment => (
-                <div key={moment.id} className="moment-card">
-                  <h3>{moment.title}</h3>
-                  <p>{moment.description}</p>
-                  <div className="moment-meta">
-                    <span>Kategorie: {moment.category}</span>
-                    {moment.location && <span>Ort: {moment.location}</span>}
-                  </div>
-                  <div className="moment-media">
-                    {moment.mediaItems.slice(0, 3).map(media => (
-                      <img 
-                        key={media.id}
-                        src={media.url}
-                        alt={media.description || 'Moment-Medium'}
-                        className="moment-thumbnail"
-                      />
-                    ))}
-                    {moment.mediaItems.length > 3 && (
-                      <span className="more-media">+{moment.mediaItems.length - 3} mehr</span>
-                    )}
-                  </div>
-                  {isAdmin && (
-                    <div className="moment-actions">
-                      <button 
-                        onClick={() => {
-                          setSelectedMoment(moment);
-                          setMomentForm({
-                            title: moment.title,
-                            description: moment.description,
-                            category: moment.category,
-                            location: moment.location || '',
-                            selectedMediaIds: moment.mediaItems.map(m => m.id)
-                          });
-                          setShowCreateMoment(true);
-                        }}
-                      >
-                        Bearbeiten
-                      </button>
-                      <button 
-                        onClick={() => deleteMoment(moment.id)}
-                      >
-                        Löschen
-                      </button>
-                      <button 
-                        onClick={() => handleMomentSelect(moment.id)}
-                      >
-                        Zur Karte hinzufügen
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p>Es gibt noch keine Momente. Erstellen Sie als Administrator einen Moment.</p>
-          )}
-        </div>
-      )}
-
-      {activeSection === 'cards' && (
-        <div className="cards-section">
-          <h2>Dankeskarten</h2>
-          
-          {isAdmin && (
-            <button 
-              onClick={() => setShowCreateCard(true)}
-              disabled={isCreatingCard}
-            >
-              {isCreatingCard ? 'Erstellung...' : 'Karte erstellen'}
-            </button>
-          )}
-
-          {showCreateCard && (
-            <div className="card-form">
-              <h3>Dankeskarte erstellen</h3>
-              <form>
-                <div className="form-group">
-                  <label htmlFor="cardRecipient">Empfänger Name</label>
-                  <input 
-                    type="text" 
-                    id="cardRecipient"
-                    value={cardForm.recipientName} 
-                    onChange={(e) => setCardForm(prev => ({...prev, recipientName: e.target.value}))} 
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="cardEmail">Empfänger E-Mail</label>
-                  <input 
-                    type="email" 
-                    id="cardEmail"
-                    value={cardForm.recipientEmail} 
-                    onChange={(e) => setCardForm(prev => ({...prev, recipientEmail: e.target.value}))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="cardMessage">Nachricht</label>
-                  <textarea 
-                    id="cardMessage"
-                    value={cardForm.message} 
-                    onChange={(e) => setCardForm(prev => ({...prev, message: e.target.value}))}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="cardTemplate">Vorlage</label>
-                  <select 
-                    id="cardTemplate"
-                    value={cardForm.template} 
-                    onChange={(e) => setCardForm(prev => ({...prev, template: e.target.value}))}
-                  >
-                    <option value="elegant">Elegant</option>
-                    <option value="modern">Modern</option>
-                    <option value="classic">Klassisch</option>
-                    <option value="personal">Persönlich</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Momente auswählen</label>
-                  <div className="moments-selection">
-                    {moments.map(moment => (
-                      <div 
-                        key={moment.id} 
-                        className="moment-item"
-                        onClick={() => {
-                          setCardForm(prev => ({
-                            ...prev,
-                            selectedMoments: prev.selectedMoments.includes(moment.id)
-                              ? prev.selectedMoments.filter(id => id !== moment.id)
-                              : [...prev.selectedMoments, moment.id]
-                          }));
-                        }}
-                      >
-                        <h4>{moment.title}</h4>
-                        <p>{moment.description.substring(0, 50)}{moment.description.length > 50 ? '...' : ''}</p>
-                        <div className={cardForm.selectedMoments.includes(moment.id) ? 'selected' : ''}></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <button 
-                  type="button" 
-                  onClick={() => addMomentsToCard('', cardForm.selectedMoments)}
-                  disabled={isCreatingCard}
-                >
-                  {isCreatingCard ? 'Erstellung...' : 'Momente hinzufügen'}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowCreateCard(false)}
-                >
-                  Abbrechen
-                </button>
-              </form>
-            </div>
-          )}
-
-          {thankYouCards.length > 0 ? (
-            <div className="cards-list">
-              {thankYouCards.map(card => (
-                <div key={card.id} className="card-item">
-                  <h3>Zu {card.recipientName}</h3>
-                  <p>{card.message.substring(0, 100)}{card.message.length > 100 ? '...' : ''}</p>
-                  <div className="card-meta">
-                    <span>Vorlage: {card.template}</span>
-                    <span>Momente: {card.selectedMoments.length}</span>
-                    <span>Status: {card.status}</span>
-                  </div>
-                  {card.shareableLink && (
-                    <div className="card-link">
+              {showCreateMoment && (
+                <div className="moment-form">
+                  <h3>Moment erstellen</h3>
+                  <form onSubmit={createMoment}>
+                    <div className="form-group">
+                      <label htmlFor="momentTitle">Titel</label>
                       <input 
                         type="text" 
-                        value={card.shareableLink}
-                        readOnly
+                        id="momentTitle"
+                        value={momentForm.title} 
+                        onChange={(e) => setMomentForm(prev => ({...prev, title: e.target.value}))} 
+                        required
                       />
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(card.shareableLink);
-                          alert('Link kopiert!');
-                        }}
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="momentDescription">Beschreibung</label>
+                      <textarea 
+                        id="momentDescription"
+                        value={momentForm.description} 
+                        onChange={(e) => setMomentForm(prev => ({...prev, description: e.target.value}))}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="momentCategory">Kategorie</label>
+                      <select 
+                        id="momentCategory"
+                        value={momentForm.category} 
+                        onChange={(e) => setMomentForm(prev => ({...prev, category: e.target.value as Moment['category']}))}
+                        required
                       >
-                        Kopieren
-                      </button>
+                        <option value="ceremony">Zeremonie</option>
+                        <option value="reception">Empfang</option>
+                        <option value="party">Party</option>
+                        <option value="special">Sondermoment</option>
+                        <option value="custom">Benutzerdefiniert</option>
+                      </select>
                     </div>
-                  )}
-                  {isAdmin && (
-                    <div className="card-actions">
-                      <button>Editieren</button>
-                      <button>Löschen</button>
-                      <button>Teilen</button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p>Es gibt noch keine Dankeskarten. Erstellen Sie als Administrator eine Karte.</p>
-          )}
-        </div>
-      )}
-
-      {activeSection === 'share' && (
-        <div className="share-section">
-          <h2>Teilen</h2>
-          <p>Teilen Sie Ihre Hochzeitsmomente und Dankeskarten mit Freunden und Familie.</p>
-        </div>
-      )}
-
-      {activeSection === 'analytics' && (
-        <div className="analytics-section">
-          <h2>Analytics</h2>
-          <div className="analytics-card">
-            <h3>Übersicht</h3>
-            <div className="analytics-data">
-              <div className="data-item">
-                <h4>Gesamtauswertungen</h4>
-                <p>{analytics.totalViews}</p>
-              </div>
-              <div className="data-item">
-                <h4>Einzelne Besucher</h4>
-                <p>{analytics.uniqueVisitors}</p>
-              </div>
-              <div className="data-item">
-                <h4>Durchschnittliche Verweildauer</h4>
-                <p>{analytics.averageTimeSpent}</p>
-              </div>
-            </div>
-          </div>
-          <div className="analytics-card">
-            <h3>Beliebteste Momente</h3>
-            <ul className="popular-moments">
-              {analytics.mostViewedMoments.map(momentId => (
-                <li key={momentId}>
-                  {moments.find(moment => moment.id === momentId)?.title || 'Unbekanntes Moment'}
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="analytics-card">
-            <h3>Feedback</h3>
-            <div className="feedback-list">
-              {analytics.feedback.map((item, index) => (
-                <div key={index} className="feedback-item">
-                  <div className="rating">
-                    {Array(5).fill(null).map((_, i) => (
-                      <Star 
-                        key={i} 
-                        color={i < item.rating ? '#FFD700' : '#CCCCCC'} 
+                    <div className="form-group">
+                      <label htmlFor="momentLocation">Ort</label>
+                      <input 
+                        type="text" 
+                        id="momentLocation"
+                        value={momentForm.location} 
+                        onChange={(e) => setMomentForm(prev => ({...prev, location: e.target.value}))}
                       />
-                    ))}
-                  </div>
-                  <p>{item.comment}</p>
-                  <small>{new Date(item.timestamp).toLocaleDateString()}</small>
+                    </div>
+                    <div className="form-group">
+                      <label>Medien auswählen</label>
+                      <div className="media-selection">
+                        {mediaItems.map(media => (
+                          <div 
+                            key={media.id} 
+                            className="media-item"
+                            onClick={() => {
+                              setMomentForm(prev => ({
+                                ...prev,
+                                selectedMediaIds: prev.selectedMediaIds.includes(media.id)
+                                  ? prev.selectedMediaIds.filter(id => id !== media.id)
+                                  : [...prev.selectedMediaIds, media.id]
+                              }));
+                            }}
+                          >
+                            <img 
+                              src={media.thumbnailUrl} 
+                              alt={media.description || 'Vorschaubild'} 
+                              className={momentForm.selectedMediaIds.includes(media.id) ? 'selected' : ''}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <button 
+                      type="submit" 
+                      className="submit-button"
+                      disabled={isCreatingMoment}
+                    >
+                      {isCreatingMoment ? 'Erstellung...' : 'Moment erstellen'}
+                    </button>
+                    <button 
+                      type="button" 
+                      className="cancel-button"
+                      onClick={() => setShowCreateMoment(false)}
+                    >
+                      Abbrechen
+                    </button>
+                  </form>
                 </div>
-              ))}
+              )}
+
+              {moments.length > 0 ? (
+                <div className="moments-list">
+                  {moments.map(moment => (
+                    <div key={moment.id} className="moment-card">
+                      <h3>{moment.title}</h3>
+                      <p>{moment.description}</p>
+                      <div className="moment-meta">
+                        <span>Kategorie: {moment.category}</span>
+                        {moment.location && <span>Ort: {moment.location}</span>}
+                      </div>
+                      <div className="moment-media">
+                        {moment.mediaItems.slice(0, 3).map(media => (
+                          <img 
+                            key={media.id}
+                            src={media.url}
+                            alt={media.description || 'Moment-Medium'}
+                            className="moment-thumbnail"
+                          />
+                        ))}
+                        {moment.mediaItems.length > 3 && (
+                          <span className="more-media">+{moment.mediaItems.length - 3} mehr</span>
+                        )}
+                      </div>
+                      {isAdmin && (
+                        <div className="moment-actions">
+                          <button 
+                            onClick={() => {
+                              setSelectedMoment(moment);
+                              setMomentForm({
+                                title: moment.title,
+                                description: moment.description,
+                                category: moment.category,
+                                location: moment.location || '',
+                                selectedMediaIds: moment.mediaItems.map(m => m.id)
+                              });
+                              setShowCreateMoment(true);
+                            }}
+                          >
+                            Bearbeiten
+                          </button>
+                          <button 
+                            onClick={() => deleteMoment(moment.id)}
+                          >
+                            Löschen
+                          </button>
+                          <button 
+                            onClick={() => handleMomentSelect(moment.id)}
+                          >
+                            Zur Karte hinzufügen
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>Es gibt noch keine Momente. Erstellen Sie als Administrator einen Moment.</p>
+              )}
             </div>
-          </div>
-        </div>
+          )}
+
+          {activeSection === 'cards' && (
+            <div className="cards-section">
+              <h2>Dankeskarten</h2>
+              
+              {isAdmin && (
+                <button 
+                  onClick={() => setShowCreateCard(true)}
+                  disabled={isCreatingCard}
+                >
+                  {isCreatingCard ? 'Erstellung...' : 'Karte erstellen'}
+                </button>
+              )}
+
+              {showCreateCard && (
+                <div className="card-form">
+                  <h3>Dankeskarte erstellen</h3>
+                  <form>
+                    <div className="form-group">
+                      <label htmlFor="cardRecipient">Empfänger Name</label>
+                      <input 
+                        type="text" 
+                        id="cardRecipient"
+                        value={cardForm.recipientName} 
+                        onChange={(e) => setCardForm(prev => ({...prev, recipientName: e.target.value}))} 
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="cardEmail">Empfänger E-Mail</label>
+                      <input 
+                        type="email" 
+                        id="cardEmail"
+                        value={cardForm.recipientEmail} 
+                        onChange={(e) => setCardForm(prev => ({...prev, recipientEmail: e.target.value}))}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="cardMessage">Nachricht</label>
+                      <textarea 
+                        id="cardMessage"
+                        value={cardForm.message} 
+                        onChange={(e) => setCardForm(prev => ({...prev, message: e.target.value}))}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="cardTemplate">Vorlage</label>
+                      <select 
+                        id="cardTemplate"
+                        value={cardForm.template} 
+                        onChange={(e) => setCardForm(prev => ({...prev, template: e.target.value}))}
+                      >
+                        <option value="elegant">Elegant</option>
+                        <option value="modern">Modern</option>
+                        <option value="classic">Klassisch</option>
+                        <option value="personal">Persönlich</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Momente auswählen</label>
+                      <div className="moments-selection">
+                        {moments.map(moment => (
+                          <div 
+                            key={moment.id} 
+                            className="moment-item"
+                            onClick={() => {
+                              setCardForm(prev => ({
+                                ...prev,
+                                selectedMoments: prev.selectedMoments.includes(moment.id)
+                                  ? prev.selectedMoments.filter(id => id !== moment.id)
+                                  : [...prev.selectedMoments, moment.id]
+                              }));
+                            }}
+                          >
+                            <h4>{moment.title}</h4>
+                            <p>{moment.description.substring(0, 50)}{moment.description.length > 50 ? '...' : ''}</p>
+                            <div className={cardForm.selectedMoments.includes(moment.id) ? 'selected' : ''}></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => addMomentsToCard('', cardForm.selectedMoments)}
+                      disabled={isCreatingCard}
+                    >
+                      {isCreatingCard ? 'Erstellung...' : 'Momente hinzufügen'}
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowCreateCard(false)}
+                    >
+                      Abbrechen
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {thankYouCards.length > 0 ? (
+                <div className="cards-list">
+                  {thankYouCards.map(card => (
+                    <div key={card.id} className="card-item">
+                      <h3>Zu {card.recipientName}</h3>
+                      <p>{card.message.substring(0, 100)}{card.message.length > 100 ? '...' : ''}</p>
+                      <div className="card-meta">
+                        <span>Vorlage: {card.template}</span>
+                        <span>Momente: {card.selectedMoments.length}</span>
+                        <span>Status: {card.status}</span>
+                      </div>
+                      {card.shareableLink && (
+                        <div className="card-link">
+                          <input 
+                            type="text" 
+                            value={card.shareableLink}
+                            readOnly
+                          />
+                          <button 
+                            onClick={() => {
+                              navigator.clipboard.writeText(card.shareableLink);
+                              alert('Link kopiert!');
+                            }}
+                          >
+                            Kopieren
+                          </button>
+                        </div>
+                      )}
+                      {isAdmin && (
+                        <div className="card-actions">
+                          <button>Editieren</button>
+                          <button>Löschen</button>
+                          <button>Teilen</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p>Es gibt noch keine Dankeskarten. Erstellen Sie als Administrator eine Karte.</p>
+              )}
+            </div>
+          )}
+
+          {activeSection === 'share' && (
+            <div className="share-section">
+              <h2>Teilen</h2>
+              <p>Teilen Sie Ihre Hochzeitsmomente und Dankeskarten mit Freunden und Familie.</p>
+            </div>
+          )}
+
+          {activeSection === 'analytics' && (
+            <div className="analytics-section">
+              <h2>Analytics</h2>
+              <div className="analytics-card">
+                <h3>Übersicht</h3>
+                <div className="analytics-data">
+                  <div className="data-item">
+                    <h4>Gesamtauswertungen</h4>
+                    <p>{analytics.totalViews}</p>
+                  </div>
+                  <div className="data-item">
+                    <h4>Einzelne Besucher</h4>
+                    <p>{analytics.uniqueVisitors}</p>
+                  </div>
+                  <div className="data-item">
+                    <h4>Durchschnittliche Verweildauer</h4>
+                    <p>{analytics.averageTimeSpent}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="analytics-card">
+                <h3>Beliebteste Momente</h3>
+                <ul className="popular-moments">
+                  {analytics.mostViewedMoments.map(momentId => (
+                    <li key={momentId}>
+                      {moments.find(moment => moment.id === momentId)?.title || 'Unbekanntes Moment'}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="analytics-card">
+                <h3>Feedback</h3>
+                <div className="feedback-list">
+                  {analytics.feedback.map((item, index) => (
+                    <div key={index} className="feedback-item">
+                      <div className="rating">
+                        {Array(5).fill(null).map((_, i) => (
+                          <Star 
+                            key={i} 
+                            color={i < item.rating ? '#FFD700' : '#CCCCCC'} 
+                          />
+                        ))}
+                      </div>
+                      <p>{item.comment}</p>
+                      <small>{new Date(item.timestamp).toLocaleDateString()}</small>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
+      {/* Error state */}
       {error && (
         <div className="error-message">
           <p>{error}</p>
@@ -632,3 +644,129 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
     </div>
   );
 };
+
+// Basic CSS styles
+const style = `
+.post-wedding-recap {
+  font-family: Arial, sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.post-wedding-recap.dark-mode {
+  background-color: #121212;
+  color: white;
+}
+
+nav ul {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-bottom: 1px solid #ddd;
+}
+
+nav li {
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+nav li.active {
+  border-bottom: 2px solid #4CAF50;
+  font-weight: bold;
+}
+
+button {
+  padding: 10px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+input, textarea, select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.submit-button {
+  background-color: #4CAF50;
+}
+
+.cancel-button {
+  background-color: #f44336;
+}
+
+/* Section specific styles */
+.moments-section, .cards-section, .share-section, .analytics-section {
+  margin-top: 20px;
+}
+
+.moment-card, .card-item {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.moment-meta, .card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8em;
+  color: #666;
+}
+
+.moment-actions, .card-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.moment-thumbnail {
+  width: 80px;
+  height: 60px;
+  object-fit: cover;
+  margin-right: 5px;
+}
+
+.more-media {
+  background-color: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+}
+
+.loading-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.2em;
+}
+
+.error-message {
+  background-color: #f44336;
+  color: white;
+  padding: 15px;
+  border-radius: 4px;
+  margin-top: 20px;
+}
+`;
+
+// Inject styles
+const styleSheet = document.createElement('style');
+styleSheet.textContent = style;
+document.head.appendChild(styleSheet);
