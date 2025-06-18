@@ -353,12 +353,11 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('de-DE', {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('de-DE', {
       day: '2-digit',
       month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric'
     });
   };
 
@@ -809,12 +808,10 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* Share Options */}
-              <div className={`rounded-2xl border p-6 transition-colors duration-300 ${
-                isDarkMode 
-                  ? 'bg-gray-800 border-gray-700' 
-                  : 'bg-white border-gray-200 shadow-lg'
+              <div className={`p-6 rounded-xl transition-colors duration-300 ${
+                isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200 shadow-lg'
               }`}>
-                <h3 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
+                <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
                   Freigabe-Optionen
@@ -851,7 +848,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
               </div>
 
               {/* Share Preview */}
-              <div className={`rounded-2xl border p-6 transition-colors duration-300 ${
+              <div className={`rounded-xl border p-6 transition-colors duration-300 ${
                 isDarkMode 
                   ? 'bg-gray-800 border-gray-700' 
                   : 'bg-white border-gray-200 shadow-lg'
@@ -906,7 +903,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
               }`}>
                 <div className="flex items-center gap-3 mb-2">
                   <Eye className="w-5 h-5 text-blue-500" />
-                  <span className={`text-sm font-medium transition-colors duration-300 ${
+                  <span className={`font-semibold text-sm transition-colors duration-300 ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-700'
                   }`}>
                     Aufrufe
@@ -926,7 +923,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
               }`}>
                 <div className="flex items-center gap-3 mb-2">
                   <Users className="w-5 h-5 text-green-500" />
-                  <span className={`text-sm font-medium transition-colors duration-300 ${
+                  <span className={`font-semibold text-sm transition-colors duration-300 ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-700'
                   }`}>
                     Besucher
@@ -946,7 +943,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
               }`}>
                 <div className="flex items-center gap-3 mb-2">
                   <Calendar className="w-5 h-5 text-purple-500" />
-                  <span className={`text-sm font-medium transition-colors duration-300 ${
+                  <span className={`font-semibold text-sm transition-colors duration-300 ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-700'
                   }`}>
                     Verweildauer
@@ -966,7 +963,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
               }`}>
                 <div className="flex items-center gap-3 mb-2">
                   <ThumbsUp className="w-5 h-5 text-yellow-500" />
-                  <span className={`text-sm font-medium transition-colors duration-300 ${
+                  <span className={`font-semibold text-sm transition-colors duration-300 ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-700'
                   }`}>
                     Bewertung
