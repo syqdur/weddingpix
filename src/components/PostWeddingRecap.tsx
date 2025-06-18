@@ -157,7 +157,7 @@ const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
       });
       console.log('Moment created with ID: ', docRef.id);
       setMomentForm({
-        title: '',;
+        title: '',
         description: '',
         category: 'custom',
         location: '',
