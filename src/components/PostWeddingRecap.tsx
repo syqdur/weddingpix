@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../src/config/firebase'; // Import your Firebase configuration
+import { db } from '/src/config/firebase'; // Import your Firebase configuration
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { MediaItem, Moment, ThankYouCard } from '../types'; // Import your types
 import { Heart, Camera, Download, Mail, Share2, BarChart3, Users, Calendar, MapPin, MessageSquare, Star, ArrowLeft, Plus, Edit3, Trash2, Save, Eye, ThumbsUp, X, Image, Video, FileText, Gift, Sparkles, Crown, Award, Copy, ExternalLink, Link, Check } from 'lucide-react';
