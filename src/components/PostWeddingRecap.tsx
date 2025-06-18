@@ -113,11 +113,14 @@ const loadMomentsFromFirebase = async (): Promise<Moment[]> => {
     const querySnapshot = await getDocs(testQuery)
 
     const moments = querySnapshot.docs.map(
-      (doc) =>
-        ({
+      (doc) => {
+        const data = doc.data()
+        return {
           id: doc.id,
-          ...doc.data(),
-        }) as Moment,
+          ...data,
+          mediaItems: data.mediaItems || [], // Ensure mediaItems is always an array
+        } as Moment
+      }
     )
 
     console.log("✅ Momente geladen:", moments.length)
@@ -803,7 +806,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
 
                     {/* Media Preview */}
                     <div className="grid grid-cols-3 gap-2 mb-4">
-                      {moment.mediaItems.slice(0, 3).map((media, index) => (
+                      {(moment.mediaItems || []).slice(0, 3).map((media, index) => (
                         <div key={index} className="aspect-square rounded-lg overflow-hidden bg-gray-200">
                           {media.type === "image" && media.url ? (
                             <img
@@ -866,7 +869,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
                         <span
                           className={`transition-colors duration-300 ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}
                         >
-                          {moment.mediaItems.length}
+                          {(moment.mediaItems || []).length}
                         </span>
                       </div>
                       {moment.location && (
@@ -1511,6 +1514,108 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
                   />
                 </div>
 
+                {/* Media Selection Section */}
+                <div>
+                  <label
+                    className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                      isDarkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
+                  >
+                    Medien auswählen (optional)
+                  </label>
+                  <div
+                    className={`border rounded-lg p-4 max-h-48 overflow-y-auto transition-colors duration-300 ${
+                      isDarkMode ? "border-gray-600 bg-gray-700" : "border-gray-300 bg-gray-50"
+                    }`}
+                  >
+                    {mediaItems.length === 0 ? (
+                      <p
+                        className={`text-center text-sm transition-colors duration-300 ${
+                          isDarkMode ? "text-gray-400" : "text-gray-500"
+                        }`}
+                      >
+                        Keine Medien in der Galerie gefunden
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-2">
+                        {mediaItems.map((media) => (
+                          <div
+                            key={media.id}
+                            onClick={() => {
+                              const isSelected = newMoment.mediaItems.some(m => m.id === media.id)
+                              if (isSelected) {
+                                setNewMoment({
+                                  ...newMoment,
+                                  mediaItems: newMoment.mediaItems.filter(m => m.id !== media.id)
+                                })
+                              } else {
+                                setNewMoment({
+                                  ...newMoment,
+                                  mediaItems: [...newMoment.mediaItems, media]
+                                })
+                              }
+                            }}
+                            className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer transition-all duration-200 ${
+                              newMoment.mediaItems.some(m => m.id === media.id)
+                                ? "ring-2 ring-pink-500 ring-offset-2"
+                                : "hover:scale-105"
+                            } ${isDarkMode ? "ring-offset-gray-700" : "ring-offset-white"}`}
+                          >
+                            {media.type === "image" && media.url ? (
+                              <img
+                                src={media.url}
+                                alt={media.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : media.type === "video" && media.url ? (
+                              <video
+                                src={media.url}
+                                className="w-full h-full object-cover"
+                                muted
+                              />
+                            ) : media.type === "note" ? (
+                              <div className={`w-full h-full flex items-center justify-center transition-colors duration-300 ${
+                                isDarkMode ? "bg-gray-600" : "bg-gray-200"
+                              }`}>
+                                <MessageSquare className="w-6 h-6 text-gray-400" />
+                              </div>
+                            ) : (
+                              <div className={`w-full h-full flex items-center justify-center transition-colors duration-300 ${
+                                isDarkMode ? "bg-gray-600" : "bg-gray-200"
+                              }`}>
+                                <ImageIcon className="w-6 h-6 text-gray-400" />
+                              </div>
+                            )}
+                            
+                            {/* Selection Indicator */}
+                            {newMoment.mediaItems.some(m => m.id === media.id) && (
+                              <div className="absolute top-1 right-1 w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center">
+                                <Check className="w-4 h-4 text-white" />
+                              </div>
+                            )}
+                            
+                            {/* Media Type Badge */}
+                            <div className="absolute bottom-1 left-1 px-2 py-1 bg-black bg-opacity-75 rounded text-xs text-white">
+                              {media.type === "image" ? "📸" : media.type === "video" ? "🎥" : "📝"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Selected Media Count */}
+                  {newMoment.mediaItems.length > 0 && (
+                    <p
+                      className={`text-sm mt-2 transition-colors duration-300 ${
+                        isDarkMode ? "text-gray-400" : "text-gray-600"
+                      }`}
+                    >
+                      {newMoment.mediaItems.length} {newMoment.mediaItems.length === 1 ? "Medium" : "Medien"} ausgewählt
+                    </p>
+                  )}
+                </div>
+
                 {error && <div className="p-3 rounded-lg bg-red-100 border border-red-200 text-red-700">{error}</div>}
               </div>
             </div>
@@ -1751,7 +1856,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({ isDarkMode, 
                               isDarkMode ? "text-gray-400" : "text-gray-500"
                             }`}
                           >
-                            {moment.mediaItems.length} Medien • {moment.category}
+                            {(moment.mediaItems || []).length} Medien • {moment.category}
                           </p>
                         </div>
 
