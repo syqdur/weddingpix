@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Heart, Camera, Download, Mail, Share2, BarChart3, Users, Calendar, MapPin, MessageSquare, Star, ArrowLeft, Plus, Edit3, Trash2, Send, Eye, ThumbsUp, X, Image, Video, FileText, Gift, Sparkles, Crown, Award } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Heart, Camera, Download, Mail, Share2, BarChart3, Users, Calendar, MapPin, MessageSquare, Star, ArrowLeft, Plus, Edit3, Trash2, Save, X, Image, Video, Upload, Lock, User, Eye, ThumbsUp, Sparkles, Crown, Award } from 'lucide-react';
 import { MediaItem } from '../types';
 
 interface PostWeddingRecapProps {
@@ -50,6 +50,9 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   isAdmin,
   userName
 }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
   const [activeSection, setActiveSection] = useState<'moments' | 'cards' | 'share' | 'analytics'>('moments');
   const [moments, setMoments] = useState<Moment[]>([]);
   const [thankYouCards, setThankYouCards] = useState<ThankYouCard[]>([]);
@@ -63,75 +66,73 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   const [showCreateMoment, setShowCreateMoment] = useState(false);
   const [showCreateCard, setShowCreateCard] = useState(false);
   const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Initialize with sample data
-  useEffect(() => {
-    // Simulate loading
-    setTimeout(() => {
-      // Create sample moments from media items
-      const sampleMoments: Moment[] = [
-        {
-          id: '1',
-          title: 'Die Zeremonie',
-          description: 'Der magische Moment unseres Ja-Worts in der wunderschönen Kirche.',
-          mediaItems: mediaItems.filter(item => item.type === 'image').slice(0, 5),
-          category: 'ceremony',
-          timestamp: '2025-07-12T14:00:00Z',
-          location: 'St. Marien Kirche',
-          tags: ['Zeremonie', 'Ja-Wort', 'Kirche', 'Emotionen']
-        },
-        {
-          id: '2',
-          title: 'Die Feier',
-          description: 'Ausgelassene Stimmung und unvergessliche Momente mit Familie und Freunden.',
-          mediaItems: mediaItems.filter(item => item.type === 'video').slice(0, 3),
-          category: 'reception',
-          timestamp: '2025-07-12T18:00:00Z',
-          location: 'Schloss Bellevue',
-          tags: ['Feier', 'Tanz', 'Familie', 'Freunde']
-        },
-        {
-          id: '3',
-          title: 'Besondere Momente',
-          description: 'Die kleinen, besonderen Augenblicke, die diesen Tag unvergesslich gemacht haben.',
-          mediaItems: mediaItems.filter(item => item.type === 'note').slice(0, 4),
-          category: 'special',
-          timestamp: '2025-07-12T20:00:00Z',
-          tags: ['Besonders', 'Erinnerungen', 'Liebe']
-        }
-      ];
+  // Login form data
+  const [momentForm, setMomentForm] = useState({
+    title: '',
+    description: '',
+    category: 'special' as Moment['category'],
+    location: '',
+    tags: '',
+    selectedMedia: [] as string[]
+  });
 
-      setMoments(sampleMoments);
-      
-      // Sample analytics
-      setAnalytics({
-        totalViews: 1247,
-        uniqueVisitors: 89,
-        averageTimeSpent: '4:32',
-        mostViewedMoments: ['Die Zeremonie', 'Die Feier'],
-        feedback: [
-          {
-            id: '1',
-            rating: 5,
-            comment: 'Wunderschöne Zusammenfassung! Vielen Dank für die tollen Erinnerungen.',
-            timestamp: '2025-07-15T10:30:00Z'
-          },
-          {
-            id: '2',
-            rating: 5,
-            comment: 'Es war ein magischer Tag. Danke, dass wir dabei sein durften!',
-            timestamp: '2025-07-14T16:45:00Z'
-          }
-        ]
-      });
-      
-      setIsLoading(false);
-    }, 1000);
-  }, [mediaItems]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+
+    if (loginForm.username === 'Ehepaar' && loginForm.password === 'test') {
+      setIsAuthenticated(true);
+      setLoginForm({ username: '', password: '' });
+    } else {
+      setLoginError('Ungültige Anmeldedaten. Bitte versuche es erneut.');
+    }
+  };
 
   const handleCreateMoment = () => {
     setShowCreateMoment(true);
+  };
+
+  const handleSaveMoment = () => {
+    if (!momentForm.title.trim()) {
+      alert('Bitte gib einen Titel für den Moment ein.');
+      return;
+    }
+
+    const selectedMediaItems = mediaItems.filter(item => 
+      momentForm.selectedMedia.includes(item.id)
+    );
+
+    const newMoment: Moment = {
+      id: Date.now().toString(),
+      title: momentForm.title,
+      description: momentForm.description,
+      mediaItems: selectedMediaItems,
+      category: momentForm.category,
+      timestamp: new Date().toISOString(),
+      location: momentForm.location || undefined,
+      tags: momentForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+    };
+
+    setMoments(prev => [...prev, newMoment]);
+    setMomentForm({
+      title: '',
+      description: '',
+      category: 'special',
+      location: '',
+      tags: '',
+      selectedMedia: []
+    });
+    setShowCreateMoment(false);
+  };
+
+  const handleDeleteMoment = (momentId: string) => {
+    if (window.confirm('Moment wirklich löschen?')) {
+      setMoments(prev => prev.filter(m => m.id !== momentId));
+    }
   };
 
   const handleCreateCard = () => {
@@ -139,7 +140,6 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   };
 
   const handleShareRecap = () => {
-    // Implement sharing functionality
     const shareUrl = `${window.location.origin}/recap/kristin-maurizio`;
     navigator.clipboard.writeText(shareUrl);
     alert('Link zur Zusammenfassung wurde in die Zwischenablage kopiert!');
@@ -175,18 +175,135 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
     }
   };
 
-  if (isLoading) {
+  const toggleMediaSelection = (mediaId: string) => {
+    setMomentForm(prev => ({
+      ...prev,
+      selectedMedia: prev.selectedMedia.includes(mediaId)
+        ? prev.selectedMedia.filter(id => id !== mediaId)
+        : [...prev.selectedMedia, mediaId]
+    }));
+  };
+
+  // Login Screen
+  if (!isAuthenticated) {
     return (
       <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
         isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
       }`}>
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className={`text-lg transition-colors duration-300 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
+        <div className={`max-w-md w-full mx-4 p-8 rounded-2xl transition-colors duration-300 ${
+          isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200 shadow-lg'
+        }`}>
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-colors duration-300 ${
+              isDarkMode ? 'bg-pink-600' : 'bg-pink-500'
+            }`}>
+              <Sparkles className="w-8 h-8 text-white" />
+            </div>
+            <h1 className={`text-2xl font-bold mb-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              💕 Post-Hochzeits-Zusammenfassung
+            </h1>
+            <p className={`text-sm transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Anmeldung erforderlich
+            </p>
+          </div>
+
+          {/* Login Form */}
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
+                Benutzername
+              </label>
+              <div className="relative">
+                <User className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                }`} />
+                <input
+                  type="text"
+                  value={loginForm.username}
+                  onChange={(e) => setLoginForm(prev => ({ ...prev, username: e.target.value }))}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                    isDarkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                  }`}
+                  placeholder="Benutzername eingeben"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
+                Passwort
+              </label>
+              <div className="relative">
+                <Lock className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                }`} />
+                <input
+                  type="password"
+                  value={loginForm.password}
+                  onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                    isDarkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                  }`}
+                  placeholder="Passwort eingeben"
+                  required
+                />
+              </div>
+            </div>
+
+            {loginError && (
+              <div className={`p-3 rounded-xl border transition-colors duration-300 ${
+                isDarkMode 
+                  ? 'bg-red-900/20 border-red-700/30 text-red-300' 
+                  : 'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                <p className="text-sm">{loginError}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className={`w-full py-3 px-4 rounded-xl font-medium transition-colors duration-300 ${
+                isDarkMode 
+                  ? 'bg-pink-600 hover:bg-pink-700 text-white' 
+                  : 'bg-pink-500 hover:bg-pink-600 text-white'
+              }`}
+            >
+              Anmelden
+            </button>
+          </form>
+
+          {/* Info */}
+          <div className={`mt-6 p-4 rounded-xl transition-colors duration-300 ${
+            isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
           }`}>
-            Lade Post-Hochzeits-Zusammenfassung...
-          </p>
+            <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-blue-300' : 'text-blue-800'
+            }`}>
+              💡 Über diese Funktion
+            </h4>
+            <ul className={`text-sm space-y-1 transition-colors duration-300 ${
+              isDarkMode ? 'text-blue-200' : 'text-blue-700'
+            }`}>
+              <li>• Sammle die schönsten Momente eurer Hochzeit</li>
+              <li>• Erstelle personalisierte Dankeskarten</li>
+              <li>• Teile Erinnerungen mit Familie und Freunden</li>
+              <li>• Verfolge Engagement und Feedback</li>
+            </ul>
+          </div>
         </div>
       </div>
     );
@@ -233,6 +350,16 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
             </div>
             
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsAuthenticated(false)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                }`}
+              >
+                Abmelden
+              </button>
               <button
                 onClick={handleShareRecap}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors duration-300 ${
@@ -318,12 +445,11 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
               {moments.map((moment) => (
                 <div
                   key={moment.id}
-                  className={`rounded-2xl border transition-all duration-300 hover:scale-105 cursor-pointer ${
+                  className={`rounded-2xl border transition-all duration-300 hover:scale-105 ${
                     isDarkMode 
                       ? 'bg-gray-800 border-gray-700 hover:bg-gray-700' 
                       : 'bg-white border-gray-200 hover:bg-gray-50 shadow-lg'
                   }`}
-                  onClick={() => setSelectedMoment(moment)}
                 >
                   {/* Moment Header */}
                   <div className="p-6">
@@ -331,7 +457,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                       <div className={`p-2 rounded-full text-white ${getCategoryColor(moment.category)}`}>
                         {getCategoryIcon(moment.category)}
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h3 className={`font-semibold transition-colors duration-300 ${
                           isDarkMode ? 'text-white' : 'text-gray-900'
                         }`}>
@@ -348,6 +474,14 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                           </span>
                         </div>
                       </div>
+                      <button
+                        onClick={() => handleDeleteMoment(moment.id)}
+                        className={`p-2 rounded-full transition-colors duration-300 ${
+                          isDarkMode ? 'hover:bg-gray-600 text-red-400' : 'hover:bg-red-50 text-red-600'
+                        }`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
 
                     <p className={`text-sm mb-4 transition-colors duration-300 ${
@@ -465,6 +599,29 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Empty State */}
+            {moments.length === 0 && (
+              <div className="text-center py-12">
+                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center transition-colors duration-300 ${
+                  isDarkMode ? 'bg-gray-700' : 'bg-gray-200'
+                }`}>
+                  <Camera className={`w-8 h-8 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                  }`} />
+                </div>
+                <h3 className={`text-xl font-light mb-2 transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Noch keine Momente erstellt
+                </h3>
+                <p className={`text-sm transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                }`}>
+                  Klicke auf "Moment hinzufügen" um zu beginnen
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -498,41 +655,6 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
 
             {/* Cards Overview */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Sample Thank You Cards */}
-              <div className={`rounded-2xl border p-6 transition-colors duration-300 ${
-                isDarkMode 
-                  ? 'bg-gray-800 border-gray-700' 
-                  : 'bg-white border-gray-200 shadow-lg'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className={`font-semibold transition-colors duration-300 ${
-                    isDarkMode ? 'text-white' : 'text-gray-900'
-                  }`}>
-                    Familie Schmidt
-                  </h3>
-                  <span className={`px-2 py-1 rounded-full text-xs transition-colors duration-300 ${
-                    isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
-                  }`}>
-                    Versendet
-                  </span>
-                </div>
-                <p className={`text-sm mb-4 transition-colors duration-300 ${
-                  isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                }`}>
-                  Liebe Familie Schmidt, vielen Dank für eure Teilnahme an unserem besonderen Tag...
-                </p>
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className={`w-4 h-4 transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`} />
-                  <span className={`transition-colors duration-300 ${
-                    isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`}>
-                    Versendet am 15. Juli 2025
-                  </span>
-                </div>
-              </div>
-
               {/* Add Card */}
               <div
                 onClick={handleCreateCard}
@@ -733,57 +855,267 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                 <div className={`text-3xl font-bold transition-colors duration-300 ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  4.9/5
+                  -
                 </div>
               </div>
             </div>
 
-            {/* Feedback */}
-            <div className={`rounded-2xl border p-6 transition-colors duration-300 ${
+            {/* Empty Analytics */}
+            <div className={`rounded-2xl border p-6 text-center transition-colors duration-300 ${
               isDarkMode 
                 ? 'bg-gray-800 border-gray-700' 
                 : 'bg-white border-gray-200 shadow-lg'
             }`}>
-              <h3 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
+              <BarChart3 className={`w-16 h-16 mx-auto mb-4 transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-600' : 'text-gray-400'
+              }`} />
+              <h3 className={`text-lg font-medium mb-2 transition-colors duration-300 ${
                 isDarkMode ? 'text-white' : 'text-gray-900'
               }`}>
-                💬 Gäste-Feedback
+                Noch keine Analytics-Daten
               </h3>
-              
-              <div className="space-y-4">
-                {analytics.feedback.map((feedback) => (
-                  <div key={feedback.id} className={`p-4 rounded-lg transition-colors duration-300 ${
-                    isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
-                  }`}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="flex">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-4 h-4 ${
-                              i < feedback.rating ? 'text-yellow-500 fill-current' : 'text-gray-300'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <span className={`text-sm transition-colors duration-300 ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                      }`}>
-                        {formatDate(feedback.timestamp)}
-                      </span>
-                    </div>
-                    <p className={`text-sm transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-300' : 'text-gray-700'
-                    }`}>
-                      "{feedback.comment}"
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <p className={`text-sm transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                Sobald ihr eure Zusammenfassung teilt, werden hier Statistiken angezeigt
+              </p>
             </div>
           </div>
         )}
       </div>
+
+      {/* Create Moment Modal */}
+      {showCreateMoment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className={`rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className={`text-xl font-semibold transition-colors duration-300 ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                Neuen Moment erstellen
+              </h3>
+              <button
+                onClick={() => setShowCreateMoment(false)}
+                className={`p-2 rounded-full transition-colors duration-300 ${
+                  isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+                }`}
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Form */}
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Titel *
+                  </label>
+                  <input
+                    type="text"
+                    value={momentForm.title}
+                    onChange={(e) => setMomentForm(prev => ({ ...prev, title: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
+                    placeholder="z.B. Die Zeremonie"
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Beschreibung
+                  </label>
+                  <textarea
+                    value={momentForm.description}
+                    onChange={(e) => setMomentForm(prev => ({ ...prev, description: e.target.value }))}
+                    rows={3}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none resize-none transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
+                    placeholder="Beschreibe diesen besonderen Moment..."
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Kategorie
+                  </label>
+                  <select
+                    value={momentForm.category}
+                    onChange={(e) => setMomentForm(prev => ({ ...prev, category: e.target.value as Moment['category'] }))}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  >
+                    <option value="ceremony">💕 Zeremonie</option>
+                    <option value="reception">🍽️ Empfang</option>
+                    <option value="party">🎉 Feier</option>
+                    <option value="special">⭐ Besonders</option>
+                    <option value="custom">✨ Eigenes</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Ort
+                  </label>
+                  <input
+                    type="text"
+                    value={momentForm.location}
+                    onChange={(e) => setMomentForm(prev => ({ ...prev, location: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
+                    placeholder="z.B. Kirche St. Marien"
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Tags (kommagetrennt)
+                  </label>
+                  <input
+                    type="text"
+                    value={momentForm.tags}
+                    onChange={(e) => setMomentForm(prev => ({ ...prev, tags: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                    }`}
+                    placeholder="z.B. Zeremonie, Emotionen, Familie"
+                  />
+                </div>
+              </div>
+
+              {/* Media Selection */}
+              <div>
+                <h4 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Medien auswählen ({momentForm.selectedMedia.length} ausgewählt)
+                </h4>
+                
+                <div className="max-h-96 overflow-y-auto space-y-2">
+                  {mediaItems.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Camera className={`w-12 h-12 mx-auto mb-3 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-600' : 'text-gray-400'
+                      }`} />
+                      <p className={`text-sm transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                      }`}>
+                        Noch keine Medien hochgeladen
+                      </p>
+                    </div>
+                  ) : (
+                    mediaItems.map((media) => (
+                      <div
+                        key={media.id}
+                        onClick={() => toggleMediaSelection(media.id)}
+                        className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-300 ${
+                          momentForm.selectedMedia.includes(media.id)
+                            ? isDarkMode
+                              ? 'bg-pink-600/20 border border-pink-500'
+                              : 'bg-pink-50 border border-pink-300'
+                            : isDarkMode
+                              ? 'bg-gray-700 hover:bg-gray-600 border border-gray-600'
+                              : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
+                        }`}
+                      >
+                        <div className="w-12 h-12 rounded overflow-hidden bg-gray-200 flex-shrink-0">
+                          {media.type === 'image' && media.url ? (
+                            <img src={media.url} alt={media.name} className="w-full h-full object-cover" />
+                          ) : media.type === 'video' && media.url ? (
+                            <video src={media.url} className="w-full h-full object-cover" muted />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              {media.type === 'note' ? (
+                                <MessageSquare className="w-6 h-6 text-gray-400" />
+                              ) : (
+                                <Camera className="w-6 h-6 text-gray-400" />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-medium truncate transition-colors duration-300 ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>
+                            {media.type === 'note' ? media.noteText?.substring(0, 30) + '...' : media.name}
+                          </p>
+                          <p className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                          }`}>
+                            {media.uploadedBy} • {media.type === 'note' ? 'Notiz' : media.type === 'video' ? 'Video' : 'Bild'}
+                          </p>
+                        </div>
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors duration-300 ${
+                          momentForm.selectedMedia.includes(media.id)
+                            ? 'bg-pink-500 border-pink-500'
+                            : isDarkMode
+                              ? 'border-gray-500'
+                              : 'border-gray-300'
+                        }`}>
+                          {momentForm.selectedMedia.includes(media.id) && (
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowCreateMoment(false)}
+                className={`flex-1 py-3 px-4 rounded-xl transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
+                    : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                }`}
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleSaveMoment}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl transition-colors ${
+                  'bg-pink-600 hover:bg-pink-700'
+                } text-white`}
+              >
+                <Save className="w-4 h-4" />
+                Moment speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
