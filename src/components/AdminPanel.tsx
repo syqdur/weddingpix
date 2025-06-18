@@ -32,7 +32,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [showSpotifyAdmin, setShowSpotifyAdmin] = useState(false);
 
-  const correctPIN = "2407";
+  // 🔧 FIX: Multiple admin PINs for different users
+  const adminCredentials = {
+    "2407": "Mauro", // Original admin
+    "rückblick": "Ehepaar" // New admin for recap access
+  };
 
   const handleAdminToggle = () => {
     if (isAdmin) {
@@ -44,10 +48,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin === correctPIN) {
+    
+    // Check if PIN matches any admin credentials
+    if (adminCredentials[pin as keyof typeof adminCredentials]) {
       onToggleAdmin(true);
       setShowPinInput(false);
       setPin('');
+      
+      // Show welcome message for different admins
+      const adminName = adminCredentials[pin as keyof typeof adminCredentials];
+      if (adminName === "Ehepaar") {
+        setTimeout(() => {
+          alert('🎉 Willkommen! Du hast jetzt Zugriff auf die Post-Hochzeits-Zusammenfassung.\n\n💕 Klicke auf den Sparkles-Button (✨) um loszulegen!');
+        }, 500);
+      }
     } else {
       alert('Falscher Code!');
       setPin('');
@@ -65,7 +79,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (window.confirm(confirmMessage)) {
       setIsUpdatingSiteStatus(true);
       try {
-        await updateSiteStatus(!siteStatus.isUnderConstruction, 'Mauro');
+        await updateSiteStatus(!siteStatus.isUnderConstruction, 'Admin');
         
         const successMessage = siteStatus.isUnderConstruction
           ? '✅ Website wurde erfolgreich freigeschaltet!\n\n🌐 Alle Besucher können jetzt auf die Galerie zugreifen.'
