@@ -270,8 +270,7 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
           muted={isMuted}
           preload="auto"
         >
-          <source src="https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0c6ff1eab.mp3?filename=emotional-piano-118996.mp3" type="audio/mpeg" />
-          <source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.wav" type="audio/wav" />
+          <source src="https://filebin.net/wxyvlnmtap41dfxb/iris.mp3" type="audio/mpeg" />
         </audio>
         
         {/* Controls */}
