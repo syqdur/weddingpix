@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, Camera, Calendar, MapPin, ArrowLeft, Share2, Eye, Image, Video, MessageSquare, Music, VolumeX, Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, Camera, Calendar, MapPin, ArrowLeft, Share2, Eye, Image, Video, MessageSquare, Music, VolumeX, Play, Pause, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { MediaItem } from '../types';
 import { loadGallery } from '../services/firebaseService';
 
@@ -24,103 +24,113 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
   const [guestName, setGuestName] = useState<string>('');
+  const [guestId, setGuestId] = useState<string>('');
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAnimationPlaying, setIsAnimationPlaying] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [autoPlay, setAutoPlay] = useState(true);
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const slideInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Parse URL parameters to get guest name
+  // Parse URL parameters to get guest name and ID
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const name = urlParams.get('for');
+    const id = urlParams.get('id');
+    
     if (name) {
       setGuestName(decodeURIComponent(name));
+    }
+    if (id) {
+      setGuestId(id);
     }
   }, []);
 
   // Load media items
   useEffect(() => {
     const unsubscribe = loadGallery((items) => {
-      setMediaItems(items);
+      // Filter out unavailable items for public view
+      const availableItems = items.filter(item => !item.isUnavailable && item.url);
+      setMediaItems(availableItems);
       
-      // Create sample moments from media items
-      const sampleMoments: Moment[] = [
-        {
-          id: '1',
-          title: 'Die Zeremonie',
-          description: 'Der magische Moment unseres Ja-Worts in der wunderschönen Kirche.',
-          mediaItems: items.filter(item => item.type === 'image').slice(0, 8),
-          category: 'ceremony',
-          timestamp: '2025-07-12T14:00:00Z',
-          location: 'St. Marien Kirche',
-          tags: ['Zeremonie', 'Ja-Wort', 'Kirche', 'Emotionen']
-        },
-        {
-          id: '2',
-          title: 'Die Feier',
-          description: 'Ausgelassene Stimmung und unvergessliche Momente mit Familie und Freunden.',
-          mediaItems: items.filter(item => item.type === 'video').slice(0, 5),
-          category: 'reception',
-          timestamp: '2025-07-12T18:00:00Z',
-          location: 'Schloss Bellevue',
-          tags: ['Feier', 'Tanz', 'Familie', 'Freunde']
-        },
-        {
-          id: '3',
-          title: 'Besondere Momente',
-          description: 'Die kleinen, besonderen Augenblicke, die diesen Tag unvergesslich gemacht haben.',
-          mediaItems: items.filter(item => item.type === 'note').slice(0, 6),
-          category: 'special',
-          timestamp: '2025-07-12T20:00:00Z',
-          tags: ['Besonders', 'Erinnerungen', 'Liebe']
-        },
-        {
-          id: '4',
-          title: 'Alle Erinnerungen',
-          description: 'Eine Sammlung aller wunderschönen Momente von unserem besonderen Tag.',
-          mediaItems: items.slice(0, 20),
-          category: 'custom',
-          timestamp: '2025-07-12T22:00:00Z',
-          tags: ['Alle', 'Sammlung', 'Erinnerungen']
-        }
-      ];
+      // Create personalized moments based on guest
+      const createPersonalizedMoments = (items: MediaItem[]): Moment[] => {
+        const imageItems = items.filter(item => item.type === 'image');
+        const videoItems = items.filter(item => item.type === 'video');
+        const noteItems = items.filter(item => item.type === 'note');
+        
+        return [
+          {
+            id: '1',
+            title: '💒 Die Zeremonie',
+            description: 'Der magische Moment unseres Ja-Worts - die schönsten Bilder von der Trauung.',
+            mediaItems: imageItems.slice(0, 12),
+            category: 'ceremony',
+            timestamp: '2025-07-12T14:00:00Z',
+            location: 'Kirche',
+            tags: ['Zeremonie', 'Ja-Wort', 'Kirche', 'Emotionen']
+          },
+          {
+            id: '2',
+            title: '🎉 Die Feier',
+            description: 'Ausgelassene Stimmung und unvergessliche Momente mit Familie und Freunden.',
+            mediaItems: [...videoItems, ...imageItems.slice(12, 20)],
+            category: 'reception',
+            timestamp: '2025-07-12T18:00:00Z',
+            location: 'Festsaal',
+            tags: ['Feier', 'Tanz', 'Familie', 'Freunde']
+          },
+          {
+            id: '3',
+            title: '💌 Eure Nachrichten',
+            description: 'Die wunderschönen Nachrichten und Wünsche von unseren Gästen.',
+            mediaItems: noteItems,
+            category: 'special',
+            timestamp: '2025-07-12T20:00:00Z',
+            tags: ['Nachrichten', 'Wünsche', 'Liebe']
+          },
+          {
+            id: '4',
+            title: '📸 Alle Erinnerungen',
+            description: `Eine Sammlung aller wunderschönen Momente von unserem besonderen Tag${guestName ? ` - speziell für ${guestName}` : ''}.`,
+            mediaItems: items.slice(0, 30),
+            category: 'custom',
+            timestamp: '2025-07-12T22:00:00Z',
+            tags: ['Alle', 'Sammlung', 'Erinnerungen']
+          }
+        ].filter(moment => moment.mediaItems.length > 0);
+      };
 
-      setMoments(sampleMoments.filter(moment => moment.mediaItems.length > 0));
+      setMoments(createPersonalizedMoments(availableItems));
       setIsLoading(false);
     });
 
     return unsubscribe;
-  }, []);
+  }, [guestName]);
 
   // Handle slideshow for animation
   useEffect(() => {
-    if (isAnimationPlaying) {
+    if (isAnimationPlaying && autoPlay) {
       // Start music
-      if (audioRef.current) {
-        audioRef.current.play().catch(err => console.error("Couldn't play audio:", err));
+      if (audioRef.current && !isMuted) {
+        audioRef.current.play().catch(err => console.log("Audio autoplay blocked"));
       }
       
       // Start slideshow
       slideInterval.current = setInterval(() => {
         setCurrentSlide(prev => {
-          const allMediaItems = moments.flatMap(m => m.mediaItems);
+          const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
           return prev < allMediaItems.length - 1 ? prev + 1 : 0;
         });
-      }, 5000); // Change slide every 5 seconds
+      }, 4000); // Change slide every 4 seconds
     } else {
       // Clear interval when animation stops
       if (slideInterval.current) {
         clearInterval(slideInterval.current);
         slideInterval.current = null;
-      }
-      
-      // Pause music
-      if (audioRef.current && !isMuted) {
-        audioRef.current.pause();
       }
     }
     
@@ -129,14 +139,14 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
         clearInterval(slideInterval.current);
       }
     };
-  }, [isAnimationPlaying, moments, isMuted]);
+  }, [isAnimationPlaying, autoPlay, moments, isMuted]);
 
   // Toggle music
   const toggleMusic = () => {
     setIsMuted(!isMuted);
     if (audioRef.current) {
       if (isMuted) {
-        audioRef.current.play().catch(err => console.error("Couldn't play audio:", err));
+        audioRef.current.play().catch(err => console.log("Couldn't play audio:", err));
       } else {
         audioRef.current.pause();
       }
@@ -147,11 +157,21 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
   const startAnimation = () => {
     setIsAnimationPlaying(true);
     setShowWelcome(false);
+    setCurrentSlide(0);
   };
 
   // Stop animated slideshow
   const stopAnimation = () => {
     setIsAnimationPlaying(false);
+    setAutoPlay(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+  };
+
+  // Toggle autoplay
+  const toggleAutoPlay = () => {
+    setAutoPlay(!autoPlay);
   };
 
   const formatDate = (dateString: string) => {
@@ -188,7 +208,7 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
     if (navigator.share) {
       navigator.share({
         title: 'Kristin & Maurizio - Hochzeits-Erinnerungen',
-        text: 'Schaut euch unsere wunderschönen Hochzeits-Erinnerungen an!',
+        text: `${guestName ? `${guestName}, s` : 'S'}chaut euch unsere wunderschönen Hochzeits-Erinnerungen an!`,
         url: window.location.href
       });
     } else {
@@ -198,12 +218,12 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
   };
 
   const nextSlide = () => {
-    const allMediaItems = moments.flatMap(m => m.mediaItems);
+    const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
     setCurrentSlide(prev => (prev < allMediaItems.length - 1 ? prev + 1 : 0));
   };
 
   const prevSlide = () => {
-    const allMediaItems = moments.flatMap(m => m.mediaItems);
+    const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
     setCurrentSlide(prev => (prev > 0 ? prev - 1 : allMediaItems.length - 1));
   };
 
@@ -212,12 +232,24 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
       <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
         isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
       }`}>
-        <div className="text-center">
+        <div className="text-center animate-fadeIn">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full overflow-hidden border-4 border-pink-300 animate-pulse-slow">
+            <img 
+              src="https://i.ibb.co/PvXjwss4/profil.jpg" 
+              alt="Kristin & Maurizio"
+              className="w-full h-full object-cover"
+            />
+          </div>
           <div className="w-16 h-16 mx-auto mb-4 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
           <p className={`text-lg transition-colors duration-300 ${
             isDarkMode ? 'text-white' : 'text-gray-900'
           }`}>
-            Lade Hochzeits-Erinnerungen...
+            Lade eure Hochzeits-Erinnerungen...
+          </p>
+          <p className={`text-sm mt-2 transition-colors duration-300 ${
+            isDarkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            {guestName ? `Speziell für ${guestName} zusammengestellt` : 'Mit Liebe zusammengestellt'}
           </p>
         </div>
       </div>
@@ -226,7 +258,7 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
 
   // Animated Slideshow View
   if (isAnimationPlaying) {
-    const allMediaItems = moments.flatMap(m => m.mediaItems);
+    const allMediaItems = moments.flatMap(m => m.mediaItems.filter(item => item.url));
     const currentMedia = allMediaItems[currentSlide];
     
     return (
@@ -236,22 +268,34 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
           ref={audioRef} 
           loop 
           muted={isMuted}
-          src="https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0c6ff1eab.mp3?filename=emotional-piano-118996.mp3"
-        />
+          preload="auto"
+        >
+          <source src="https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0c6ff1eab.mp3?filename=emotional-piano-118996.mp3" type="audio/mpeg" />
+          <source src="https://www.soundjay.com/misc/sounds/bell-ringing-05.wav" type="audio/wav" />
+        </audio>
         
         {/* Controls */}
         <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
           <button
+            onClick={toggleAutoPlay}
+            className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            title={autoPlay ? "Automatik stoppen" : "Automatik starten"}
+          >
+            {autoPlay ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+          </button>
+          <button
             onClick={toggleMusic}
             className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            title={isMuted ? "Musik einschalten" : "Musik ausschalten"}
           >
             {isMuted ? <VolumeX className="w-5 h-5" /> : <Music className="w-5 h-5" />}
           </button>
           <button
             onClick={stopAnimation}
-            className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            className="p-3 rounded-full bg-red-600/80 text-white hover:bg-red-600 transition-colors"
+            title="Slideshow beenden"
           >
-            <Pause className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
         </div>
         
@@ -259,6 +303,7 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
         <button
           onClick={prevSlide}
           className="absolute left-4 top-1/2 transform -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+          title="Vorheriges Bild"
         >
           <ChevronLeft className="w-6 h-6" />
         </button>
@@ -266,9 +311,18 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
         <button
           onClick={nextSlide}
           className="absolute right-4 top-1/2 transform -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+          title="Nächstes Bild"
         >
           <ChevronRight className="w-6 h-6" />
         </button>
+        
+        {/* Progress Bar */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-black/30 z-10">
+          <div 
+            className="h-full bg-pink-500 transition-all duration-300"
+            style={{ width: `${((currentSlide + 1) / allMediaItems.length) * 100}%` }}
+          />
+        </div>
         
         {/* Current Media */}
         <div className="absolute inset-0 flex items-center justify-center">
@@ -277,6 +331,7 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
               src={currentMedia.url}
               alt={currentMedia.name}
               className="max-w-full max-h-full object-contain animate-fadeIn"
+              style={{ maxHeight: '90vh' }}
             />
           ) : currentMedia?.type === 'video' && currentMedia.url ? (
             <video
@@ -285,31 +340,46 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
               autoPlay
               muted
               loop
+              style={{ maxHeight: '90vh' }}
             />
           ) : currentMedia?.type === 'note' ? (
-            <div className="max-w-lg w-full p-8 bg-white/10 backdrop-blur-md rounded-2xl text-white animate-fadeIn">
-              <div className="text-center mb-4">
-                <MessageSquare className="w-8 h-8 mx-auto mb-2" />
-                <h3 className="text-xl font-semibold">Nachricht von {currentMedia.uploadedBy}</h3>
+            <div className="max-w-2xl w-full p-8 bg-gradient-to-br from-pink-900/30 to-purple-900/30 backdrop-blur-md rounded-2xl text-white animate-fadeIn mx-4">
+              <div className="text-center mb-6">
+                <MessageSquare className="w-12 h-12 mx-auto mb-4 text-pink-300" />
+                <h3 className="text-2xl font-semibold mb-2">Nachricht von {currentMedia.uploadedBy}</h3>
+                <div className="w-16 h-0.5 bg-pink-300 mx-auto"></div>
               </div>
-              <p className="text-lg leading-relaxed">"{currentMedia.noteText}"</p>
+              <p className="text-xl leading-relaxed text-center font-light">"{currentMedia.noteText}"</p>
+              <div className="text-center mt-6">
+                <p className="text-sm opacity-75">
+                  {new Date(currentMedia.uploadedAt).toLocaleDateString('de-DE', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
             </div>
           ) : (
             <div className="text-white text-center">
-              <Camera className="w-16 h-16 mx-auto mb-4" />
-              <p>Keine Medien verfügbar</p>
+              <Camera className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              <p className="text-lg">Keine Medien verfügbar</p>
             </div>
           )}
         </div>
         
         {/* Caption */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 max-w-2xl w-full px-4">
-          <div className="bg-black/70 backdrop-blur-sm rounded-xl p-4 text-white text-center">
-            <h3 className="text-xl font-semibold mb-2">Kristin & Maurizio</h3>
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 max-w-4xl w-full px-4">
+          <div className="bg-black/70 backdrop-blur-sm rounded-xl p-6 text-white text-center">
+            <h3 className="text-2xl font-bold mb-2">💕 Kristin & Maurizio</h3>
+            <p className="text-lg mb-2">12. Juli 2025</p>
+            {guestName && (
+              <p className="text-pink-300 mb-2">Speziell für {guestName}</p>
+            )}
             <p className="text-sm opacity-80">
               {currentMedia?.type === 'note' 
-                ? `Nachricht von ${currentMedia.uploadedBy}`
-                : `Hochzeit am 12. Juli 2025 • ${currentSlide + 1} von ${allMediaItems.length}`}
+                ? `Nachricht ${currentSlide + 1} von ${allMediaItems.filter(item => item.type === 'note').length}`
+                : `Bild ${currentSlide + 1} von ${allMediaItems.length}`}
             </p>
           </div>
         </div>
@@ -328,7 +398,7 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-pink-300">
+              <div className="w-16 h-16 rounded-full overflow-hidden border-4 border-pink-300 animate-pulse-slow">
                 <img 
                   src="https://i.ibb.co/PvXjwss4/profil.jpg" 
                   alt="Kristin & Maurizio"
@@ -346,24 +416,31 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
                 }`}>
                   12. Juli 2025 • Unsere Hochzeits-Erinnerungen
                 </p>
+                {guestName && (
+                  <p className={`text-sm transition-colors duration-300 ${
+                    isDarkMode ? 'text-pink-400' : 'text-pink-600'
+                  }`}>
+                    Speziell für {guestName} ✨
+                  </p>
+                )}
               </div>
             </div>
             
             <div className="flex items-center gap-3">
               <button
                 onClick={startAnimation}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors duration-300 ${
+                className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105 ${
                   isDarkMode 
-                    ? 'bg-pink-600 hover:bg-pink-700 text-white' 
-                    : 'bg-pink-500 hover:bg-pink-600 text-white'
+                    ? 'bg-pink-600 hover:bg-pink-700 text-white shadow-lg' 
+                    : 'bg-pink-500 hover:bg-pink-600 text-white shadow-lg'
                 }`}
               >
-                <Play className="w-4 h-4" />
-                Slideshow
+                <Play className="w-5 h-5" />
+                Slideshow starten
               </button>
               <button
                 onClick={handleShare}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors duration-300 ${
+                className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-300 hover:scale-105 ${
                   isDarkMode 
                     ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                     : 'bg-blue-500 hover:bg-blue-600 text-white'
@@ -381,74 +458,87 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Welcome Message */}
         {showWelcome && (
-          <div className={`text-center mb-12 p-8 rounded-2xl transition-colors duration-300 ${
+          <div className={`text-center mb-12 p-8 rounded-2xl animate-slideUp transition-colors duration-300 ${
             isDarkMode 
               ? 'bg-gradient-to-br from-pink-900/30 to-purple-900/30 border border-pink-700/30' 
               : 'bg-gradient-to-br from-pink-50 to-purple-50 border border-pink-200'
           }`}>
-            <h2 className={`text-3xl font-bold mb-4 transition-colors duration-300 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              {guestName ? `Hallo ${guestName}! 👋` : 'Vielen Dank für eure Teilnahme! 💕'}
-            </h2>
-            <p className={`text-lg mb-6 transition-colors duration-300 ${
-              isDarkMode ? 'text-gray-300' : 'text-gray-700'
-            }`}>
-              {guestName 
-                ? `Wir freuen uns, dass du unsere Hochzeits-Erinnerungen anschaust. Hier sind die schönsten Momente, die wir mit dir und allen anderen Gästen geteilt haben.`
-                : 'Hier sind die schönsten Momente unserer Hochzeit, die wir gemeinsam mit euch erlebt haben.'}
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <div className={`px-4 py-2 rounded-full transition-colors duration-300 ${
+            <div className="mb-6">
+              <h2 className={`text-4xl font-bold mb-4 transition-colors duration-300 ${
+                isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                {guestName ? `Hallo ${guestName}! 👋` : 'Vielen Dank für eure Teilnahme! 💕'}
+              </h2>
+              <p className={`text-xl mb-6 transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+              }`}>
+                {guestName 
+                  ? `Wir freuen uns, dass du unsere Hochzeits-Erinnerungen anschaust. Diese Sammlung wurde speziell für dich zusammengestellt mit den schönsten Momenten, die wir gemeinsam erlebt haben.`
+                  : 'Hier sind die schönsten Momente unserer Hochzeit, die wir gemeinsam mit euch erlebt haben.'}
+              </p>
+            </div>
+            
+            <div className="flex flex-wrap justify-center gap-4 mb-8">
+              <div className={`px-6 py-3 rounded-full transition-colors duration-300 ${
                 isDarkMode ? 'bg-pink-600 text-white' : 'bg-pink-100 text-pink-800'
               }`}>
                 📸 {mediaItems.filter(item => item.type === 'image').length} Fotos
               </div>
-              <div className={`px-4 py-2 rounded-full transition-colors duration-300 ${
+              <div className={`px-6 py-3 rounded-full transition-colors duration-300 ${
                 isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
               }`}>
                 🎥 {mediaItems.filter(item => item.type === 'video').length} Videos
               </div>
-              <div className={`px-4 py-2 rounded-full transition-colors duration-300 ${
+              <div className={`px-6 py-3 rounded-full transition-colors duration-300 ${
                 isDarkMode ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-800'
               }`}>
                 💌 {mediaItems.filter(item => item.type === 'note').length} Nachrichten
               </div>
             </div>
-            <button
-              onClick={startAnimation}
-              className={`mt-6 flex items-center gap-2 px-6 py-3 rounded-xl mx-auto transition-colors duration-300 ${
-                isDarkMode 
-                  ? 'bg-pink-600 hover:bg-pink-700 text-white' 
-                  : 'bg-pink-500 hover:bg-pink-600 text-white'
-              }`}
-            >
-              <Play className="w-5 h-5" />
-              Slideshow starten
-            </button>
+            
+            <div className="space-y-4">
+              <button
+                onClick={startAnimation}
+                className={`flex items-center gap-3 px-8 py-4 rounded-xl mx-auto transition-all duration-300 hover:scale-105 ${
+                  isDarkMode 
+                    ? 'bg-pink-600 hover:bg-pink-700 text-white shadow-lg' 
+                    : 'bg-pink-500 hover:bg-pink-600 text-white shadow-lg'
+                }`}
+              >
+                <Play className="w-6 h-6" />
+                <span className="text-lg font-semibold">Slideshow mit Musik starten</span>
+              </button>
+              
+              <p className={`text-sm transition-colors duration-300 ${
+                isDarkMode ? 'text-gray-500' : 'text-gray-500'
+              }`}>
+                🎵 Mit romantischer Hintergrundmusik • ⏯️ Steuerbar • 📱 Optimiert für alle Geräte
+              </p>
+            </div>
           </div>
         )}
 
         {/* Moments Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {moments.map((moment) => (
+          {moments.map((moment, index) => (
             <div
               key={moment.id}
-              className={`rounded-2xl border transition-all duration-300 hover:scale-105 cursor-pointer ${
+              className={`rounded-2xl border transition-all duration-300 hover:scale-105 cursor-pointer animate-slideUp ${
                 isDarkMode 
-                  ? 'bg-gray-800 border-gray-700 hover:bg-gray-700' 
-                  : 'bg-white border-gray-200 hover:bg-gray-50 shadow-lg'
+                  ? 'bg-gray-800 border-gray-700 hover:bg-gray-700 shadow-xl' 
+                  : 'bg-white border-gray-200 hover:bg-gray-50 shadow-lg hover:shadow-xl'
               }`}
+              style={{ animationDelay: `${index * 0.1}s` }}
               onClick={() => setSelectedMoment(moment)}
             >
               {/* Moment Header */}
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className={`p-2 rounded-full text-white ${getCategoryColor(moment.category)}`}>
+                  <div className={`p-3 rounded-full text-white ${getCategoryColor(moment.category)}`}>
                     {getCategoryIcon(moment.category)}
                   </div>
                   <div>
-                    <h3 className={`font-semibold transition-colors duration-300 ${
+                    <h3 className={`text-lg font-semibold transition-colors duration-300 ${
                       isDarkMode ? 'text-white' : 'text-gray-900'
                     }`}>
                       {moment.title}
@@ -474,20 +564,25 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
 
                 {/* Media Preview */}
                 <div className="grid grid-cols-3 gap-2 mb-4">
-                  {moment.mediaItems.slice(0, 3).map((media, index) => (
-                    <div key={index} className="aspect-square rounded-lg overflow-hidden bg-gray-200">
+                  {moment.mediaItems.slice(0, 3).map((media, mediaIndex) => (
+                    <div key={mediaIndex} className="aspect-square rounded-lg overflow-hidden bg-gray-200">
                       {media.type === 'image' && media.url ? (
                         <img
                           src={media.url}
                           alt={media.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
                         />
                       ) : media.type === 'video' && media.url ? (
-                        <video
-                          src={media.url}
-                          className="w-full h-full object-cover"
-                          muted
-                        />
+                        <div className="relative w-full h-full">
+                          <video
+                            src={media.url}
+                            className="w-full h-full object-cover"
+                            muted
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                            <Play className="w-6 h-6 text-white" />
+                          </div>
+                        </div>
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           {media.type === 'note' ? (
@@ -503,10 +598,10 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
 
                 {/* Tags */}
                 <div className="flex flex-wrap gap-2">
-                  {moment.tags.slice(0, 3).map((tag, index) => (
+                  {moment.tags.slice(0, 3).map((tag, tagIndex) => (
                     <span
-                      key={index}
-                      className={`px-2 py-1 rounded-full text-xs transition-colors duration-300 ${
+                      key={tagIndex}
+                      className={`px-3 py-1 rounded-full text-xs transition-colors duration-300 ${
                         isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
                       }`}
                     >
@@ -514,7 +609,7 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
                     </span>
                   ))}
                   {moment.tags.length > 3 && (
-                    <span className={`px-2 py-1 rounded-full text-xs transition-colors duration-300 ${
+                    <span className={`px-3 py-1 rounded-full text-xs transition-colors duration-300 ${
                       isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
                     }`}>
                       +{moment.tags.length - 3}
@@ -551,30 +646,46 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
                     </div>
                   )}
                 </div>
+                <ArrowLeft className={`w-4 h-4 rotate-180 transition-colors duration-300 ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                }`} />
               </div>
             </div>
           ))}
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-12 py-8">
-          <p className={`text-lg mb-4 transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+        <div className="text-center mt-16 py-8">
+          <div className={`max-w-2xl mx-auto p-8 rounded-2xl transition-colors duration-300 ${
+            isDarkMode 
+              ? 'bg-gradient-to-br from-pink-900/20 to-purple-900/20 border border-pink-700/30' 
+              : 'bg-gradient-to-br from-pink-50 to-purple-50 border border-pink-200'
           }`}>
-            Vielen Dank, dass ihr unseren besonderen Tag mit uns geteilt habt! 💕
-          </p>
-          <p className={`text-sm transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-500' : 'text-gray-500'
-          }`}>
-            Mit Liebe erstellt von Kristin & Maurizio
-          </p>
+            <h3 className={`text-2xl font-bold mb-4 transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Vielen Dank! 💕
+            </h3>
+            <p className={`text-lg mb-4 transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
+            }`}>
+              {guestName 
+                ? `Liebe/r ${guestName}, vielen Dank, dass du unseren besonderen Tag mit uns geteilt hast!`
+                : 'Vielen Dank, dass ihr unseren besonderen Tag mit uns geteilt habt!'}
+            </p>
+            <p className={`text-sm transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-500' : 'text-gray-500'
+            }`}>
+              Mit Liebe erstellt von Kristin & Maurizio ✨
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Moment Detail Modal */}
       {selectedMoment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
+          <div className={`rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
             isDarkMode ? 'bg-gray-800' : 'bg-white'
           }`}>
             {/* Modal Header */}
@@ -605,20 +716,20 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
               </p>
 
               {/* Media Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {selectedMoment.mediaItems.map((media, index) => (
-                  <div key={index} className="aspect-square rounded-lg overflow-hidden bg-gray-200">
+                  <div key={index} className="aspect-square rounded-lg overflow-hidden bg-gray-200 group">
                     {media.type === 'image' && media.url ? (
                       <img
                         src={media.url}
                         alt={media.name}
-                        className="w-full h-full object-cover cursor-pointer"
+                        className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-110"
                         onClick={() => window.open(media.url, '_blank')}
                       />
                     ) : media.type === 'video' && media.url ? (
                       <video
                         src={media.url}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover cursor-pointer"
                         controls
                         preload="metadata"
                       />
