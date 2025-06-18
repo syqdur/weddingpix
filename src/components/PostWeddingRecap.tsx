@@ -71,6 +71,17 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
     message: '',
     selectedMoments: [] as string[]
   });
+  const [editingCard, setEditingCard] = useState<ThankYouCard | null>(null);
+  const [showMomentForm, setShowMomentForm] = useState(false);
+  const [editingMoment, setEditingMoment] = useState<Moment | null>(null);
+  const [newMoment, setNewMoment] = useState({
+    title: '',
+    description: '',
+    category: 'ceremony' as Moment['category'],
+    location: '',
+    tags: [] as string[],
+    tagInput: ''
+  });
 
   // Check admin status from localStorage as well
   const [actualIsAdmin, setActualIsAdmin] = useState(false);
@@ -169,11 +180,119 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   }, [mediaItems]);
 
   const handleCreateMoment = () => {
-    setShowCreateMoment(true);
+    setEditingMoment(null);
+    setNewMoment({
+      title: '',
+      description: '',
+      category: 'ceremony',
+      location: '',
+      tags: [],
+      tagInput: ''
+    });
+    setShowMomentForm(true);
+  };
+
+  const handleEditMoment = (moment: Moment) => {
+    setEditingMoment(moment);
+    setNewMoment({
+      title: moment.title,
+      description: moment.description,
+      category: moment.category,
+      location: moment.location || '',
+      tags: [...moment.tags],
+      tagInput: ''
+    });
+    setShowMomentForm(true);
+  };
+
+  const handleDeleteMoment = (momentId: string) => {
+    if (window.confirm('Diesen Moment wirklich löschen?')) {
+      setMoments(prev => prev.filter(m => m.id !== momentId));
+    }
+  };
+
+  const handleSaveMoment = () => {
+    if (!newMoment.title.trim()) {
+      alert('Bitte gib einen Titel ein.');
+      return;
+    }
+
+    if (editingMoment) {
+      // Update existing moment
+      setMoments(prev => prev.map(m => 
+        m.id === editingMoment.id 
+          ? {
+              ...m,
+              title: newMoment.title,
+              description: newMoment.description,
+              category: newMoment.category,
+              location: newMoment.location || undefined,
+              tags: newMoment.tags
+            }
+          : m
+      ));
+    } else {
+      // Create new moment
+      const newMomentObj: Moment = {
+        id: Date.now().toString(),
+        title: newMoment.title,
+        description: newMoment.description,
+        category: newMoment.category,
+        timestamp: new Date().toISOString(),
+        location: newMoment.location || undefined,
+        tags: newMoment.tags,
+        mediaItems: []
+      };
+      
+      setMoments(prev => [...prev, newMomentObj]);
+    }
+    
+    setShowMomentForm(false);
+  };
+
+  const handleAddTag = () => {
+    if (newMoment.tagInput.trim()) {
+      setNewMoment({
+        ...newMoment,
+        tags: [...newMoment.tags, newMoment.tagInput.trim()],
+        tagInput: ''
+      });
+    }
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setNewMoment({
+      ...newMoment,
+      tags: newMoment.tags.filter(t => t !== tag)
+    });
   };
 
   const handleCreateCard = () => {
+    setEditingCard(null);
+    setNewCard({
+      recipientName: '',
+      recipientEmail: '',
+      message: '',
+      selectedMoments: []
+    });
     setShowCardForm(true);
+  };
+
+  const handleEditCard = (card: ThankYouCard) => {
+    setEditingCard(card);
+    setNewCard({
+      recipientName: card.recipientName,
+      recipientEmail: card.recipientEmail,
+      message: card.message,
+      selectedMoments: [...card.selectedMoments]
+    });
+    setShowCardForm(true);
+  };
+
+  const handleDeleteCard = (cardId: string) => {
+    if (window.confirm('Diese Dankeskarte wirklich löschen?')) {
+      setThankYouCards(prev => prev.filter(card => card.id !== cardId));
+    }
   };
 
   const handleSendCard = () => {
@@ -186,21 +305,37 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
     const guestId = Math.random().toString(36).substring(2, 15);
     const recapLink = `${window.location.origin}/recap?for=${encodeURIComponent(newCard.recipientName)}&id=${guestId}`;
     
-    // Create the card
-    const card: ThankYouCard = {
-      id: Date.now().toString(),
-      recipientName: newCard.recipientName,
-      recipientEmail: newCard.recipientEmail,
-      message: newCard.message,
-      template: 'elegant',
-      selectedMoments: newCard.selectedMoments,
-      status: 'draft'
-    };
+    if (editingCard) {
+      // Update existing card
+      setThankYouCards(prev => prev.map(card => 
+        card.id === editingCard.id
+          ? {
+              ...card,
+              recipientName: newCard.recipientName,
+              recipientEmail: newCard.recipientEmail,
+              message: newCard.message,
+              selectedMoments: newCard.selectedMoments
+            }
+          : card
+      ));
+      
+      alert(`Dankeskarte für ${newCard.recipientName} aktualisiert!`);
+    } else {
+      // Create new card
+      const card: ThankYouCard = {
+        id: Date.now().toString(),
+        recipientName: newCard.recipientName,
+        recipientEmail: newCard.recipientEmail,
+        message: newCard.message,
+        template: 'elegant',
+        selectedMoments: newCard.selectedMoments,
+        status: 'draft'
+      };
 
-    setThankYouCards(prev => [...prev, card]);
-    
-    // Show the generated link
-    alert(`Dankeskarte erstellt! 
+      setThankYouCards(prev => [...prev, card]);
+      
+      // Show the generated link
+      alert(`Dankeskarte erstellt! 
 
 Individueller Link für ${newCard.recipientName}:
 ${recapLink}
@@ -208,6 +343,7 @@ ${recapLink}
 Kopiere diesen Link und sende ihn per E-Mail, WhatsApp oder einem anderen Kanal an ${newCard.recipientName}.
 
 Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow und Musik.`);
+    }
     
     // Reset form
     setNewCard({
@@ -217,6 +353,7 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
       selectedMoments: []
     });
     setShowCardForm(false);
+    setEditingCard(null);
   };
 
   const handleShareRecap = () => {
@@ -433,35 +570,58 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
               {moments.map((moment) => (
                 <div
                   key={moment.id}
-                  className={`rounded-2xl border transition-all duration-300 hover:scale-105 cursor-pointer ${
+                  className={`rounded-2xl border transition-all duration-300 hover:scale-105 ${
                     isDarkMode 
                       ? 'bg-gray-800 border-gray-700 hover:bg-gray-700' 
                       : 'bg-white border-gray-200 hover:bg-gray-50 shadow-lg'
                   }`}
-                  onClick={() => setSelectedMoment(moment)}
                 >
                   {/* Moment Header */}
                   <div className="p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className={`p-2 rounded-full text-white ${getCategoryColor(moment.category)}`}>
-                        {getCategoryIcon(moment.category)}
-                      </div>
-                      <div>
-                        <h3 className={`font-semibold transition-colors duration-300 ${
-                          isDarkMode ? 'text-white' : 'text-gray-900'
-                        }`}>
-                          {moment.title}
-                        </h3>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className={`w-3 h-3 transition-colors duration-300 ${
-                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                          }`} />
-                          <span className={`transition-colors duration-300 ${
-                            isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                          }`}>
-                            {formatDate(moment.timestamp)}
-                          </span>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full text-white ${getCategoryColor(moment.category)}`}>
+                          {getCategoryIcon(moment.category)}
                         </div>
+                        <div>
+                          <h3 className={`font-semibold transition-colors duration-300 ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>
+                            {moment.title}
+                          </h3>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className={`w-3 h-3 transition-colors duration-300 ${
+                              isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                            }`} />
+                            <span className={`transition-colors duration-300 ${
+                              isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                            }`}>
+                              {formatDate(moment.timestamp)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Edit/Delete Buttons */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleEditMoment(moment)}
+                          className={`p-2 rounded transition-colors duration-300 ${
+                            isDarkMode ? 'hover:bg-gray-700 text-blue-400' : 'hover:bg-blue-50 text-blue-600'
+                          }`}
+                          title="Moment bearbeiten"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMoment(moment.id)}
+                          className={`p-2 rounded transition-colors duration-300 ${
+                            isDarkMode ? 'hover:bg-gray-700 text-red-400' : 'hover:bg-red-50 text-red-600'
+                          }`}
+                          title="Moment löschen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
 
@@ -550,6 +710,16 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
                         </div>
                       )}
                     </div>
+                    
+                    <button
+                      onClick={() => setSelectedMoment(moment)}
+                      className={`p-2 rounded-full transition-colors duration-300 ${
+                        isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                      title="Details anzeigen"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -580,6 +750,201 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
                 </div>
               </div>
             </div>
+            
+            {/* Moment Form Modal */}
+            {showMomentForm && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className={`rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto transition-colors duration-300 ${
+                  isDarkMode ? 'bg-gray-800' : 'bg-white'
+                }`}>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className={`text-xl font-semibold transition-colors duration-300 ${
+                      isDarkMode ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      {editingMoment ? 'Moment bearbeiten' : 'Neuen Moment erstellen'}
+                    </h3>
+                    <button
+                      onClick={() => setShowMomentForm(false)}
+                      className={`p-2 rounded-full transition-colors duration-300 ${
+                        isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>
+                        Titel *
+                      </label>
+                      <input
+                        type="text"
+                        value={newMoment.title}
+                        onChange={(e) => setNewMoment({...newMoment, title: e.target.value})}
+                        className={`w-full px-4 py-2 border rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white' 
+                            : 'bg-white border-gray-300 text-gray-900'
+                        }`}
+                        placeholder="z.B. Die Zeremonie"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>
+                        Kategorie
+                      </label>
+                      <select
+                        value={newMoment.category}
+                        onChange={(e) => setNewMoment({...newMoment, category: e.target.value as Moment['category']})}
+                        className={`w-full px-4 py-2 border rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white' 
+                            : 'bg-white border-gray-300 text-gray-900'
+                        }`}
+                      >
+                        <option value="ceremony">💒 Zeremonie</option>
+                        <option value="reception">🎉 Feier</option>
+                        <option value="party">💃 Party</option>
+                        <option value="special">✨ Besondere Momente</option>
+                        <option value="custom">🎯 Benutzerdefiniert</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>
+                        Beschreibung
+                      </label>
+                      <textarea
+                        value={newMoment.description}
+                        onChange={(e) => setNewMoment({...newMoment, description: e.target.value})}
+                        rows={3}
+                        className={`w-full px-4 py-2 border rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white' 
+                            : 'bg-white border-gray-300 text-gray-900'
+                        }`}
+                        placeholder="Beschreibe diesen besonderen Moment..."
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>
+                        Ort
+                      </label>
+                      <input
+                        type="text"
+                        value={newMoment.location}
+                        onChange={(e) => setNewMoment({...newMoment, location: e.target.value})}
+                        className={`w-full px-4 py-2 border rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-700 border-gray-600 text-white' 
+                            : 'bg-white border-gray-300 text-gray-900'
+                        }`}
+                        placeholder="z.B. Kirche, Festsaal, etc."
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
+                        isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>
+                        Tags
+                      </label>
+                      <div className="flex gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={newMoment.tagInput}
+                          onChange={(e) => setNewMoment({...newMoment, tagInput: e.target.value})}
+                          className={`flex-1 px-4 py-2 border rounded-lg transition-colors duration-300 ${
+                            isDarkMode 
+                              ? 'bg-gray-700 border-gray-600 text-white' 
+                              : 'bg-white border-gray-300 text-gray-900'
+                          }`}
+                          placeholder="Neuen Tag eingeben..."
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddTag();
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddTag}
+                          className={`px-4 py-2 rounded-lg transition-colors duration-300 ${
+                            isDarkMode 
+                              ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                              : 'bg-blue-500 hover:bg-blue-600 text-white'
+                          }`}
+                        >
+                          Hinzufügen
+                        </button>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {newMoment.tags.map((tag, index) => (
+                          <div 
+                            key={index}
+                            className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm transition-colors duration-300 ${
+                              isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              className="ml-1 text-red-500 hover:text-red-700"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                        {newMoment.tags.length === 0 && (
+                          <span className={`text-sm transition-colors duration-300 ${
+                            isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                          }`}>
+                            Noch keine Tags hinzugefügt
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setShowMomentForm(false)}
+                        className={`flex-1 py-2 px-4 rounded-lg transition-colors duration-300 ${
+                          isDarkMode 
+                            ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
+                            : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+                        }`}
+                      >
+                        Abbrechen
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveMoment}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
+                      >
+                        <Save className="w-4 h-4" />
+                        {editingMoment ? 'Speichern' : 'Erstellen'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -626,13 +991,35 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
                     }`}>
                       {card.recipientName}
                     </h3>
-                    <span className={`px-2 py-1 rounded-full text-xs transition-colors duration-300 ${
-                      card.status === 'sent'
-                        ? isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
-                        : isDarkMode ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {card.status === 'sent' ? 'Versendet' : 'Entwurf'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-1 rounded-full text-xs transition-colors duration-300 ${
+                        card.status === 'sent'
+                          ? isDarkMode ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800'
+                          : isDarkMode ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {card.status === 'sent' ? 'Versendet' : 'Entwurf'}
+                      </span>
+                      
+                      {/* Edit/Delete Buttons */}
+                      <button
+                        onClick={() => handleEditCard(card)}
+                        className={`p-1 rounded transition-colors duration-300 ${
+                          isDarkMode ? 'hover:bg-gray-700 text-blue-400' : 'hover:bg-blue-50 text-blue-600'
+                        }`}
+                        title="Dankeskarte bearbeiten"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteCard(card.id)}
+                        className={`p-1 rounded transition-colors duration-300 ${
+                          isDarkMode ? 'hover:bg-gray-700 text-red-400' : 'hover:bg-red-50 text-red-600'
+                        }`}
+                        title="Dankeskarte löschen"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   <p className={`text-sm mb-4 transition-colors duration-300 ${
                     isDarkMode ? 'text-gray-300' : 'text-gray-600'
@@ -709,10 +1096,13 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
                     <h3 className={`text-xl font-semibold transition-colors duration-300 ${
                       isDarkMode ? 'text-white' : 'text-gray-900'
                     }`}>
-                      Neue Dankeskarte erstellen
+                      {editingCard ? 'Dankeskarte bearbeiten' : 'Neue Dankeskarte erstellen'}
                     </h3>
                     <button
-                      onClick={() => setShowCardForm(false)}
+                      onClick={() => {
+                        setShowCardForm(false);
+                        setEditingCard(null);
+                      }}
                       className={`p-2 rounded-full transition-colors duration-300 ${
                         isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
                       }`}
@@ -842,7 +1232,10 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
                     
                     <div className="flex gap-3 pt-4">
                       <button
-                        onClick={() => setShowCardForm(false)}
+                        onClick={() => {
+                          setShowCardForm(false);
+                          setEditingCard(null);
+                        }}
                         className={`flex-1 py-2 px-4 rounded-lg transition-colors duration-300 ${
                           isDarkMode 
                             ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
@@ -856,7 +1249,7 @@ Der Link führt zu einer personalisierten Recap-Seite mit animierter Slideshow u
                         className="flex-1 flex items-center justify-center gap-2 py-2 px-4 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors"
                       >
                         <Send className="w-4 h-4" />
-                        Dankeskarte erstellen
+                        {editingCard ? 'Aktualisieren' : 'Dankeskarte erstellen'}
                       </button>
                     </div>
                   </div>
