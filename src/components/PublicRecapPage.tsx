@@ -270,9 +270,8 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
           muted={isMuted}
           preload="auto"
         >
-          <source src="https://filebin.net/wxyvlnmtap41dfxb/iris.mp3" type="audio/mpeg" />
-          <source src="https://filebin.net/wxyvlnmtap41dfxb/iris.mp3" type="audio/mpeg" />
-        </audio>
+          <source src="https://firebasestorage.googleapis.com/v0/b/weddingpix-744e5.firebasestorage.app/o/uploads%2Firis.mp3?alt=media&token=b1e5516e-0fca-47b9-90c4-f9e8bb9a40cc" type="audio/mpeg" />
+                  </audio>
         
         {/* Controls */}
         <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
