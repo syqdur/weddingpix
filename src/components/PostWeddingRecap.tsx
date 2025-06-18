@@ -29,7 +29,7 @@ import {
 } from "lucide-react"
 
 // Firebase Imports
-import { db } from "/src/config/firebase.ts"
+import { db } from "../config/firebase"
 import {
   collection,
   addDoc,
