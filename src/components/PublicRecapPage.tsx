@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Heart, Camera, Calendar, MapPin, ArrowLeft, Share2, Eye, Image, Video, MessageSquare } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Heart, Camera, Calendar, MapPin, ArrowLeft, Share2, Eye, Image, Video, MessageSquare, Music, VolumeX, Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react';
 import { MediaItem } from '../types';
 import { loadGallery } from '../services/firebaseService';
 
@@ -23,9 +23,27 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
   const [moments, setMoments] = useState<Moment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
+  const [guestName, setGuestName] = useState<string>('');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isAnimationPlaying, setIsAnimationPlaying] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const slideInterval = useRef<NodeJS.Timeout | null>(null);
 
+  // Parse URL parameters to get guest name
   useEffect(() => {
-    // Load media items
+    const urlParams = new URLSearchParams(window.location.search);
+    const name = urlParams.get('for');
+    if (name) {
+      setGuestName(decodeURIComponent(name));
+    }
+  }, []);
+
+  // Load media items
+  useEffect(() => {
     const unsubscribe = loadGallery((items) => {
       setMediaItems(items);
       
@@ -78,6 +96,64 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
     return unsubscribe;
   }, []);
 
+  // Handle slideshow for animation
+  useEffect(() => {
+    if (isAnimationPlaying) {
+      // Start music
+      if (audioRef.current) {
+        audioRef.current.play().catch(err => console.error("Couldn't play audio:", err));
+      }
+      
+      // Start slideshow
+      slideInterval.current = setInterval(() => {
+        setCurrentSlide(prev => {
+          const allMediaItems = moments.flatMap(m => m.mediaItems);
+          return prev < allMediaItems.length - 1 ? prev + 1 : 0;
+        });
+      }, 5000); // Change slide every 5 seconds
+    } else {
+      // Clear interval when animation stops
+      if (slideInterval.current) {
+        clearInterval(slideInterval.current);
+        slideInterval.current = null;
+      }
+      
+      // Pause music
+      if (audioRef.current && !isMuted) {
+        audioRef.current.pause();
+      }
+    }
+    
+    return () => {
+      if (slideInterval.current) {
+        clearInterval(slideInterval.current);
+      }
+    };
+  }, [isAnimationPlaying, moments, isMuted]);
+
+  // Toggle music
+  const toggleMusic = () => {
+    setIsMuted(!isMuted);
+    if (audioRef.current) {
+      if (isMuted) {
+        audioRef.current.play().catch(err => console.error("Couldn't play audio:", err));
+      } else {
+        audioRef.current.pause();
+      }
+    }
+  };
+
+  // Start animated slideshow
+  const startAnimation = () => {
+    setIsAnimationPlaying(true);
+    setShowWelcome(false);
+  };
+
+  // Stop animated slideshow
+  const stopAnimation = () => {
+    setIsAnimationPlaying(false);
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('de-DE', {
       day: '2-digit',
@@ -121,6 +197,16 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
     }
   };
 
+  const nextSlide = () => {
+    const allMediaItems = moments.flatMap(m => m.mediaItems);
+    setCurrentSlide(prev => (prev < allMediaItems.length - 1 ? prev + 1 : 0));
+  };
+
+  const prevSlide = () => {
+    const allMediaItems = moments.flatMap(m => m.mediaItems);
+    setCurrentSlide(prev => (prev > 0 ? prev - 1 : allMediaItems.length - 1));
+  };
+
   if (isLoading) {
     return (
       <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
@@ -133,6 +219,99 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
           }`}>
             Lade Hochzeits-Erinnerungen...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Animated Slideshow View
+  if (isAnimationPlaying) {
+    const allMediaItems = moments.flatMap(m => m.mediaItems);
+    const currentMedia = allMediaItems[currentSlide];
+    
+    return (
+      <div className="fixed inset-0 bg-black z-50">
+        {/* Background music */}
+        <audio 
+          ref={audioRef} 
+          loop 
+          muted={isMuted}
+          src="https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0c6ff1eab.mp3?filename=emotional-piano-118996.mp3"
+        />
+        
+        {/* Controls */}
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-3">
+          <button
+            onClick={toggleMusic}
+            className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+          >
+            {isMuted ? <VolumeX className="w-5 h-5" /> : <Music className="w-5 h-5" />}
+          </button>
+          <button
+            onClick={stopAnimation}
+            className="p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+          >
+            <Pause className="w-5 h-5" />
+          </button>
+        </div>
+        
+        {/* Navigation */}
+        <button
+          onClick={prevSlide}
+          className="absolute left-4 top-1/2 transform -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+        
+        <button
+          onClick={nextSlide}
+          className="absolute right-4 top-1/2 transform -translate-y-1/2 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
+        >
+          <ChevronRight className="w-6 h-6" />
+        </button>
+        
+        {/* Current Media */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          {currentMedia?.type === 'image' && currentMedia.url ? (
+            <img
+              src={currentMedia.url}
+              alt={currentMedia.name}
+              className="max-w-full max-h-full object-contain animate-fadeIn"
+            />
+          ) : currentMedia?.type === 'video' && currentMedia.url ? (
+            <video
+              src={currentMedia.url}
+              className="max-w-full max-h-full object-contain"
+              autoPlay
+              muted
+              loop
+            />
+          ) : currentMedia?.type === 'note' ? (
+            <div className="max-w-lg w-full p-8 bg-white/10 backdrop-blur-md rounded-2xl text-white animate-fadeIn">
+              <div className="text-center mb-4">
+                <MessageSquare className="w-8 h-8 mx-auto mb-2" />
+                <h3 className="text-xl font-semibold">Nachricht von {currentMedia.uploadedBy}</h3>
+              </div>
+              <p className="text-lg leading-relaxed">"{currentMedia.noteText}"</p>
+            </div>
+          ) : (
+            <div className="text-white text-center">
+              <Camera className="w-16 h-16 mx-auto mb-4" />
+              <p>Keine Medien verfügbar</p>
+            </div>
+          )}
+        </div>
+        
+        {/* Caption */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 max-w-2xl w-full px-4">
+          <div className="bg-black/70 backdrop-blur-sm rounded-xl p-4 text-white text-center">
+            <h3 className="text-xl font-semibold mb-2">Kristin & Maurizio</h3>
+            <p className="text-sm opacity-80">
+              {currentMedia?.type === 'note' 
+                ? `Nachricht von ${currentMedia.uploadedBy}`
+                : `Hochzeit am 12. Juli 2025 • ${currentSlide + 1} von ${allMediaItems.length}`}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -170,17 +349,30 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
               </div>
             </div>
             
-            <button
-              onClick={handleShare}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors duration-300 ${
-                isDarkMode 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                  : 'bg-blue-500 hover:bg-blue-600 text-white'
-              }`}
-            >
-              <Share2 className="w-4 h-4" />
-              Teilen
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={startAnimation}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-pink-600 hover:bg-pink-700 text-white' 
+                    : 'bg-pink-500 hover:bg-pink-600 text-white'
+                }`}
+              >
+                <Play className="w-4 h-4" />
+                Slideshow
+              </button>
+              <button
+                onClick={handleShare}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors duration-300 ${
+                  isDarkMode 
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                    : 'bg-blue-500 hover:bg-blue-600 text-white'
+                }`}
+              >
+                <Share2 className="w-4 h-4" />
+                Teilen
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -188,39 +380,54 @@ export const PublicRecapPage: React.FC<PublicRecapPageProps> = ({ isDarkMode }) 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Welcome Message */}
-        <div className={`text-center mb-12 p-8 rounded-2xl transition-colors duration-300 ${
-          isDarkMode 
-            ? 'bg-gradient-to-br from-pink-900/30 to-purple-900/30 border border-pink-700/30' 
-            : 'bg-gradient-to-br from-pink-50 to-purple-50 border border-pink-200'
-        }`}>
-          <h2 className={`text-3xl font-bold mb-4 transition-colors duration-300 ${
-            isDarkMode ? 'text-white' : 'text-gray-900'
+        {showWelcome && (
+          <div className={`text-center mb-12 p-8 rounded-2xl transition-colors duration-300 ${
+            isDarkMode 
+              ? 'bg-gradient-to-br from-pink-900/30 to-purple-900/30 border border-pink-700/30' 
+              : 'bg-gradient-to-br from-pink-50 to-purple-50 border border-pink-200'
           }`}>
-            Vielen Dank für eure Teilnahme! 💕
-          </h2>
-          <p className={`text-lg mb-6 transition-colors duration-300 ${
-            isDarkMode ? 'text-gray-300' : 'text-gray-700'
-          }`}>
-            Hier sind die schönsten Momente unserer Hochzeit, die wir gemeinsam mit euch erlebt haben.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <div className={`px-4 py-2 rounded-full transition-colors duration-300 ${
-              isDarkMode ? 'bg-pink-600 text-white' : 'bg-pink-100 text-pink-800'
+            <h2 className={`text-3xl font-bold mb-4 transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
             }`}>
-              📸 {mediaItems.filter(item => item.type === 'image').length} Fotos
-            </div>
-            <div className={`px-4 py-2 rounded-full transition-colors duration-300 ${
-              isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
+              {guestName ? `Hallo ${guestName}! 👋` : 'Vielen Dank für eure Teilnahme! 💕'}
+            </h2>
+            <p className={`text-lg mb-6 transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-700'
             }`}>
-              🎥 {mediaItems.filter(item => item.type === 'video').length} Videos
+              {guestName 
+                ? `Wir freuen uns, dass du unsere Hochzeits-Erinnerungen anschaust. Hier sind die schönsten Momente, die wir mit dir und allen anderen Gästen geteilt haben.`
+                : 'Hier sind die schönsten Momente unserer Hochzeit, die wir gemeinsam mit euch erlebt haben.'}
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <div className={`px-4 py-2 rounded-full transition-colors duration-300 ${
+                isDarkMode ? 'bg-pink-600 text-white' : 'bg-pink-100 text-pink-800'
+              }`}>
+                📸 {mediaItems.filter(item => item.type === 'image').length} Fotos
+              </div>
+              <div className={`px-4 py-2 rounded-full transition-colors duration-300 ${
+                isDarkMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'
+              }`}>
+                🎥 {mediaItems.filter(item => item.type === 'video').length} Videos
+              </div>
+              <div className={`px-4 py-2 rounded-full transition-colors duration-300 ${
+                isDarkMode ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-800'
+              }`}>
+                💌 {mediaItems.filter(item => item.type === 'note').length} Nachrichten
+              </div>
             </div>
-            <div className={`px-4 py-2 rounded-full transition-colors duration-300 ${
-              isDarkMode ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-800'
-            }`}>
-              💌 {mediaItems.filter(item => item.type === 'note').length} Nachrichten
-            </div>
+            <button
+              onClick={startAnimation}
+              className={`mt-6 flex items-center gap-2 px-6 py-3 rounded-xl mx-auto transition-colors duration-300 ${
+                isDarkMode 
+                  ? 'bg-pink-600 hover:bg-pink-700 text-white' 
+                  : 'bg-pink-500 hover:bg-pink-600 text-white'
+              }`}
+            >
+              <Play className="w-5 h-5" />
+              Slideshow starten
+            </button>
           </div>
-        </div>
+        )}
 
         {/* Moments Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

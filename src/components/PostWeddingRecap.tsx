@@ -29,6 +29,7 @@ interface ThankYouCard {
   selectedMoments: string[];
   status: 'draft' | 'sent';
   sentAt?: string;
+  uniqueId?: string; // Unique identifier for personalized links
 }
 
 interface Analytics {
@@ -65,9 +66,13 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   const [selectedMoment, setSelectedMoment] = useState<Moment | null>(null);
   const [editingCard, setEditingCard] = useState<ThankYouCard | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [baseUrl, setBaseUrl] = useState('');
 
   // Initialize with sample data
   useEffect(() => {
+    // Set base URL for personalized links
+    setBaseUrl(window.location.origin);
+    
     // Simulate loading
     setTimeout(() => {
       // Create sample moments from media items
@@ -105,7 +110,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
 
       setMoments(sampleMoments);
       
-      // Sample thank you cards
+      // Sample thank you cards with unique IDs
       const sampleCards: ThankYouCard[] = [
         {
           id: '1',
@@ -114,7 +119,8 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
           message: 'Liebe Familie Schmidt,\n\nvielen Dank für eure Teilnahme an unserem besonderen Tag! Es war wunderschön, euch dabei zu haben.\n\nMit liebsten Grüßen,\nKristin & Maurizio',
           template: 'elegant',
           selectedMoments: ['1', '2'],
-          status: 'draft'
+          status: 'draft',
+          uniqueId: 'schmidt-' + Math.random().toString(36).substring(2, 10)
         },
         {
           id: '2',
@@ -124,7 +130,8 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
           template: 'modern',
           selectedMoments: ['1', '3'],
           status: 'sent',
-          sentAt: '2025-07-15T10:30:00Z'
+          sentAt: '2025-07-15T10:30:00Z',
+          uniqueId: 'anna-peter-' + Math.random().toString(36).substring(2, 10)
         }
       ];
 
@@ -185,7 +192,11 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
           : card
       ));
     } else {
-      // Create new card
+      // Create new card with unique ID
+      const uniqueId = cardData.recipientName 
+        ? cardData.recipientName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Math.random().toString(36).substring(2, 10)
+        : 'guest-' + Math.random().toString(36).substring(2, 10);
+        
       const newCard: ThankYouCard = {
         id: Date.now().toString(),
         recipientName: cardData.recipientName || '',
@@ -193,7 +204,8 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
         message: cardData.message || '',
         template: cardData.template || 'elegant',
         selectedMoments: cardData.selectedMoments || [],
-        status: 'draft'
+        status: 'draft',
+        uniqueId
       };
       setThankYouCards(prev => [...prev, newCard]);
     }
@@ -202,12 +214,15 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   };
 
   const handleSendCard = (card: ThankYouCard) => {
+    // Generate personalized link
+    const personalizedLink = `${baseUrl}/recap?for=${encodeURIComponent(card.recipientName)}&id=${card.uniqueId}`;
+    
     // Generate mailto link
     const subject = encodeURIComponent('Dankeschön für unsere Hochzeit 💕');
     const body = encodeURIComponent(
       `${card.message}\n\n` +
-      `Schaut euch auch unsere Hochzeits-Erinnerungen an:\n` +
-      `${window.location.origin}/recap\n\n` +
+      `Schau dir auch unsere Hochzeits-Erinnerungen an (mit persönlicher Slideshow):\n` +
+      `${personalizedLink}\n\n` +
       `Mit liebsten Grüßen,\n` +
       `Kristin & Maurizio`
     );
@@ -226,7 +241,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   };
 
   const handleShareRecap = () => {
-    const shareUrl = `${window.location.origin}/recap`;
+    const shareUrl = `${baseUrl}/recap`;
     navigator.clipboard.writeText(shareUrl);
     alert('Link zur öffentlichen Zusammenfassung wurde in die Zwischenablage kopiert!\n\nDiesen Link können eure Gäste verwenden: ' + shareUrl);
   };
@@ -259,6 +274,11 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
       case 'special': return 'bg-yellow-500';
       default: return 'bg-gray-500';
     }
+  };
+
+  // Generate personalized link for a card
+  const getPersonalizedLink = (card: ThankYouCard) => {
+    return `${baseUrl}/recap?for=${encodeURIComponent(card.recipientName)}&id=${card.uniqueId}`;
   };
 
   if (isLoading) {
@@ -640,6 +660,36 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                     </span>
                   </div>
                   
+                  {/* Personalized Link */}
+                  <div className={`mb-4 p-3 rounded-lg transition-colors duration-300 ${
+                    isDarkMode ? 'bg-blue-900/20 border border-blue-700/30' : 'bg-blue-50 border border-blue-200'
+                  }`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className={`text-sm font-medium transition-colors duration-300 ${
+                        isDarkMode ? 'text-blue-300' : 'text-blue-800'
+                      }`}>
+                        Persönlicher Link
+                      </h4>
+                      <button
+                        onClick={() => {
+                          const link = getPersonalizedLink(card);
+                          navigator.clipboard.writeText(link);
+                          alert(`Persönlicher Link für ${card.recipientName} wurde in die Zwischenablage kopiert!`);
+                        }}
+                        className={`p-1 rounded transition-colors duration-300 ${
+                          isDarkMode ? 'hover:bg-blue-800 text-blue-300' : 'hover:bg-blue-100 text-blue-600'
+                        }`}
+                      >
+                        <Share2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <p className={`text-xs truncate transition-colors duration-300 ${
+                      isDarkMode ? 'text-blue-200' : 'text-blue-700'
+                    }`}>
+                      {getPersonalizedLink(card)}
+                    </p>
+                  </div>
+                  
                   {card.status === 'sent' && card.sentAt && (
                     <div className="flex items-center gap-2 text-sm mb-4">
                       <Calendar className={`w-4 h-4 transition-colors duration-300 ${
@@ -682,9 +732,9 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                     
                     <button
                       onClick={() => {
-                        const shareUrl = `${window.location.origin}/recap`;
-                        navigator.clipboard.writeText(shareUrl);
-                        alert(`Link zur öffentlichen Zusammenfassung wurde in die Zwischenablage kopiert!\n\nDiesen Link kannst du an ${card.recipientName} senden: ${shareUrl}`);
+                        const personalizedLink = getPersonalizedLink(card);
+                        navigator.clipboard.writeText(personalizedLink);
+                        alert(`Persönlicher Link für ${card.recipientName} wurde in die Zwischenablage kopiert!`);
                       }}
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors duration-300 ${
                         isDarkMode 
@@ -767,7 +817,7 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                         `Liebe Gäste,\n\n` +
                         `wir möchten euch herzlich für eure Teilnahme an unserer Hochzeit danken!\n\n` +
                         `Hier findet ihr eine Zusammenfassung mit allen schönen Momenten:\n` +
-                        `${window.location.origin}/recap\n\n` +
+                        `${baseUrl}/recap\n\n` +
                         `Mit liebsten Grüßen,\n` +
                         `Kristin & Maurizio`
                       );
@@ -798,45 +848,38 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                 <h3 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
                   isDarkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  Vorschau
+                  Personalisierte Links
                 </h3>
                 
                 <div className={`p-4 rounded-lg transition-colors duration-300 ${
                   isDarkMode ? 'bg-gray-700' : 'bg-gray-50'
                 }`}>
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">💕</div>
+                  <div className="text-center mb-4">
+                    <div className="text-4xl mb-2">🔗</div>
                     <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
                       isDarkMode ? 'text-white' : 'text-gray-900'
                     }`}>
-                      Kristin & Maurizio
+                      Individuelle Erinnerungen
                     </h4>
                     <p className={`text-sm transition-colors duration-300 ${
                       isDarkMode ? 'text-gray-300' : 'text-gray-600'
                     }`}>
-                      Unsere Hochzeits-Zusammenfassung
-                    </p>
-                    <p className={`text-xs mt-2 transition-colors duration-300 ${
-                      isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                    }`}>
-                      12. Juli 2025
+                      Jeder Gast erhält einen personalisierten Link mit individueller Begrüßung und Slideshow
                     </p>
                   </div>
-                </div>
-                
-                <div className="mt-4">
-                  <div className={`p-4 rounded-lg border transition-colors duration-300 ${
+                  
+                  <div className={`p-3 rounded-lg border transition-colors duration-300 ${
                     isDarkMode ? 'bg-blue-900/20 border-blue-700/30' : 'bg-blue-50 border-blue-200'
                   }`}>
-                    <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
+                    <h4 className={`text-sm font-medium mb-2 transition-colors duration-300 ${
                       isDarkMode ? 'text-blue-300' : 'text-blue-800'
                     }`}>
-                      Öffentliche URL
+                      Beispiel-Link für Familie Schmidt:
                     </h4>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
-                        value={`${window.location.origin}/recap`}
+                        value={thankYouCards.length > 0 ? getPersonalizedLink(thankYouCards[0]) : `${baseUrl}/recap?for=Familie%20Schmidt`}
                         readOnly
                         className={`flex-1 px-3 py-2 rounded-lg text-sm transition-colors duration-300 ${
                           isDarkMode 
@@ -844,25 +887,35 @@ export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
                             : 'bg-white border border-gray-300 text-gray-900'
                         }`}
                       />
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(`${window.location.origin}/recap`);
-                          alert('Link wurde in die Zwischenablage kopiert!');
-                        }}
-                        className={`p-2 rounded-lg transition-colors duration-300 ${
-                          isDarkMode 
-                            ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                            : 'bg-blue-500 hover:bg-blue-600 text-white'
-                        }`}
-                      >
-                        <Share2 className="w-4 h-4" />
-                      </button>
                     </div>
-                    <p className={`text-xs mt-2 transition-colors duration-300 ${
-                      isDarkMode ? 'text-blue-300' : 'text-blue-700'
+                  </div>
+                </div>
+                
+                <div className="mt-4">
+                  <div className={`p-4 rounded-lg border transition-colors duration-300 ${
+                    isDarkMode ? 'bg-pink-900/20 border-pink-700/30' : 'bg-pink-50 border-pink-200'
+                  }`}>
+                    <h4 className={`font-semibold mb-2 transition-colors duration-300 ${
+                      isDarkMode ? 'text-pink-300' : 'text-pink-800'
                     }`}>
-                      Dieser Link ist öffentlich und kann mit allen Gästen geteilt werden.
-                    </p>
+                      Funktionen der personalisierten Links:
+                    </h4>
+                    <ul className={`text-sm space-y-2 transition-colors duration-300 ${
+                      isDarkMode ? 'text-pink-200' : 'text-pink-700'
+                    }`}>
+                      <li className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-pink-500"></div>
+                        <span>Persönliche Begrüßung mit Namen des Gastes</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-pink-500"></div>
+                        <span>Automatische Slideshow mit Hintergrundmusik</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-pink-500"></div>
+                        <span>Individuelle Auswahl von Momenten je nach Gast</span>
+                      </li>
+                    </ul>
                   </div>
                 </div>
               </div>

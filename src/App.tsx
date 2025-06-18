@@ -413,8 +413,8 @@ function App() {
       {/* Instagram-style header */}
       <div className={`border-b sticky top-0 z-40 transition-colors duration-300 ${
         isDarkMode 
-          ? 'bg-gray-800 border-gray-700' 
-          : 'bg-white border-gray-200'
+          ? 'bg-gray-800/80 border-gray-700/50 backdrop-blur-sm' 
+          : 'bg-white/80 border-gray-200/50 backdrop-blur-sm'
       }`}>
         <div className="max-w-md mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
