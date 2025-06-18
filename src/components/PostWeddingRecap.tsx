@@ -5,14 +5,26 @@ import {
   Edit3, Trash2, Save, X, Image, Video, FileText, Gift, 
   Sparkles, Crown, Award, Eye, ThumbsUp, ExternalLink, Copy, Send, Link 
 } from 'lucide-react';
-import { db } from './src/config/firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc, getDocs, where } from 'firebase/firestore';
+import { MediaItem } from '../types';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  deleteDoc, 
+  doc, 
+  updateDoc,
+  getDocs,
+  where
+} from 'firebase/firestore';
+import { db } from '../config/firebase';
 
-interface MediaItem {
-  id: string;
-  url: string;
-  thumbnailUrl: string;
-  description?: string;
+interface PostWeddingRecapProps {
+  isDarkMode: boolean;
+  mediaItems: MediaItem[];
+  isAdmin: boolean;
+  userName: string;
 }
 
 interface Moment {
@@ -55,14 +67,7 @@ interface Analytics {
   }>;
 }
 
-interface PostWeddingRecapProps {
-  isDarkMode: boolean;
-  mediaItems: MediaItem[];
-  isAdmin: boolean;
-  userName: string;
-}
-
-const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
+export const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   isDarkMode,
   mediaItems,
   isAdmin,
@@ -105,41 +110,57 @@ const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
 
   // Load moments from Firestore
   useEffect(() => {
+    console.log('🔄 Loading moments from Firestore...');
+    
     const q = query(collection(db, 'moments'), orderBy('createdAt', 'desc'));
+    
     const unsubscribe = onSnapshot(q, 
       (snapshot) => {
+        console.log(`📋 Moments loaded: ${snapshot.docs.length}`);
+        
         const loadedMoments: Moment[] = snapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data() as Moment
-        }));
+          ...doc.data()
+        } as Moment));
+        
         setMoments(loadedMoments);
         setIsLoading(false);
         setError(null);
       },
       (error) => {
+        console.error('❌ Error loading moments:', error);
         setError(`Fehler beim Laden der Momente: ${error.message}`);
         setIsLoading(false);
         setMoments([]);
       }
     );
+
     return unsubscribe;
   }, []);
 
   // Load thank you cards from Firestore
   useEffect(() => {
+    console.log('🔄 Loading thank you cards from Firestore...');
+    
     const q = query(collection(db, 'thankYouCards'), orderBy('createdAt', 'desc'));
+    
     const unsubscribe = onSnapshot(q, 
       (snapshot) => {
+        console.log(`💌 Thank you cards loaded: ${snapshot.docs.length}`);
+        
         const loadedCards: ThankYouCard[] = snapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data() as ThankYouCard
-        }));
+          ...doc.data()
+        } as ThankYouCard));
+        
         setThankYouCards(loadedCards);
       },
       (error) => {
+        console.error('❌ Error loading thank you cards:', error);
         setError(`Fehler beim Laden der Dankeskarten: ${error.message}`);
       }
     );
+
     return unsubscribe;
   }, []);
 
@@ -147,13 +168,10 @@ const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   const createMoment = async () => {
     try {
       setIsCreatingMoment(true);
-      const mediaItemsForMoment = mediaItems.filter(media => momentForm.selectedMediaIds.includes(media.id));
       const docRef = await addDoc(collection(db, 'moments'), {
         ...momentForm,
-        mediaItems: mediaItemsForMoment,
         createdAt: new Date().toISOString(),
-        createdBy: userName,
-        tags: [] // Initialize tags array
+        createdBy: userName
       });
       console.log('Moment created with ID: ', docRef.id);
       setMomentForm({
@@ -165,6 +183,7 @@ const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
       });
       setShowCreateMoment(false);
     } catch (error) {
+      console.error('Error creating moment: ', error);
       setError(`Fehler beim Erstellen des Moments: ${error.message}`);
     } finally {
       setIsCreatingMoment(false);
@@ -177,6 +196,7 @@ const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
       await deleteDoc(doc(db, 'moments', momentId));
       console.log('Moment deleted with ID: ', momentId);
     } catch (error) {
+      console.error('Error deleting moment: ', error);
       setError(`Fehler beim Löschen des Moments: ${error.message}`);
     }
   };
@@ -192,6 +212,7 @@ const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
         )
       );
     } catch (error) {
+      console.error('Error adding moments to card: ', error);
       setError(`Fehler beim Hinzufügen von Momenten zur Karte: ${error.message}`);
     }
   };
@@ -624,4 +645,128 @@ const PostWeddingRecap: React.FC<PostWeddingRecapProps> = ({
   );
 };
 
-export default PostWeddingRecap;
+// Basic CSS styles
+const style = `
+.post-wedding-recap {
+  font-family: Arial, sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.post-wedding-recap.dark-mode {
+  background-color: #121212;
+  color: white;
+}
+
+nav ul {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-bottom: 1px solid #ddd;
+}
+
+nav li {
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+nav li.active {
+  border-bottom: 2px solid #4CAF50;
+  font-weight: bold;
+}
+
+button {
+  padding: 10px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+input, textarea, select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.submit-button {
+  background-color: #4CAF50;
+}
+
+.cancel-button {
+  background-color: #f44336;
+}
+
+/* Section specific styles */
+.moments-section, .cards-section, .share-section, .analytics-section {
+  margin-top: 20px;
+}
+
+.moment-card, .card-item {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.moment-meta, .card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8em;
+  color: #666;
+}
+
+.moment-actions, .card-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.moment-thumbnail {
+  width: 80px;
+  height: 60px;
+  object-fit: cover;
+  margin-right: 5px;
+}
+
+.more-media {
+  background-color: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+}
+
+.loading-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.2em;
+}
+
+.error-message {
+  background-color: #f44336;
+  color: white;
+  padding: 15px;
+  border-radius: 4px;
+  margin-top: 20px;
+}
+`;
+
+// Inject styles
+const styleSheet = document.createElement('style');
+styleSheet.textContent = style;
+document.head.appendChild(styleSheet);
