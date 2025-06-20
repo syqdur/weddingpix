@@ -494,20 +494,20 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
               <X className="w-6 h-6" />
             </button>
             <div className="w-full flex flex-col items-center justify-center">
-              {modalMedia.type === 'image' ? (
-                <img
-                  src={modalMedia.url}
-                  alt={modalMedia.title}
-                  className="max-h-[70vh] max-w-full rounded-lg object-contain border-2 border-gray-200"
-                />
-              ) : (
-                <video
-                  src={modalMedia.url}
-                  controls
-                  autoPlay
-                  className="max-h-[70vh] max-w-full rounded-lg object-contain border-2 border-gray-200"
-                />
-              )}
+             {modalMedia.type === 'image' ? (
+  <img
+    src={modalMedia.url}
+    alt={modalMedia.title}
+    className="max-h-[70vh] max-w-full rounded-lg object-contain border border-gray-200"
+  />
+) : (
+  <video
+    src={modalMedia.url}
+    controls
+    autoPlay
+    className="max-h-[70vh] max-w-full rounded-lg object-contain border border-gray-200"
+  />
+)}
               <div className="mt-2 text-center text-sm text-gray-700">
                 {modalMedia.title}
               </div>
