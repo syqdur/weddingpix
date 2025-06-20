@@ -79,7 +79,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
         console.log('🔗 Testing Firebase connection...');
         
         // Create query with error handling
-        const q = query(collection(db, 'timeline'), orderBy('date', 'desc'));
+        const q = query(collection(db, 'timeline'), orderBy('date', 'asc'));
         
         unsubscribe = onSnapshot(q, 
           (snapshot) => {
