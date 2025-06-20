@@ -63,6 +63,11 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     location: '',
     type: 'other' as TimelineEvent['type']
   });
+  const [modalMedia, setModalMedia] = useState<{
+    url: string;
+    type: 'image' | 'video';
+    title: string;
+  } | null>(null);
 
   // Load timeline events with comprehensive error handling
   useEffect(() => {
@@ -471,6 +476,45 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
     <div className={`transition-colors duration-300 ${
       isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'
     }`}>
+      {/* Modal für Medienanzeige */}
+      {modalMedia && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70"
+          onClick={() => setModalMedia(null)}
+        >
+          <div
+            className="relative max-w-3xl w-full max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-lg flex flex-col items-center justify-center p-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-2 right-2 p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200"
+              onClick={() => setModalMedia(null)}
+              aria-label="Schließen"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <div className="w-full flex flex-col items-center justify-center">
+              {modalMedia.type === 'image' ? (
+                <img
+                  src={modalMedia.url}
+                  alt={modalMedia.title}
+                  className="max-h-[70vh] max-w-full rounded-lg object-contain"
+                />
+              ) : (
+                <video
+                  src={modalMedia.url}
+                  controls
+                  autoPlay
+                  className="max-h-[70vh] max-w-full rounded-lg object-contain"
+                />
+              )}
+              <div className="mt-2 text-center text-sm text-gray-700 dark:text-gray-200">
+                {modalMedia.title}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className={`p-6 border-b transition-colors duration-300 ${
         isDarkMode ? 'border-gray-700' : 'border-gray-200'
@@ -979,7 +1023,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                                     <video
                                       src={url}
                                       className="w-full h-full object-cover cursor-pointer"
-                                      controls
+                                      onClick={() => setModalMedia({ url, type: 'video', title: event.title })}
                                       preload="metadata"
                                     />
                                   ) : (
@@ -987,7 +1031,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                                       src={url}
                                       alt={`${event.title} - Bild ${mediaIndex + 1}`}
                                       className="w-full h-full object-cover cursor-pointer transition-transform duration-300 group-hover:scale-105"
-                                      onClick={() => window.open(url, '_blank')}
+                                      onClick={() => setModalMedia({ url, type: 'image', title: event.title })}
                                     />
                                   )}
                                   
