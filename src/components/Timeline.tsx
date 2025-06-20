@@ -483,11 +483,11 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
           onClick={() => setModalMedia(null)}
         >
           <div
-            className="relative max-w-3xl w-full max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-lg flex flex-col items-center justify-center p-4"
+            className="relative max-w-3xl w-full max-h-[90vh] bg-white rounded-xl shadow-lg flex flex-col items-center justify-center p-4"
             onClick={e => e.stopPropagation()}
           >
             <button
-              className="absolute top-2 right-2 p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200"
+              className="absolute top-2 right-2 p-2 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700"
               onClick={() => setModalMedia(null)}
               aria-label="Schließen"
             >
@@ -498,17 +498,17 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                 <img
                   src={modalMedia.url}
                   alt={modalMedia.title}
-                  className="max-h-[70vh] max-w-full rounded-lg object-contain"
+                  className="max-h-[70vh] max-w-full rounded-lg object-contain border-2 border-gray-200"
                 />
               ) : (
                 <video
                   src={modalMedia.url}
                   controls
                   autoPlay
-                  className="max-h-[70vh] max-w-full rounded-lg object-contain"
+                  className="max-h-[70vh] max-w-full rounded-lg object-contain border-2 border-gray-200"
                 />
               )}
-              <div className="mt-2 text-center text-sm text-gray-700 dark:text-gray-200">
+              <div className="mt-2 text-center text-sm text-gray-700">
                 {modalMedia.title}
               </div>
             </div>
