@@ -388,7 +388,7 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                 accept="image/*,video/*"
                 onChange={handleFileChange}
                 ref={fileInputRef}
-                className={`w-full p-2 border rounded-md file:mr-4 file:py-2 file:px-4 \n                  file:rounded-full file:border-0 file:text-sm file:font-semibold \n                  ${isDarkMode ? 'file:bg-blue-600 file:text-white hover:file:bg-blue-700 text-white' : 'file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-gray-900'}`}
+                className={`w-full p-2 border rounded-md file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold ${isDarkMode ? 'file:bg-blue-600 file:text-white hover:file:bg-blue-700 text-white' : 'file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-gray-900'}`}
               />
               {uploadProgress > 0 && uploadProgress < 100 && (
                 <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2 dark:bg-gray-700">
@@ -513,4 +513,117 @@ export const Timeline: React.FC<TimelineProps> = ({ isDarkMode, userName, isAdmi
                     }`}>
                       {/* Dot on the timeline line */}
                       <div className={`absolute w-4 h-4 rounded-full border-2 ${isEven ? '-left-2' : '-right-2'} top-1/2 -translate-y-1/2 transform translate-x-1/2 z-10 transition-colors duration-300 ${
-                        isDarkMode ? 'bg-
+                        isDarkMode ? 'bg-gray-900 border-blue-500' : 'bg-gray-50 border-blue-500'
+                      }`}></div>
+
+                      {isAdmin && (
+                        <div className="absolute top-3 right-3 flex gap-2 z-10">
+                          <button
+                            onClick={() => openEditModal(event)}
+                            className={`p-1 rounded-full transition-colors duration-300 ${
+                              isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                            }`}
+                            title="Bearbeiten"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(event.id, event.mediaFileNames)}
+                            className={`p-1 rounded-full transition-colors duration-300 ${
+                              isDarkMode ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-red-500 hover:bg-red-600 text-white'
+                            }`}
+                            title="Löschen"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+
+                      <div className={`flex items-center gap-3 mb-3 ${isEven ? '' : 'justify-end text-right'}`}>
+                        <span className="text-3xl">{getEventIcon(event.type)}</span>
+                        <div>
+                          <h3 className="text-xl font-semibold">{event.title}</h3>
+                          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            <Calendar className="inline-block w-4 h-4 mr-1" />
+                            {event.date}
+                            {event.location && (
+                              <>
+                                <MapPin className="inline-block w-4 h-4 ml-3 mr-1" />
+                                {event.location}
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <p className={`mb-4 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {event.description}
+                      </p>
+
+                      {event.mediaUrls && event.mediaUrls.length > 0 && (
+                        <div className="mt-4">
+                          <div className={`grid ${event.mediaUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-2`}>
+                            {event.mediaUrls.slice(0, 3).map((mediaUrl, mediaIndex) => {
+                              const isVideo = event.mediaTypes?.[mediaIndex] === 'video';
+                              const Component = isVideo ? 'video' : 'img';
+                              return (
+                                <div key={mediaIndex} className={`relative rounded-md overflow-hidden ${
+                                  event.mediaUrls.length === 1 ? 'h-60' : 'h-40'
+                                } cursor-pointer`}
+                                onClick={() => { /* Open modal logic */ }}>
+                                  <Component
+                                    src={mediaUrl}
+                                    className="w-full h-full object-cover"
+                                    controls={isVideo ? true : undefined}
+                                    preload={isVideo ? "metadata" : undefined} // Or "none" to optimize initial load
+                                    onClick={(e) => {
+                                      e.stopPropagation(); // Prevent modal from opening if clicked on controls
+                                      // Logic to open MediaModal with this specific media item
+                                      // You would need to pass event.mediaUrls, event.mediaTypes and the clicked index to the modal
+                                    }}
+                                  />
+                                  {event.mediaUrls.length > 3 && mediaIndex === 2 && (
+                                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center text-white text-lg font-bold">
+                                      +{event.mediaUrls.length - 3}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          
+                          {event.mediaUrls.length > 3 && (
+                            <p className={`text-xs mt-2 transition-colors duration-300 ${
+                              isDarkMode ? 'text-gray-500' : 'text-gray-500'
+                            }`}>
+                              {event.mediaUrls.length} Medien • Klicke zum Vergrößern
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Event metadata */}
+                      <div className={`pt-3 border-t flex items-center justify-between text-xs transition-colors duration-300 ${
+                        isDarkMode ? 'border-gray-700 text-gray-500' : 'border-gray-200 text-gray-500'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          <span>{eventType.label}</span>
+                          {event.mediaUrls && event.mediaUrls.length > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Camera className="w-3 h-3" />
+                              {event.mediaUrls.length}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
