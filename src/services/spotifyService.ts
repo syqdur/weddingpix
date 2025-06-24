@@ -1,4 +1,3 @@
-import SpotifyWebApi from 'spotify-web-api-node';
 import { collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { SpotifyCredentials, SelectedPlaylist, SpotifyTrack } from '../types';
@@ -7,18 +6,348 @@ import { generateCodeVerifier, generateCodeChallenge } from '../utils/pkce';
 // Spotify API Configuration
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || '4dbf85a8ca7c43d3b2ddc540194e9387';
 const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET || 'acf102b8834d48b497a7e98bf69021f6';
-const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || 'https://kristinundmauro.de/';
 
-// Create Spotify API instance
-const spotifyApi = new SpotifyWebApi({
-  clientId: SPOTIFY_CLIENT_ID,
-  clientSecret: SPOTIFY_CLIENT_SECRET,
-  redirectUri: SPOTIFY_REDIRECT_URI
-});
+// 🔧 FIX: Dynamic redirect URI based on environment
+const getRedirectUri = (): string => {
+  // Use environment variable if set
+  if (import.meta.env.VITE_SPOTIFY_REDIRECT_URI) {
+    return import.meta.env.VITE_SPOTIFY_REDIRECT_URI;
+  }
+  
+  // For development, use current origin
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    return window.location.origin + '/';
+  }
+  
+  // Production fallback
+  return 'https://kristinundmauro.de/';
+};
+
+const SPOTIFY_REDIRECT_URI = getRedirectUri();
 
 // Storage keys for PKCE flow
 const PKCE_CODE_VERIFIER_KEY = 'spotify_pkce_code_verifier';
 const PKCE_STATE_KEY = 'spotify_pkce_state';
+
+// 🚀 NEW: Snapshot ID-Based Optimistic Update Manager
+class SnapshotOptimisticManager {
+  private static instance: SnapshotOptimisticManager;
+  private listeners: Set<(tracks: SpotifyApi.PlaylistTrackObject[]) => void> = new Set();
+  private currentTracks: SpotifyApi.PlaylistTrackObject[] = [];
+  private pendingOperations: Map<string, { type: 'add' | 'remove', track?: SpotifyTrack }> = new Map();
+  private playlistId: string | null = null;
+  private lastSnapshotId: string | null = null;
+  private syncInterval: NodeJS.Timeout | null = null;
+
+  static getInstance(): SnapshotOptimisticManager {
+    if (!SnapshotOptimisticManager.instance) {
+      SnapshotOptimisticManager.instance = new SnapshotOptimisticManager();
+    }
+    return SnapshotOptimisticManager.instance;
+  }
+
+  // Subscribe to updates
+  subscribe(callback: (tracks: SpotifyApi.PlaylistTrackObject[]) => void): () => void {
+    this.listeners.add(callback);
+    
+    // Immediately send current tracks if available
+    if (this.currentTracks.length > 0) {
+      callback(this.currentTracks);
+    }
+
+    return () => {
+      this.listeners.delete(callback);
+    };
+  }
+
+  // 🎯 NEW: Set tracks with snapshot ID tracking
+  setTracks(tracks: SpotifyApi.PlaylistTrackObject[], playlistId: string, snapshotId?: string): void {
+    console.log('📋 === SETTING TRACKS WITH SNAPSHOT ===');
+    console.log(`Playlist: ${playlistId}`);
+    console.log(`Tracks: ${tracks.length}`);
+    console.log(`Snapshot ID: ${snapshotId || 'Not provided'}`);
+    console.log(`Previous Snapshot: ${this.lastSnapshotId || 'None'}`);
+    
+    this.currentTracks = [...tracks];
+    this.playlistId = playlistId;
+    
+    if (snapshotId) {
+      this.lastSnapshotId = snapshotId;
+      console.log(`✅ Snapshot ID updated: ${snapshotId}`);
+    }
+    
+    this.notifyListeners();
+    this.startSmartPolling();
+  }
+
+  // 🚀 INSTANT: Optimistically add track (shows immediately in UI)
+  optimisticallyAddTrack(track: SpotifyTrack): void {
+    console.log('🚀 === OPTIMISTIC ADD WITH SNAPSHOT TRACKING ===');
+    console.log('Track:', track.name);
+    console.log('Current Snapshot:', this.lastSnapshotId);
+    
+    // Create a mock playlist track object
+    const mockPlaylistTrack: SpotifyApi.PlaylistTrackObject = {
+      added_at: new Date().toISOString(),
+      added_by: {
+        id: 'current_user',
+        type: 'user',
+        uri: 'spotify:user:current_user',
+        href: '',
+        external_urls: { spotify: '' }
+      },
+      is_local: false,
+      track: {
+        id: track.id,
+        name: track.name,
+        artists: track.artists.map(a => ({
+          id: `artist_${a.name}`,
+          name: a.name,
+          type: 'artist',
+          uri: `spotify:artist:${a.name}`,
+          href: '',
+          external_urls: { spotify: '' }
+        })),
+        album: {
+          id: 'album_' + track.album.name,
+          name: track.album.name,
+          images: track.album.images,
+          type: 'album',
+          uri: 'spotify:album:' + track.album.name,
+          href: '',
+          external_urls: { spotify: '' },
+          album_type: 'album',
+          total_tracks: 1,
+          available_markets: [],
+          release_date: '',
+          release_date_precision: 'day'
+        },
+        duration_ms: 180000, // Default 3 minutes
+        explicit: false,
+        external_ids: {},
+        external_urls: { spotify: `https://open.spotify.com/track/${track.id}` },
+        href: '',
+        is_playable: true,
+        popularity: 50,
+        preview_url: null,
+        track_number: 1,
+        type: 'track',
+        uri: track.uri,
+        is_local: false
+      }
+    };
+
+    // Add to beginning of list for immediate visibility
+    this.currentTracks.unshift(mockPlaylistTrack);
+    this.pendingOperations.set(track.id, { type: 'add', track });
+    
+    // Notify listeners immediately
+    this.notifyListeners();
+    
+    console.log('✅ Optimistic add completed, UI updated instantly');
+  }
+
+  // 🚀 INSTANT: Optimistically remove track (removes immediately from UI)
+  optimisticallyRemoveTrack(trackId: string): void {
+    console.log('🚀 === OPTIMISTIC REMOVE WITH SNAPSHOT TRACKING ===');
+    console.log('Track ID:', trackId);
+    console.log('Current Snapshot:', this.lastSnapshotId);
+    
+    // Remove from current tracks
+    this.currentTracks = this.currentTracks.filter(item => item.track.id !== trackId);
+    this.pendingOperations.set(trackId, { type: 'remove' });
+    
+    // Notify listeners immediately
+    this.notifyListeners();
+    
+    console.log('✅ Optimistic remove completed, UI updated instantly');
+  }
+
+  // 🚀 INSTANT: Bulk optimistic remove
+  optimisticallyBulkRemove(trackIds: string[]): void {
+    console.log('🚀 === OPTIMISTIC BULK REMOVE WITH SNAPSHOT TRACKING ===');
+    console.log('Track IDs:', trackIds.length);
+    console.log('Current Snapshot:', this.lastSnapshotId);
+    
+    // Remove all tracks from current list
+    this.currentTracks = this.currentTracks.filter(item => !trackIds.includes(item.track.id));
+    
+    // Mark all as pending removal
+    trackIds.forEach(id => this.pendingOperations.set(id, { type: 'remove' }));
+    
+    // Notify listeners immediately
+    this.notifyListeners();
+    
+    console.log('✅ Optimistic bulk remove completed, UI updated instantly');
+  }
+
+  // 🎯 NEW: Confirm operation with new snapshot ID
+  confirmOperation(trackId: string, newSnapshotId?: string): void {
+    console.log('✅ === CONFIRMING OPERATION ===');
+    console.log('Track ID:', trackId);
+    console.log('New Snapshot:', newSnapshotId);
+    console.log('Previous Snapshot:', this.lastSnapshotId);
+    
+    this.pendingOperations.delete(trackId);
+    
+    if (newSnapshotId && newSnapshotId !== this.lastSnapshotId) {
+      this.lastSnapshotId = newSnapshotId;
+      console.log(`📋 Snapshot ID updated after operation: ${newSnapshotId}`);
+      
+      // Schedule a verification sync after a short delay
+      setTimeout(() => {
+        this.checkForUpdates();
+      }, 2000);
+    }
+  }
+
+  // Revert operation if it failed
+  revertOperation(trackId: string, originalTracks: SpotifyApi.PlaylistTrackObject[]): void {
+    console.log('🔄 === REVERTING OPERATION ===');
+    console.log('Track ID:', trackId);
+    
+    const operation = this.pendingOperations.get(trackId);
+    this.pendingOperations.delete(trackId);
+    
+    if (operation?.type === 'add') {
+      // Remove the optimistically added track
+      this.currentTracks = this.currentTracks.filter(item => item.track.id !== trackId);
+    } else if (operation?.type === 'remove') {
+      // Restore the original tracks
+      this.currentTracks = [...originalTracks];
+    }
+    
+    this.notifyListeners();
+    console.log('✅ Operation reverted successfully');
+  }
+
+  // 🎯 NEW: Smart polling based on snapshot ID changes
+  private startSmartPolling(): void {
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+    }
+
+    // Start with frequent polling after operations, then reduce frequency
+    let pollInterval = 2000; // Start with 2 seconds
+    let consecutiveNoChanges = 0;
+
+    const poll = async () => {
+      try {
+        const hasChanges = await this.checkForUpdates();
+        
+        if (hasChanges) {
+          // Reset to frequent polling if changes detected
+          pollInterval = 2000;
+          consecutiveNoChanges = 0;
+        } else {
+          consecutiveNoChanges++;
+          
+          // Gradually increase polling interval if no changes
+          if (consecutiveNoChanges >= 3) {
+            pollInterval = Math.min(pollInterval * 1.5, 30000); // Max 30 seconds
+          }
+        }
+        
+        // Schedule next poll
+        this.syncInterval = setTimeout(poll, pollInterval);
+        
+      } catch (error) {
+        console.warn('Smart polling error:', error);
+        // Continue polling even if there's an error
+        this.syncInterval = setTimeout(poll, 10000);
+      }
+    };
+
+    // Start polling
+    poll();
+  }
+
+  // 🎯 NEW: Check for updates using snapshot ID
+  private async checkForUpdates(): Promise<boolean> {
+    if (!this.playlistId) return false;
+
+    try {
+      console.log('🔍 === CHECKING FOR SNAPSHOT CHANGES ===');
+      console.log('Current Snapshot:', this.lastSnapshotId);
+      
+      // Get current playlist with snapshot_id
+      const response = await makeSpotifyApiCall(
+        `https://api.spotify.com/v1/playlists/${this.playlistId}?fields=snapshot_id,tracks.items(track(id,name,artists,album,duration_ms,external_urls,uri),added_at,added_by)`
+      );
+      
+      const data = await response.json();
+      const currentSnapshot = data.snapshot_id;
+      
+      console.log('Remote Snapshot:', currentSnapshot);
+      
+      if (currentSnapshot !== this.lastSnapshotId) {
+        console.log('🔄 === SNAPSHOT CHANGED - SYNCING ===');
+        console.log(`${this.lastSnapshotId} → ${currentSnapshot}`);
+        
+        // Only update if there are no pending operations
+        if (this.pendingOperations.size === 0) {
+          this.currentTracks = data.tracks.items;
+          this.lastSnapshotId = currentSnapshot;
+          this.notifyListeners();
+          console.log('✅ Synced with Spotify - UI updated');
+          return true;
+        } else {
+          console.log('⏸️ Skipping sync - pending operations exist');
+          console.log('Pending operations:', Array.from(this.pendingOperations.keys()));
+        }
+      } else {
+        console.log('✅ Snapshot unchanged - no sync needed');
+      }
+      
+      return false;
+      
+    } catch (error) {
+      console.warn('Snapshot check failed:', error);
+      return false;
+    }
+  }
+
+  // Get current tracks
+  getCurrentTracks(): SpotifyApi.PlaylistTrackObject[] {
+    return this.currentTracks;
+  }
+
+  // Check if operation is pending
+  isPending(trackId: string): boolean {
+    return this.pendingOperations.has(trackId);
+  }
+
+  // Get current snapshot ID
+  getCurrentSnapshotId(): string | null {
+    return this.lastSnapshotId;
+  }
+
+  // Get pending operations count
+  getPendingOperationsCount(): number {
+    return this.pendingOperations.size;
+  }
+
+  // Notify all listeners
+  private notifyListeners(): void {
+    this.listeners.forEach(callback => {
+      try {
+        callback([...this.currentTracks]);
+      } catch (error) {
+        console.error('Listener callback error:', error);
+      }
+    });
+  }
+
+  // Cleanup
+  cleanup(): void {
+    if (this.syncInterval) {
+      clearInterval(this.syncInterval);
+      this.syncInterval = null;
+    }
+    this.listeners.clear();
+    this.pendingOperations.clear();
+  }
+}
 
 // Generate authorization URL with PKCE
 export const getAuthorizationUrl = async (): Promise<string> => {
@@ -122,30 +451,51 @@ export const exchangeCodeForTokens = async (code: string, state: string): Promis
   }
 };
 
-// Refresh access token
+// Refresh access token using direct API call
 export const refreshAccessToken = async (credentials: SpotifyCredentials): Promise<SpotifyCredentials> => {
   try {
-    // Set refresh token
-    spotifyApi.setRefreshToken(credentials.refreshToken);
+    console.log('🔄 Refreshing access token...');
     
-    // Refresh access token
-    const data = await spotifyApi.refreshAccessToken();
+    // Use direct fetch instead of SpotifyWebApi to avoid library issues
+    const response = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${btoa(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`)}`
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: credentials.refreshToken
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const error = new Error(`Token refresh failed: ${errorData.error_description || response.statusText}`);
+      (error as any).status = response.status;
+      (error as any).body = errorData;
+      throw error;
+    }
+    
+    const data = await response.json();
     
     // Calculate new expiry time
-    const expiresAt = Date.now() + (data.body.expires_in * 1000);
+    const expiresAt = Date.now() + (data.expires_in * 1000);
     
     // Update credentials in Firestore
     const updatedCredentials: Partial<SpotifyCredentials> = {
-      accessToken: data.body.access_token,
+      accessToken: data.access_token,
       expiresAt: expiresAt
     };
     
     // If a new refresh token was provided, update it
-    if (data.body.refresh_token) {
-      updatedCredentials.refreshToken = data.body.refresh_token;
+    if (data.refresh_token) {
+      updatedCredentials.refreshToken = data.refresh_token;
     }
     
     await updateDoc(doc(db, 'spotifyCredentials', credentials.id), updatedCredentials);
+    
+    console.log('✅ Token refreshed successfully');
     
     return {
       ...credentials,
@@ -157,7 +507,7 @@ export const refreshAccessToken = async (credentials: SpotifyCredentials): Promi
   }
 };
 
-// Get valid credentials
+// Get valid credentials with automatic refresh
 export const getValidCredentials = async (): Promise<SpotifyCredentials | null> => {
   try {
     // Query for credentials
@@ -180,6 +530,7 @@ export const getValidCredentials = async (): Promise<SpotifyCredentials | null> 
     
     if (now + tokenExpiryBuffer >= credentials.expiresAt) {
       // Token is expired or about to expire, refresh it
+      console.log('🔄 Token expiring soon, refreshing...');
       return await refreshAccessToken(credentials);
     }
     
@@ -202,6 +553,14 @@ export const disconnectSpotify = async (): Promise<void> => {
     
     // Delete credentials from Firestore
     await deleteDoc(doc(db, 'spotifyCredentials', credentials.id));
+    
+    // Clear any cached tokens
+    localStorage.removeItem(PKCE_CODE_VERIFIER_KEY);
+    localStorage.removeItem(PKCE_STATE_KEY);
+    
+    // Cleanup optimistic manager
+    SnapshotOptimisticManager.getInstance().cleanup();
+    
   } catch (error) {
     console.error('Failed to disconnect Spotify:', error);
     throw error;
@@ -219,21 +578,42 @@ export const isSpotifyConnected = async (): Promise<boolean> => {
   }
 };
 
-// Get user's playlists
+// Helper function to make authenticated Spotify API calls
+const makeSpotifyApiCall = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const credentials = await getValidCredentials();
+  
+  if (!credentials) {
+    throw new Error('Not connected to Spotify');
+  }
+  
+  // 🔧 FIX: Clean headers to avoid CORS issues
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${credentials.accessToken}`,
+    'Content-Type': 'application/json'
+  };
+  
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const error = new Error(`Spotify API error: ${errorData.error?.message || response.statusText}`);
+    (error as any).status = response.status;
+    (error as any).body = errorData;
+    throw error;
+  }
+  
+  return response;
+};
+
+// Get user's playlists with error handling
 export const getUserPlaylists = async (): Promise<SpotifyApi.PlaylistObjectSimplified[]> => {
   try {
-    const credentials = await getValidCredentials();
-    
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
-    }
-    
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
-    
-    // Get user's playlists
-    const data = await spotifyApi.getUserPlaylists({ limit: 50 });
-    return data.body.items;
+    const response = await makeSpotifyApiCall('https://api.spotify.com/v1/me/playlists?limit=50');
+    const data = await response.json();
+    return data.items;
   } catch (error) {
     console.error('Failed to get user playlists:', error);
     throw error;
@@ -304,26 +684,18 @@ export const getSelectedPlaylist = async (): Promise<SelectedPlaylist | null> =>
   }
 };
 
-// Search for tracks
+// Search for tracks with error handling
 export const searchTracks = async (query: string): Promise<SpotifyTrack[]> => {
   try {
-    const credentials = await getValidCredentials();
-    
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
-    }
-    
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
-    
-    // Search for tracks
-    const data = await spotifyApi.searchTracks(query, { limit: 20 });
+    const encodedQuery = encodeURIComponent(query);
+    const response = await makeSpotifyApiCall(`https://api.spotify.com/v1/search?q=${encodedQuery}&type=track&limit=20`);
+    const data = await response.json();
     
     // Map to our SpotifyTrack interface
-    return data.body.tracks.items.map(track => ({
+    return data.tracks.items.map((track: any) => ({
       id: track.id,
       name: track.name,
-      artists: track.artists.map(artist => ({ name: artist.name })),
+      artists: track.artists.map((artist: any) => ({ name: artist.name })),
       album: {
         name: track.album.name,
         images: track.album.images
@@ -336,132 +708,263 @@ export const searchTracks = async (query: string): Promise<SpotifyTrack[]> => {
   }
 };
 
-// Add track to playlist
+// 🚀 NEW: Add track with INSTANT optimistic update and snapshot tracking
 export const addTrackToPlaylist = async (trackUri: string): Promise<void> => {
+  const updateManager = SnapshotOptimisticManager.getInstance();
+  let trackToAdd: SpotifyTrack | null = null;
+  
   try {
-    const credentials = await getValidCredentials();
+    console.log('🚀 === INSTANT ADD WITH SNAPSHOT TRACKING ===');
+    console.log('Track URI:', trackUri);
+    console.log('Current Snapshot:', updateManager.getCurrentSnapshotId());
     
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
+    // Extract track ID from URI
+    const trackId = trackUri.split(':').pop() || '';
+    
+    // Get track details for optimistic update
+    try {
+      const response = await makeSpotifyApiCall(`https://api.spotify.com/v1/tracks/${trackId}`);
+      const trackData = await response.json();
+      
+      trackToAdd = {
+        id: trackData.id,
+        name: trackData.name,
+        artists: trackData.artists.map((a: any) => ({ name: a.name })),
+        album: {
+          name: trackData.album.name,
+          images: trackData.album.images
+        },
+        uri: trackData.uri
+      };
+      
+      // 🚀 INSTANT: Show in UI immediately
+      updateManager.optimisticallyAddTrack(trackToAdd);
+      
+    } catch (trackError) {
+      console.warn('Could not get track details for optimistic update:', trackError);
     }
     
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
-    
     if (!selectedPlaylist) {
       throw new Error('No playlist selected');
     }
+
+    // 🎯 NEW: Add track to playlist and get new snapshot_id
+    const response = await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${selectedPlaylist.playlistId}/tracks`, {
+      method: 'POST',
+      body: JSON.stringify({
+        uris: [trackUri],
+        position: 0 // Add to beginning for immediate visibility
+      })
+    });
     
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
+    const result = await response.json();
+    const newSnapshotId = result.snapshot_id;
     
-    // Add track to playlist
-    await spotifyApi.addTracksToPlaylist(selectedPlaylist.playlistId, [trackUri]);
+    console.log('✅ Track added to Spotify successfully');
+    console.log('New Snapshot ID:', newSnapshotId);
+
+    // 🎯 NEW: Confirm the operation with new snapshot ID
+    if (trackToAdd) {
+      updateManager.confirmOperation(trackToAdd.id, newSnapshotId);
+    }
+    
+    console.log('🎉 === INSTANT ADD COMPLETED ===');
+    
   } catch (error) {
     console.error('Failed to add track to playlist:', error);
+    
+    // Revert optimistic update on error
+    if (trackToAdd) {
+      const currentTracks = updateManager.getCurrentTracks();
+      updateManager.revertOperation(trackToAdd.id, currentTracks);
+    }
+    
     throw error;
   }
 };
 
-// Remove track from playlist
+// 🚀 NEW: Remove track with INSTANT optimistic update and snapshot tracking
 export const removeTrackFromPlaylist = async (trackUri: string): Promise<void> => {
+  const updateManager = SnapshotOptimisticManager.getInstance();
+  const trackId = trackUri.split(':').pop() || '';
+  const originalTracks = updateManager.getCurrentTracks();
+  
   try {
-    const credentials = await getValidCredentials();
+    console.log('🚀 === INSTANT REMOVE WITH SNAPSHOT TRACKING ===');
+    console.log('Track URI:', trackUri);
+    console.log('Current Snapshot:', updateManager.getCurrentSnapshotId());
     
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
-    }
+    // 🚀 INSTANT: Remove from UI immediately
+    updateManager.optimisticallyRemoveTrack(trackId);
     
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
-    
     if (!selectedPlaylist) {
       throw new Error('No playlist selected');
     }
     
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
+    // 🎯 NEW: Remove track from playlist and get new snapshot_id
+    const response = await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${selectedPlaylist.playlistId}/tracks`, {
+      method: 'DELETE',
+      body: JSON.stringify({
+        tracks: [{ uri: trackUri }]
+      })
+    });
     
-    // Remove track from playlist
-    await spotifyApi.removeTracksFromPlaylist(selectedPlaylist.playlistId, [{ uri: trackUri }]);
+    const result = await response.json();
+    const newSnapshotId = result.snapshot_id;
+    
+    console.log('✅ Track removed from Spotify successfully');
+    console.log('New Snapshot ID:', newSnapshotId);
+
+    // 🎯 NEW: Confirm the operation with new snapshot ID
+    updateManager.confirmOperation(trackId, newSnapshotId);
+    
+    console.log('🎉 === INSTANT REMOVE COMPLETED ===');
+    
   } catch (error) {
     console.error('Failed to remove track from playlist:', error);
+    
+    // Revert optimistic update on error
+    updateManager.revertOperation(trackId, originalTracks);
+    
     throw error;
   }
 };
 
-// Get current user profile
+// Get current user profile with error handling
 export const getCurrentUser = async (): Promise<SpotifyApi.CurrentUsersProfileResponse | null> => {
   try {
-    const credentials = await getValidCredentials();
-    
-    if (!credentials) {
-      return null;
-    }
-    
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
-    
-    // Get current user
-    const data = await spotifyApi.getMe();
-    return data.body;
+    const response = await makeSpotifyApiCall('https://api.spotify.com/v1/me');
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error('Failed to get current user:', error);
     return null;
   }
 };
 
-// Get playlist tracks
+// 🎯 NEW: Get playlist tracks with snapshot ID
 export const getPlaylistTracks = async (playlistId: string): Promise<SpotifyApi.PlaylistTrackObject[]> => {
   try {
-    const credentials = await getValidCredentials();
+    console.log('📋 === FETCHING PLAYLIST WITH SNAPSHOT ===');
+    console.log('Playlist ID:', playlistId);
     
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
-    }
+    // 🎯 NEW: Get playlist with snapshot_id included
+    const response = await makeSpotifyApiCall(
+      `https://api.spotify.com/v1/playlists/${playlistId}?fields=snapshot_id,tracks.items(track(id,name,artists,album,duration_ms,external_urls,uri),added_at,added_by)`
+    );
     
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
+    const data = await response.json();
+    const snapshotId = data.snapshot_id;
+    const tracks = data.tracks.items;
     
-    // Get playlist tracks
-    const data = await spotifyApi.getPlaylistTracks(playlistId);
-    return data.body.items;
+    console.log(`✅ Fetched ${tracks.length} tracks from playlist`);
+    console.log('Snapshot ID:', snapshotId);
+    
+    // Store snapshot ID in the manager
+    const updateManager = SnapshotOptimisticManager.getInstance();
+    updateManager.setTracks(tracks, playlistId, snapshotId);
+    
+    return tracks;
   } catch (error) {
     console.error('Failed to get playlist tracks:', error);
     throw error;
   }
 };
 
-// Bulk remove tracks from playlist
+// 🚀 NEW: Subscribe to snapshot-based optimistic updates
+export const subscribeToPlaylistUpdates = (
+  playlistId: string,
+  callback: (tracks: SpotifyApi.PlaylistTrackObject[]) => void
+): (() => void) => {
+  console.log('🚀 === SUBSCRIBING TO SNAPSHOT-BASED UPDATES ===');
+  console.log('Playlist ID:', playlistId);
+  
+  const updateManager = SnapshotOptimisticManager.getInstance();
+  
+  // Load initial tracks with snapshot ID
+  getPlaylistTracks(playlistId).then(tracks => {
+    console.log('✅ Initial tracks loaded with snapshot tracking');
+  }).catch(error => {
+    console.error('Failed to load initial tracks:', error);
+  });
+  
+  // Subscribe to updates
+  const unsubscribe = updateManager.subscribe(callback);
+  
+  console.log('✅ Snapshot-based optimistic update subscription active');
+  
+  return () => {
+    console.log('🧹 Cleaning up snapshot-based updates');
+    unsubscribe();
+  };
+};
+
+// 🚀 NEW: Bulk remove tracks with snapshot tracking
 export const bulkRemoveTracksFromPlaylist = async (trackUris: string[]): Promise<void> => {
+  const updateManager = SnapshotOptimisticManager.getInstance();
+  const trackIds = trackUris.map(uri => uri.split(':').pop() || '');
+  const originalTracks = updateManager.getCurrentTracks();
+  
   try {
-    const credentials = await getValidCredentials();
+    console.log(`🚀 === INSTANT BULK REMOVE WITH SNAPSHOT TRACKING ===`);
+    console.log(`Track URIs: ${trackUris.length}`);
+    console.log('Current Snapshot:', updateManager.getCurrentSnapshotId());
     
-    if (!credentials) {
-      throw new Error('Not connected to Spotify');
-    }
+    // 🚀 INSTANT: Remove all tracks from UI immediately
+    updateManager.optimisticallyBulkRemove(trackIds);
     
     // Get selected playlist
     const selectedPlaylist = await getSelectedPlaylist();
-    
     if (!selectedPlaylist) {
       throw new Error('No playlist selected');
     }
     
-    // Set access token
-    spotifyApi.setAccessToken(credentials.accessToken);
-    
-    // Remove tracks in batches (Spotify API limit is 100 tracks per request)
+    // 🎯 NEW: Remove tracks in batches and get final snapshot_id
     const batchSize = 100;
+    let finalSnapshotId: string | null = null;
+    
     for (let i = 0; i < trackUris.length; i += batchSize) {
       const batch = trackUris.slice(i, i + batchSize);
-      await spotifyApi.removeTracksFromPlaylist(
-        selectedPlaylist.playlistId, 
-        batch.map(uri => ({ uri }))
-      );
+      
+      const response = await makeSpotifyApiCall(`https://api.spotify.com/v1/playlists/${selectedPlaylist.playlistId}/tracks`, {
+        method: 'DELETE',
+        body: JSON.stringify({
+          tracks: batch.map(uri => ({ uri }))
+        })
+      });
+      
+      const result = await response.json();
+      finalSnapshotId = result.snapshot_id; // Keep the last snapshot_id
     }
+    
+    console.log('✅ Bulk remove completed in Spotify');
+    console.log('Final Snapshot ID:', finalSnapshotId);
+
+    // 🎯 NEW: Confirm all operations with final snapshot ID
+    trackIds.forEach(id => updateManager.confirmOperation(id, finalSnapshotId || undefined));
+    
+    console.log('🎉 === INSTANT BULK REMOVE COMPLETED ===');
+    
   } catch (error) {
     console.error('Failed to bulk remove tracks from playlist:', error);
+    
+    // Revert all optimistic updates on error
+    trackIds.forEach(id => updateManager.revertOperation(id, originalTracks));
+    
     throw error;
   }
+};
+
+// 🎯 NEW: Get current snapshot ID for debugging
+export const getCurrentSnapshotId = (): string | null => {
+  return SnapshotOptimisticManager.getInstance().getCurrentSnapshotId();
+};
+
+// 🎯 NEW: Get pending operations count for UI
+export const getPendingOperationsCount = (): number => {
+  return SnapshotOptimisticManager.getInstance().getPendingOperationsCount();
 };

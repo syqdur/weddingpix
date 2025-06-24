@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Music, Search, X, Plus, Trash2, ExternalLink, AlertCircle, RefreshCw, Clock, Heart, Play, Volume2, Check, CheckSquare, Square } from 'lucide-react';
+import { Music, Search, X, Plus, Trash2, ExternalLink, AlertCircle, RefreshCw, Clock, Heart, Play, Volume2, Check, CheckSquare, Square, Zap, Wifi, Activity } from 'lucide-react';
 import { 
   searchTracks, 
   addTrackToPlaylist, 
@@ -7,7 +7,11 @@ import {
   getSelectedPlaylist,
   getPlaylistTracks,
   isSpotifyConnected,
-  getCurrentUser
+  getCurrentUser,
+  subscribeToPlaylistUpdates,
+  bulkRemoveTracksFromPlaylist,
+  getCurrentSnapshotId,
+  getPendingOperationsCount
 } from '../services/spotifyService';
 import { SpotifyTrack } from '../types';
 
@@ -23,7 +27,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSpotifyAvailable, setIsSpotifyAvailable] = useState(false);
-  const [selectedPlaylist, setSelectedPlaylist] = useState<{ id: string; name: string } | null>(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<{ id: string; name: string; playlistId: string } | null>(null);
   const [isAddingTrack, setIsAddingTrack] = useState<string | null>(null);
   const [isRemovingTrack, setIsRemovingTrack] = useState<string | null>(null);
   const [showAddSuccess, setShowAddSuccess] = useState(false);
@@ -32,6 +36,58 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
   const [selectedTracks, setSelectedTracks] = useState<Set<string>>(new Set());
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [syncStatus, setSyncStatus] = useState<'connecting' | 'live' | 'syncing' | 'error'>('connecting');
+  const [operationCount, setOperationCount] = useState(0);
+  const [snapshotId, setSnapshotId] = useState<string | null>(null);
+
+  // 🚀 NEW: Snapshot-based optimistic updates with perfect sync
+  useEffect(() => {
+    if (!selectedPlaylist || !isSpotifyAvailable) return;
+
+    console.log('🚀 === SETTING UP SNAPSHOT-BASED SYNC ===');
+    console.log('Playlist:', selectedPlaylist.name);
+    
+    setSyncStatus('connecting');
+
+    // Subscribe to snapshot-based optimistic updates
+    const unsubscribe = subscribeToPlaylistUpdates(
+      selectedPlaylist.playlistId,
+      (tracks) => {
+        console.log('🚀 === SNAPSHOT UPDATE RECEIVED ===');
+        console.log('Tracks:', tracks.length);
+        
+        const currentSnapshot = getCurrentSnapshotId();
+        const pendingOps = getPendingOperationsCount();
+        
+        console.log('Current Snapshot:', currentSnapshot);
+        console.log('Pending Operations:', pendingOps);
+        
+        setPlaylistTracks(tracks);
+        setLastUpdate(new Date());
+        setSnapshotId(currentSnapshot);
+        setOperationCount(pendingOps);
+        
+        // Update sync status based on pending operations
+        if (pendingOps > 0) {
+          setSyncStatus('syncing');
+        } else {
+          setSyncStatus('live');
+        }
+      }
+    );
+
+    // Set status to live after initial load
+    setTimeout(() => {
+      const pendingOps = getPendingOperationsCount();
+      setSyncStatus(pendingOps > 0 ? 'syncing' : 'live');
+    }, 1000);
+
+    return () => {
+      console.log('🚀 Cleaning up snapshot-based sync');
+      unsubscribe();
+    };
+  }, [selectedPlaylist, isSpotifyAvailable]);
 
   // Check if Spotify is connected and load playlist tracks
   useEffect(() => {
@@ -59,9 +115,17 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
           
           if (playlist) {
             try {
-              // Load playlist tracks
+              // Load initial playlist tracks (this will trigger snapshot tracking)
               const tracks = await getPlaylistTracks(playlist.playlistId);
               setPlaylistTracks(tracks);
+              setLastUpdate(new Date());
+              
+              // Get initial snapshot ID
+              const currentSnapshot = getCurrentSnapshotId();
+              setSnapshotId(currentSnapshot);
+              
+              console.log('✅ Initial playlist loaded with snapshot tracking');
+              
             } catch (playlistError) {
               console.error('Failed to load playlist tracks:', playlistError);
               setError('Failed to load playlist tracks. The playlist may no longer exist or you may not have access to it.');
@@ -105,43 +169,43 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, isSpotifyAvailable]);
 
-  // Add track to playlist
+  // 🚀 ENHANCED: Add track with instant UI feedback and snapshot tracking
   const handleAddTrack = async (track: SpotifyTrack) => {
     if (isAddingTrack) return;
     
     setIsAddingTrack(track.id);
     setError(null);
+    setSyncStatus('syncing');
     
     try {
+      console.log('🚀 === INSTANT ADD WITH SNAPSHOT TRACKING ===');
+      console.log('Track:', track.name, 'by', track.artists.map(a => a.name).join(', '));
+      console.log('Current Snapshot:', snapshotId);
+      
+      // Add track to playlist (optimistic update + snapshot tracking happens inside the service)
       await addTrackToPlaylist(track.uri);
       
       // Show success message
       setShowAddSuccess(true);
-      setTimeout(() => setShowAddSuccess(false), 3000);
-      
-      // Refresh playlist tracks
-      if (selectedPlaylist) {
-        try {
-          const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
-          setPlaylistTracks(tracks);
-        } catch (refreshError) {
-          console.error('Failed to refresh playlist tracks:', refreshError);
-          // Don't show error here as the add was successful
-        }
-      }
+      setTimeout(() => setShowAddSuccess(false), 2000);
       
       // Clear search
       setSearchQuery('');
       setSearchResults([]);
+      
+      console.log('✅ Track added with instant UI update and snapshot tracking');
+      
     } catch (error) {
       console.error('Failed to add track:', error);
       setError('Failed to add track to playlist: ' + (error.message || 'Unknown error'));
+      setSyncStatus('error');
+      setTimeout(() => setSyncStatus('live'), 3000);
     } finally {
       setIsAddingTrack(null);
     }
   };
 
-  // Remove track from playlist
+  // 🚀 ENHANCED: Remove track with instant UI feedback and snapshot tracking
   const handleRemoveTrack = async (track: SpotifyApi.PlaylistTrackObject) => {
     if (isRemovingTrack) return;
     
@@ -151,23 +215,23 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     
     setIsRemovingTrack(track.track.id);
     setError(null);
+    setSyncStatus('syncing');
     
     try {
+      console.log('🚀 === INSTANT REMOVE WITH SNAPSHOT TRACKING ===');
+      console.log('Track:', track.track.name);
+      console.log('Current Snapshot:', snapshotId);
+      
+      // Remove track from playlist (optimistic update + snapshot tracking happens inside the service)
       await removeTrackFromPlaylist(track.track.uri);
       
-      // Refresh playlist tracks
-      if (selectedPlaylist) {
-        try {
-          const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
-          setPlaylistTracks(tracks);
-        } catch (refreshError) {
-          console.error('Failed to refresh playlist tracks:', refreshError);
-          setError('Track was removed, but failed to refresh playlist');
-        }
-      }
+      console.log('✅ Track removed with instant UI update and snapshot tracking');
+      
     } catch (error) {
       console.error('Failed to remove track:', error);
       setError('Failed to remove track from playlist: ' + (error.message || 'Unknown error'));
+      setSyncStatus('error');
+      setTimeout(() => setSyncStatus('live'), 3000);
     } finally {
       setIsRemovingTrack(null);
     }
@@ -202,7 +266,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     setSelectedTracks(new Set());
   };
 
-  // Bulk delete selected tracks
+  // 🚀 ENHANCED: Bulk delete with instant sync and snapshot tracking
   const handleBulkDelete = async () => {
     if (selectedTracks.size === 0) {
       alert('Keine Songs ausgewählt.');
@@ -228,55 +292,68 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
     
     setIsBulkDeleting(true);
     setError(null);
+    setSyncStatus('syncing');
     
     try {
-      // Delete tracks one by one
-      for (const track of tracksToDelete) {
-        try {
-          await removeTrackFromPlaylist(track.track.uri);
-        } catch (error) {
-          console.error(`Failed to remove track ${track.track.name}:`, error);
-          // Continue with other tracks
-        }
-      }
+      console.log(`🚀 === INSTANT BULK DELETE WITH SNAPSHOT TRACKING ===`);
+      console.log(`Deleting ${tracksToDelete.length} tracks...`);
+      console.log('Current Snapshot:', snapshotId);
       
-      // Refresh playlist tracks
-      if (selectedPlaylist) {
-        try {
-          const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
-          setPlaylistTracks(tracks);
-        } catch (refreshError) {
-          console.error('Failed to refresh playlist tracks:', refreshError);
-          setError('Some tracks were removed, but failed to refresh playlist');
-        }
-      }
+      // Extract URIs for bulk deletion
+      const trackUris = tracksToDelete.map(track => track.track.uri);
+      
+      // Bulk delete with instant UI updates and snapshot tracking (happens inside the service)
+      await bulkRemoveTracksFromPlaylist(trackUris);
       
       // Reset selection
       setSelectedTracks(new Set());
       setBulkDeleteMode(false);
       
       alert(`${tracksToDelete.length} Song${tracksToDelete.length > 1 ? 's' : ''} erfolgreich gelöscht!`);
+      
+      console.log('✅ Bulk delete completed with instant UI updates and snapshot tracking');
+      
     } catch (error) {
       console.error('Failed to bulk delete tracks:', error);
       setError('Failed to delete some tracks: ' + (error.message || 'Unknown error'));
+      setSyncStatus('error');
+      setTimeout(() => setSyncStatus('live'), 3000);
     } finally {
       setIsBulkDeleting(false);
     }
   };
 
-  // Refresh playlist tracks
+  // 🚀 ENHANCED: Manual refresh (now just forces fresh data load)
   const handleRefresh = async () => {
     if (!selectedPlaylist) return;
     
     setIsLoading(true);
     setError(null);
+    setSyncStatus('syncing');
     
     try {
+      console.log('🔄 === MANUAL REFRESH WITH SNAPSHOT ===');
+      console.log('Current Snapshot:', snapshotId);
+      
+      // Force fresh data load with snapshot tracking
       const tracks = await getPlaylistTracks(selectedPlaylist.playlistId);
       setPlaylistTracks(tracks);
+      setLastUpdate(new Date());
+      
+      // Update snapshot ID
+      const currentSnapshot = getCurrentSnapshotId();
+      setSnapshotId(currentSnapshot);
+      
+      setSyncStatus('live');
+      
+      console.log('✅ Manual refresh completed with snapshot tracking');
+      console.log('New Snapshot:', currentSnapshot);
+      
     } catch (error) {
       console.error('Failed to refresh tracks:', error);
       setError('Failed to refresh playlist tracks: ' + (error.message || 'Unknown error'));
+      setSyncStatus('error');
+      setTimeout(() => setSyncStatus('live'), 3000);
     } finally {
       setIsLoading(false);
     }
@@ -391,13 +468,36 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
               <h3 className="text-2xl font-bold text-white">
                 {selectedPlaylist.name}
               </h3>
-              <p className="text-sm text-white opacity-80 mt-1">
-                {playlistTracks.length} Songs • Hochzeits-Playlist
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-sm text-white opacity-80">
+                  {playlistTracks.length} Songs • Hochzeits-Playlist
+                </p>
+                {/* 🚀 NEW: Enhanced sync indicator with snapshot info */}
+                <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                  syncStatus === 'connecting' ? 'bg-yellow-500/20 text-yellow-200' :
+                  syncStatus === 'syncing' ? 'bg-blue-500/20 text-blue-200' :
+                  syncStatus === 'live' ? 'bg-green-500/20 text-green-200' :
+                  'bg-red-500/20 text-red-200'
+                }`}>
+                  <div className={`w-2 h-2 rounded-full ${
+                    syncStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' :
+                    syncStatus === 'syncing' ? 'bg-blue-400 animate-pulse' :
+                    syncStatus === 'live' ? 'bg-green-400 animate-pulse' :
+                    'bg-red-400'
+                  }`}></div>
+                  <span>
+                    {syncStatus === 'connecting' ? 'Verbinde...' :
+                     syncStatus === 'syncing' ? 'Sync...' :
+                     syncStatus === 'live' ? 'Live' :
+                     'Fehler'}
+                  </span>
+                  {syncStatus === 'live' && <Activity className="w-3 h-3" />}
+                </div>
+              </div>
             </div>
           </div>
           <a
-            href={`https://open.spotify.com/playlist/${selectedPlaylist.id}`}
+            href={`https://open.spotify.com/playlist/${selectedPlaylist.playlistId}`}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 rounded-full bg-[#1DB954] text-white hover:bg-opacity-80 transition-colors"
@@ -440,7 +540,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
               <Check className="w-4 h-4 text-white" />
             </div>
             <p className="text-sm font-medium">
-              Song erfolgreich zur Playlist hinzugefügt!
+              Song sofort hinzugefügt! 🚀 Snapshot-Sync aktiv
             </p>
           </div>
         </div>
@@ -514,7 +614,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                     onClick={() => handleAddTrack(track)}
                     disabled={isAddingTrack === track.id}
                     className="p-2 rounded-full bg-[#1DB954] text-white hover:bg-opacity-80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Zur Playlist hinzufügen"
+                    title="Sofort zur Playlist hinzufügen"
                   >
                     {isAddingTrack === track.id ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -546,6 +646,38 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
               }`}>
                 Playlist Songs
               </h4>
+              
+              {/* 🚀 NEW: Enhanced sync status with snapshot and operation info */}
+              <div className={`flex items-center gap-2 text-xs ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}>
+                <div className={`w-2 h-2 rounded-full ${
+                  syncStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' :
+                  syncStatus === 'syncing' ? 'bg-blue-500 animate-pulse' :
+                  syncStatus === 'live' ? 'bg-green-500 animate-pulse' :
+                  'bg-red-500'
+                }`}></div>
+                <span>
+                  {syncStatus === 'connecting' ? 'Verbinde...' :
+                   syncStatus === 'syncing' ? 'Synchronisiert...' :
+                   syncStatus === 'live' ? '🚀 Snapshot-Sync' :
+                   'Sync-Fehler'}
+                </span>
+                <span>•</span>
+                <span>Update: {lastUpdate.toLocaleTimeString('de-DE')}</span>
+                {operationCount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="text-blue-500 font-medium">{operationCount} Pending</span>
+                  </>
+                )}
+                {snapshotId && (
+                  <>
+                    <span>•</span>
+                    <span className="text-green-500 font-mono text-xs">#{snapshotId.slice(-6)}</span>
+                  </>
+                )}
+              </div>
               
               {/* Bulk Delete Controls */}
               {getDeletableTracksCount() > 0 && (
@@ -600,7 +732,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                           ) : (
                             <Trash2 className="w-3 h-3 mr-1" />
                           )}
-                          {selectedTracks.size} löschen
+                          {selectedTracks.size} sofort löschen
                         </button>
                       )}
                     </>
@@ -617,7 +749,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                   ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
                   : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
-              title="Playlist aktualisieren"
+              title="Playlist manuell aktualisieren"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
@@ -728,7 +860,7 @@ export const MusicWishlist: React.FC<MusicWishlistProps> = ({ isDarkMode }) => {
                                     ? 'hover:bg-gray-700 text-gray-400 hover:text-gray-300' 
                                     : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
                                 }`}
-                                title="Aus Playlist entfernen"
+                                title="Sofort aus Playlist entfernen"
                               >
                                 {isRemovingTrack === item.track.id ? (
                                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>

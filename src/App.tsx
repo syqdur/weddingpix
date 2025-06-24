@@ -14,6 +14,10 @@ import { TabNavigation } from './components/TabNavigation';
 import { LiveUserIndicator } from './components/LiveUserIndicator';
 import { SpotifyCallback } from './components/SpotifyCallback';
 import { MusicWishlist } from './components/MusicWishlist';
+import { Timeline } from './components/Timeline';
+import { PostWeddingRecap } from './components/PostWeddingRecap';
+import { PublicRecapPage } from './components/PublicRecapPage';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { useUser } from './hooks/useUser';
 import { useDarkMode } from './hooks/useDarkMode';
 import { MediaItem, Comment, Like } from './types';
@@ -58,12 +62,23 @@ function App() {
   const [showStoriesViewer, setShowStoriesViewer] = useState(false);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showStoryUpload, setShowStoryUpload] = useState(false);
-  const [activeTab, setActiveTab] = useState<'gallery' | 'music'>('gallery');
+  const [activeTab, setActiveTab] = useState<'gallery' | 'music' | 'timeline'>('gallery');
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   // Check if we're on the Spotify callback page
   const isSpotifyCallback = () => {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.has('code') && urlParams.has('state');
+  };
+
+  // Check if we're on the Public Recap page
+  const isPublicRecap = () => {
+    return window.location.pathname === '/recap';
+  };
+
+  // Check if we're on the Post-Wedding Recap page (admin)
+  const isPostWeddingRecap = () => {
+    return window.location.pathname === '/admin/post-wedding-recap';
   };
 
   // Subscribe to site status changes
@@ -108,6 +123,27 @@ function App() {
       unsubscribeLikes();
     };
   }, [userName, siteStatus]);
+
+  // Auto-logout when window/tab is closed
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Clear admin status when page is closed
+      if (isAdmin) {
+        localStorage.removeItem('admin_status');
+      }
+    };
+
+    // Check if admin status is stored in localStorage (for page refreshes)
+    const storedAdminStatus = localStorage.getItem('admin_status');
+    if (storedAdminStatus) {
+      setIsAdmin(true);
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isAdmin]);
 
   const handleUpload = async (files: FileList) => {
     if (!userName) return;
@@ -307,9 +343,80 @@ function App() {
     );
   };
 
+  const handleAdminLogin = (username: string) => {
+    setIsAdmin(true);
+    localStorage.setItem('admin_status', 'true');
+    setShowAdminLogin(false);
+    
+    // Show welcome message for different admins
+    if (username === "Ehepaar") {
+      setTimeout(() => {
+        alert('🎉 Willkommen! Du hast jetzt Zugriff auf die Post-Hochzeits-Zusammenfassung.\n\n💕 Klicke auf den Sparkles-Button (✨) um loszulegen!');
+      }, 500);
+    }
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false);
+    localStorage.removeItem('admin_status');
+  };
+
   // Show Spotify callback handler if on callback page
   if (isSpotifyCallback()) {
     return <SpotifyCallback isDarkMode={isDarkMode} />;
+  }
+
+  // Show Public Recap Page if on that route
+  if (isPublicRecap()) {
+    return <PublicRecapPage isDarkMode={isDarkMode} />;
+  }
+
+  // Show Post-Wedding Recap if on that route (admin only)
+  if (isPostWeddingRecap()) {
+    // Only allow access if admin
+    if (!isAdmin) {
+      return (
+        <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${
+          isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+        }`}>
+          <div className="text-center">
+            <div className="text-6xl mb-4">🔒</div>
+            <h1 className={`text-2xl font-bold mb-2 transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-gray-900'
+            }`}>
+              Zugriff verweigert
+            </h1>
+            <p className={`transition-colors duration-300 ${
+              isDarkMode ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              Diese Seite ist nur für Administratoren zugänglich.
+            </p>
+            <button
+              onClick={() => setShowAdminLogin(true)}
+              className="mt-4 px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl transition-colors"
+            >
+              Anmelden
+            </button>
+          </div>
+          
+          <AdminLoginModal 
+            isOpen={showAdminLogin}
+            onClose={() => setShowAdminLogin(false)}
+            onLogin={handleAdminLogin}
+            isDarkMode={isDarkMode}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <PostWeddingRecap
+        isDarkMode={isDarkMode}
+        mediaItems={mediaItems}
+        isAdmin={isAdmin}
+        userName={userName || ''}
+      />
+    );
   }
 
   // Show loading while site status is being fetched
@@ -354,8 +461,8 @@ function App() {
       {/* Instagram-style header */}
       <div className={`border-b sticky top-0 z-40 transition-colors duration-300 ${
         isDarkMode 
-          ? 'bg-gray-800 border-gray-700' 
-          : 'bg-white border-gray-200'
+          ? 'bg-gray-800/80 border-gray-700/50 backdrop-blur-sm' 
+          : 'bg-white/80 border-gray-200/50 backdrop-blur-sm'
       }`}>
         <div className="max-w-md mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
@@ -449,6 +556,12 @@ function App() {
               isDarkMode={isDarkMode}
             />
           </>
+        ) : activeTab === 'timeline' ? (
+          <Timeline 
+            isDarkMode={isDarkMode}
+            userName={userName || ''}
+            isAdmin={isAdmin}
+          />
         ) : (
           <MusicWishlist isDarkMode={isDarkMode} />
         )}
@@ -492,10 +605,24 @@ function App() {
         isDarkMode={isDarkMode}
       />
 
+      {/* Admin Login Modal */}
+      <AdminLoginModal
+        isOpen={showAdminLogin}
+        onClose={() => setShowAdminLogin(false)}
+        onLogin={handleAdminLogin}
+        isDarkMode={isDarkMode}
+      />
+
       <AdminPanel 
         isDarkMode={isDarkMode} 
         isAdmin={isAdmin}
-        onToggleAdmin={setIsAdmin}
+        onToggleAdmin={(status) => {
+          if (status) {
+            setShowAdminLogin(true);
+          } else {
+            handleAdminLogout();
+          }
+        }}
         mediaItems={mediaItems}
         siteStatus={siteStatus}
       />

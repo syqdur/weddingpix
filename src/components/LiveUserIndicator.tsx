@@ -7,7 +7,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   limit,
   deleteDoc,
   getDocs
@@ -130,23 +129,21 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
       updatePresence();
     }, 30000); // Every 30 seconds
 
-    // 🔧 FIX: Use simpler query without complex index requirements
-    console.log(`👥 Subscribing to live users (simplified query)...`);
+    // 🔧 FIX: Use simple query without complex index requirements
+    console.log(`👥 Subscribing to live users (simple query without orderBy)...`);
     
-    // Try the complex query first, fallback to simple query if it fails
     let unsubscribe: (() => void) | null = null;
     
     try {
-      // First try: Complex query with index
-      const complexQuery = query(
+      // Use simple query without orderBy to avoid index requirements
+      const simpleQuery = query(
         collection(db, 'live_users'),
         where('isActive', '==', true),
-        orderBy('lastSeen', 'desc'),
         limit(50)
       );
       
-      unsubscribe = onSnapshot(complexQuery, (snapshot) => {
-        console.log(`👥 === LIVE USERS UPDATE (COMPLEX QUERY) ===`);
+      unsubscribe = onSnapshot(simpleQuery, (snapshot) => {
+        console.log(`👥 === LIVE USERS UPDATE (SIMPLE QUERY) ===`);
         console.log(`📊 Raw docs from Firebase: ${snapshot.docs.length}`);
         
         const users: LiveUser[] = [];
@@ -172,7 +169,10 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
           }
         });
         
-        console.log(`👥 Active users (last 5 min, deduplicated): ${users.length}`);
+        // Sort in memory by lastSeen (newest first)
+        users.sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime());
+        
+        console.log(`👥 Active users (last 5 min, sorted, deduplicated): ${users.length}`);
         users.forEach((user, index) => {
           console.log(`  ${index + 1}. ${user.userName} ${user.userName === currentUser ? '(YOU)' : ''}`);
         });
@@ -180,61 +180,9 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
         setLiveUsers(users);
         setHasError(false);
       }, (error) => {
-        console.error('❌ Complex query failed, trying simple query:', error);
+        console.error('❌ Simple query failed:', error);
+        setLiveUsers([]);
         setHasError(true);
-        
-        // Fallback: Simple query without orderBy
-        const simpleQuery = query(
-          collection(db, 'live_users'),
-          where('isActive', '==', true),
-          limit(50)
-        );
-        
-        const fallbackUnsubscribe = onSnapshot(simpleQuery, (snapshot) => {
-          console.log(`👥 === LIVE USERS UPDATE (SIMPLE QUERY) ===`);
-          console.log(`📊 Raw docs from Firebase: ${snapshot.docs.length}`);
-          
-          const users: LiveUser[] = [];
-          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-          const seenUsers = new Set<string>(); // 🔧 FIX: Track seen usernames to prevent duplicates
-          
-          snapshot.docs.forEach((doc, index) => {
-            const data = doc.data();
-            const lastSeen = new Date(data.lastSeen);
-            const isRecent = lastSeen > fiveMinutesAgo;
-            
-            console.log(`  ${index + 1}. ${data.userName} (${data.deviceId}) - Last seen: ${lastSeen.toLocaleTimeString()} - Recent: ${isRecent}`);
-            
-            // 🔧 FIX: Only include users who were active in the last 5 minutes AND not already seen
-            if (isRecent && !seenUsers.has(data.userName)) {
-              seenUsers.add(data.userName);
-              users.push({
-                id: doc.id,
-                ...data
-              } as LiveUser);
-            } else if (seenUsers.has(data.userName)) {
-              console.log(`    ⚠️ Duplicate user ${data.userName} ignored`);
-            }
-          });
-          
-          // Sort in memory by lastSeen (newest first)
-          users.sort((a, b) => new Date(b.lastSeen).getTime() - new Date(a.lastSeen).getTime());
-          
-          console.log(`👥 Active users (last 5 min, sorted, deduplicated): ${users.length}`);
-          users.forEach((user, index) => {
-            console.log(`  ${index + 1}. ${user.userName} ${user.userName === currentUser ? '(YOU)' : ''}`);
-          });
-          
-          setLiveUsers(users);
-          setHasError(false);
-        }, (fallbackError) => {
-          console.error('❌ Even simple query failed:', fallbackError);
-          setLiveUsers([]);
-          setHasError(true);
-        });
-        
-        // Replace the unsubscribe function
-        unsubscribe = fallbackUnsubscribe;
       });
       
     } catch (queryError) {
@@ -371,10 +319,10 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
             <div className={`text-sm transition-colors duration-300 ${
               isDarkMode ? 'text-orange-300' : 'text-orange-600'
             }`}>
-              Firebase Index wird erstellt...
+              Verbindung wird hergestellt...
               <br />
               <span className="text-xs opacity-75">
-                Dies kann einige Minuten dauern
+                Live-Anzeige wird geladen
               </span>
             </div>
           ) : onlineCount > 0 ? (
@@ -424,22 +372,7 @@ export const LiveUserIndicator: React.FC<LiveUserIndicatorProps> = ({
           <div className={`mt-2 pt-2 border-t text-xs transition-colors duration-300 ${
             isDarkMode ? 'border-gray-700 text-gray-400' : 'border-gray-200 text-gray-500'
           }`}>
-            {hasError ? (
-              <>
-                ⚠️ Index wird erstellt
-                <br />
-                <a 
-                  href="https://console.firebase.google.com/v1/r/project/weddingpix-744e5/firestore/indexes"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-400 hover:text-blue-300 underline"
-                >
-                  Firebase Console öffnen
-                </a>
-              </>
-            ) : (
-              'Live-Anzeige • Aktualisiert alle 30s'
-            )}
+            Live-Anzeige • Aktualisiert alle 30s
           </div>
         </div>
       )}

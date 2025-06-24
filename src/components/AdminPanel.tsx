@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, Settings, Download, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code, Music } from 'lucide-react';
+import { Lock, Unlock, Settings, Download, Globe, Users, ExternalLink, Image, Video, MessageSquare, Gift, Heart, Star, Eye, Code, Music, Sparkles } from 'lucide-react';
 import { MediaItem } from '../types';
 import { downloadAllMedia } from '../services/downloadService';
 import { SiteStatus, updateSiteStatus } from '../services/siteStatusService';
@@ -22,8 +22,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   mediaItems = [],
   siteStatus
 }) => {
-  const [showPinInput, setShowPinInput] = useState(false);
-  const [pin, setPin] = useState('');
   const [isDownloading, setIsDownloading] = useState(false);
   const [showDownloadWarning, setShowDownloadWarning] = useState(false);
   const [isUpdatingSiteStatus, setIsUpdatingSiteStatus] = useState(false);
@@ -32,26 +30,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [showUserManagement, setShowUserManagement] = useState(false);
   const [showSpotifyAdmin, setShowSpotifyAdmin] = useState(false);
 
-  const correctPIN = "2407";
-
   const handleAdminToggle = () => {
-    if (isAdmin) {
-      onToggleAdmin(false);
-    } else {
-      setShowPinInput(true);
-    }
-  };
-
-  const handlePinSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pin === correctPIN) {
-      onToggleAdmin(true);
-      setShowPinInput(false);
-      setPin('');
-    } else {
-      alert('Falscher Code!');
-      setPin('');
-    }
+    onToggleAdmin(!isAdmin);
   };
 
   const handleToggleSiteStatus = async () => {
@@ -65,7 +45,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     if (window.confirm(confirmMessage)) {
       setIsUpdatingSiteStatus(true);
       try {
-        await updateSiteStatus(!siteStatus.isUnderConstruction, 'Mauro');
+        await updateSiteStatus(!siteStatus.isUnderConstruction, 'Admin');
         
         const successMessage = siteStatus.isUnderConstruction
           ? '✅ Website wurde erfolgreich freigeschaltet!\n\n🌐 Alle Besucher können jetzt auf die Galerie zugreifen.'
@@ -111,6 +91,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  // NEW: Handle Post-Wedding Recap
+  const handleOpenPostWeddingRecap = () => {
+    const recapUrl = '/admin/post-wedding-recap';
+    window.open(recapUrl, '_blank', 'noopener,noreferrer');
   };
 
   const getDownloadButtonText = () => {
@@ -215,6 +201,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       {/* Admin Controls - Alle Buttons in einer horizontalen Reihe */}
       {isAdmin && (
         <div className="fixed bottom-16 left-4 flex gap-2">
+          {/* POST-WEDDING RECAP BUTTON - NEW */}
+          <button
+            onClick={handleOpenPostWeddingRecap}
+            className={`p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
+              isDarkMode
+                ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white'
+                : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white'
+            }`}
+            title="💕 Post-Hochzeits-Zusammenfassung - Sammle Momente und sende Dankeskarten"
+          >
+            <Sparkles className="w-5 h-5" />
+          </button>
+
           {/* USER MANAGEMENT BUTTON */}
           <button
             onClick={() => setShowUserManagement(true)}
@@ -579,84 +578,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 Schließen
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Admin Login Modal */}
-      {showPinInput && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`rounded-2xl p-6 max-w-sm w-full transition-colors duration-300 ${
-            isDarkMode ? 'bg-gray-800' : 'bg-white'
-          }`}>
-            <h3 className={`text-lg font-semibold mb-4 transition-colors duration-300 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              Admin-Code eingeben
-            </h3>
-            
-            <div className={`mb-6 p-4 rounded-xl transition-colors duration-300 ${
-              isDarkMode ? 'bg-gray-700/50 border border-gray-600' : 'bg-gray-50 border border-gray-200'
-            }`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Users className={`w-4 h-4 transition-colors duration-300 ${
-                  isDarkMode ? 'text-blue-400' : 'text-blue-600'
-                }`} />
-                <span className={`font-semibold text-sm transition-colors duration-300 ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  Admin-Funktionen:
-                </span>
-              </div>
-              <ul className={`text-sm space-y-1 transition-colors duration-300 ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-600'
-              }`}>
-                <li>• 👥 User Management - Alle Benutzer und Status anzeigen</li>
-                <li>• 🎵 Spotify-Account verbinden und Playlist verwalten</li>
-                <li>• Website für alle freischalten/sperren</li>
-                <li>• Medien und Kommentare löschen</li>
-                <li>• Deutsche Fotobuch-Services</li>
-                <li>• Alle Inhalte herunterladen</li>
-                <li>• WeddingPix Showcase by Mauro</li>
-              </ul>
-            </div>
-
-            <form onSubmit={handlePinSubmit} className="space-y-4">
-              <input
-                type="password"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                placeholder="PIN eingeben..."
-                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-colors duration-300 ${
-                  isDarkMode 
-                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                }`}
-                autoFocus
-              />
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPinInput(false);
-                    setPin('');
-                  }}
-                  className={`flex-1 py-2 px-4 rounded-xl transition-colors duration-300 ${
-                    isDarkMode 
-                      ? 'bg-gray-600 hover:bg-gray-500 text-gray-200' 
-                      : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
-                  }`}
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-pink-600 hover:bg-pink-700 text-white py-2 px-4 rounded-xl transition-colors"
-                >
-                  Bestätigen
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
